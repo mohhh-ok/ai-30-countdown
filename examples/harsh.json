@@ -1,0 +1,11 @@
+{
+  "days": 10,
+  "seed": 7,
+  "characters": {
+    "haru": { "energy": 45 },
+    "nagi": { "energy": 45, "currentPlaceId": "ohara" }
+  },
+  "places": {
+    "kibune": { "forage": { "normal": 4, "lean": 2 } }
+  }
+}
