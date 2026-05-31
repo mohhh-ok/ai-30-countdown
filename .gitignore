@@ -25,5 +25,8 @@ data/
 *.tmp
 tmp/
 
+# TypeScript 増分ビルドキャッシュ（マシン依存の生成物）
+*.tsbuildinfo
+
 # Playwright MCP の生成物
 .playwright-mcp/
