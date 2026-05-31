@@ -19,6 +19,7 @@ export type HighlightKind =
   | "regress"
   | "stage"
   // 回帰内の山場
+  | "death"
   | "worldEvent"
   | "taboo"
   | "peril"
@@ -120,6 +121,13 @@ function tickSignals(
       kind: "regress",
       text: where ? `${where}でハル力尽きる` : "ハル力尽きる",
     });
+  }
+  // 脇役の力尽き（主役の死は regress として別格で拾うので除外）。
+  // 一生の退場は会得・解放より重い山場として扱う。
+  const fallen = t.characters.filter((c) => c.died && c.id !== heroId);
+  if (fallen.length) {
+    const names = fallen.map((c) => c.name);
+    s.push({ weight: 50, kind: "death", text: `${names.join("・")}、力尽きる` });
   }
   if (t.acquiredSkills?.length) {
     s.push({

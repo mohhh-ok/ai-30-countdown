@@ -1393,6 +1393,12 @@ button.auto-on {
   background: rgba(160, 196, 90, 0.1);
   border-color: rgba(160, 196, 90, 0.3);
 }
+.highlight.mark-death {
+  color: #e9a8a9;
+  background: rgba(200, 88, 90, 0.12);
+  border-color: rgba(200, 88, 90, 0.34);
+  letter-spacing: 0.02em;
+}
 .highlight.mark-worldEvent {
   color: #b8c8ef;
   background: rgba(108, 134, 216, 0.12);

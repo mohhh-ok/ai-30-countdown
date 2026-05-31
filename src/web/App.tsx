@@ -84,14 +84,12 @@ interface StatePayload {
   state: WorldState;
   log: TickResult[];
   chronicle?: Chronicle;
-  model?: string;
 }
 
 export function App() {
   const [state, setState] = useState<WorldState | null>(null);
   const [log, setLog] = useState<TickResult[]>([]);
   const [chronicle, setChronicle] = useState<Chronicle | null>(null);
-  const [model, setModel] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>("");
   const [ollamaOk, setOllamaOk] = useState<boolean | null>(null);
@@ -108,7 +106,6 @@ export function App() {
     setState(data.state);
     setLog(data.log);
     if (data.chronicle) setChronicle(data.chronicle);
-    if (data.model) setModel(data.model);
   }
 
   useEffect(() => {
@@ -276,7 +273,6 @@ export function App() {
       </header>
 
       <div className="status-line">
-        <span>モデル: {model || "?"}</span>
         {auto && <span className="auto-badge">● オート進行中{busy ? "（思索中…）" : ""}</span>}
         {ollamaOk === false && (
           <span className="warn">
