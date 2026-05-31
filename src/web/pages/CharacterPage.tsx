@@ -99,7 +99,8 @@ export function CharacterPage({
           )}
           <p className="unlock-now">
             現在: 第 {chronicle?.loop ?? 1} 回帰 ／ ハルの会得スキル{" "}
-            {chronicle?.skills.acquired.length ?? 0} 個
+            {chronicle?.skills.acquired.length ?? 0} 個 ／ 利他ピーク{" "}
+            {chronicle?.heroPeakAltruism ?? 0}
           </p>
         </section>
       </div>
