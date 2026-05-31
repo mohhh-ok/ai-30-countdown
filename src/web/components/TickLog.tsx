@@ -1,5 +1,49 @@
 // ティックログ（plan.md 第10節の出力フォーマット相当をカード化）
-import type { TickResult } from "../../domain/types.ts";
+import type { LlmCallTiming, TickResult } from "../../domain/types.ts";
+
+/** ミリ秒を読みやすく（1秒以上は「1.2s」、未満は「840ms」）。 */
+function fmtMs(ms: number): string {
+  return ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`;
+}
+
+/** その日の LLM 呼び出し時間の内訳。種別（label の ":" 前）でまとめ、合計が大きい順に並べる。 */
+function TimingBlock({ timings }: { timings: LlmCallTiming[] }) {
+  if (!timings.length) return null;
+  // 述べ時間（並列呼び出しは実時間では重なるので合計は上限の目安）。最長1件はボトルネック特定用。
+  const totalMs = timings.reduce((s, t) => s + t.ms, 0);
+  const slowest = timings.reduce((a, b) => (b.ms > a.ms ? b : a));
+  const fails = timings.filter((t) => !t.ok).length;
+
+  // 種別ごとに集計（decide:haru / decide:nagi … は "decide" にまとめる）
+  const groups = new Map<string, { count: number; sum: number; max: number }>();
+  for (const t of timings) {
+    const kind = t.label.split(":")[0];
+    const g = groups.get(kind) ?? { count: 0, sum: 0, max: 0 };
+    g.count += 1;
+    g.sum += t.ms;
+    g.max = Math.max(g.max, t.ms);
+    groups.set(kind, g);
+  }
+  const rows = [...groups.entries()].sort((a, b) => b[1].sum - a[1].sum);
+
+  return (
+    <div className="log-timing">
+      <span className="timing-head">
+        ⏱ LLM {timings.length}回 / 述べ {fmtMs(totalMs)}
+        <span className="timing-slow">最長 {slowest.label} {fmtMs(slowest.ms)}</span>
+        {fails > 0 && <span className="timing-fail">失敗{fails}（リトライ）</span>}
+      </span>
+      <span className="timing-groups">
+        {rows.map(([kind, g]) => (
+          <span key={kind} className="timing-group" title={`${g.count}回 / 最長 ${fmtMs(g.max)}`}>
+            {kind} {fmtMs(g.sum)}
+            <span className="timing-count">×{g.count}</span>
+          </span>
+        ))}
+      </span>
+    </div>
+  );
+}
 
 export function TickLog({ log }: { log: TickResult[] }) {
   if (log.length === 0) {
@@ -115,6 +159,9 @@ export function TickLog({ log }: { log: TickResult[] }) {
                 </div>
               ))}
             </div>
+          )}
+          {t.llmTimings && t.llmTimings.length > 0 && (
+            <TimingBlock timings={t.llmTimings} />
           )}
           <div className="log-notable">注目の変化: {t.notable}</div>
         </div>

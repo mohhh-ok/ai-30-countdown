@@ -8,6 +8,7 @@ import {
   OLLAMA_MODEL,
   type ChatMessage,
 } from "./ollama.ts";
+import { recordTiming } from "./timing.ts";
 
 export type { ChatMessage } from "./ollama.ts";
 
@@ -115,13 +116,43 @@ async function claudeCodeChatJSON(
   return stripToJson(content);
 }
 
-/** バックエンドに応じた JSON チャット。失敗時は例外（呼び出し側でリトライ/フォールバック）。 */
+/**
+ * バックエンドに応じた JSON チャット。失敗時は例外（呼び出し側でリトライ/フォールバック）。
+ * opts.label に呼び出しの種別/対象（例 "decide:haru"）を渡すと、所要時間が timing シンクに記録される。
+ * 計測は成功・失敗どちらも1件として記録する（失敗してリトライした試行も可視化される）。
+ */
 export async function chatJSON(
   messages: ChatMessage[],
-  opts: { model?: string; temperature?: number } = {},
+  opts: { model?: string; temperature?: number; label?: string } = {},
 ): Promise<string> {
-  if (BACKEND === "ollama") return ollamaChatJSON(messages, opts);
-  return claudeCodeChatJSON(messages, opts);
+  const t0 = performance.now();
+  const label = opts.label ?? "llm";
+  const model = opts.model ?? MODEL;
+  try {
+    const out =
+      BACKEND === "ollama"
+        ? await ollamaChatJSON(messages, opts)
+        : await claudeCodeChatJSON(messages, opts);
+    recordTiming({
+      label,
+      backend: BACKEND_NAME,
+      model,
+      ms: Math.round(performance.now() - t0),
+      ok: true,
+      chars: out.length,
+    });
+    return out;
+  } catch (err) {
+    recordTiming({
+      label,
+      backend: BACKEND_NAME,
+      model,
+      ms: Math.round(performance.now() - t0),
+      ok: false,
+      chars: 0,
+    });
+    throw err;
+  }
 }
 
 /** バックエンド疎通確認 */

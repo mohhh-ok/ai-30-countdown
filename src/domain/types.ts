@@ -257,6 +257,22 @@ export type DirectorProvider = (
   recentLog: TickResult[],
 ) => Promise<DirectorDecision>;
 
+/** LLM 1回呼び出しの所要時間記録（ボトルネック分析・UI表示用）。 */
+export interface LlmCallTiming {
+  /** 呼び出しの種別/対象。例: "decide:haru" / "dialogue" / "director" / "guardian" */
+  label: string;
+  /** バックエンド名（claude-code / ollama） */
+  backend: string;
+  /** 使用モデル */
+  model: string;
+  /** 所要ミリ秒 */
+  ms: number;
+  /** 成功したか（失敗してリトライした試行も1件として記録する） */
+  ok: boolean;
+  /** 応答の文字数（失敗時は0） */
+  chars: number;
+}
+
 /** 1ティック分の結果 */
 export interface TickResult {
   day: number;
@@ -287,6 +303,8 @@ export interface TickResult {
   spotlightId?: string; // この日の主役（カメラの視点）。演出家が選ぶ。
   spotlightName?: string; // 主役の名前（表示用）
   spotlightReason?: string; // 主役に選んだ理由
+  /** この日に走った LLM 呼び出しの所要時間（runTick を timing で挟むと server/sim が付与）。 */
+  llmTimings?: LlmCallTiming[];
 }
 
 /** LLM が1人について返す判断（行動・日記・関係・パラメータ変動の提案） */

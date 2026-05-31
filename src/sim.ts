@@ -22,6 +22,7 @@ import type {
 } from "./domain/types.ts";
 import { placesCopy } from "./domain/places.ts";
 import { runTick } from "./domain/engine.ts";
+import { beginTickTiming, endTickTiming } from "./llm/timing.ts";
 import { Campaign } from "./domain/campaign.ts";
 import { findSkill } from "./domain/skills.ts";
 import { ACTION_LABELS } from "./domain/types.ts";
@@ -259,6 +260,7 @@ if (!values.json) {
 
 for (let i = 0; i < days; i++) {
   const world = campaign.world; // この日の世界（recordTick で回帰すると次周へ差し替わる）
+  beginTickTiming(); // この tick の LLM 呼び出し時間を集める（mock 時は空）
   const result = await runTick(world, campaign.weatherHistory, provider, {
     dialogueProvider,
     directorProvider,
@@ -268,10 +270,12 @@ for (let i = 0; i < days; i++) {
     protagonistId: campaign.protagonistId,
     skillEffects: campaign.effects(),
   });
+  result.llmTimings = endTickTiming();
   if (saveTickFn) {
     saveTickFn(runId, result);
     const db = await import("./db.ts");
     db.saveRunSnapshot(runId, world, [...campaign.weatherHistory, result.weather]);
+    db.saveLlmTimings("run", runId, result.loop ?? 1, result.day, result.llmTimings);
   }
   campaign.recordTick(result); // スキル進捗・習得・回帰判定（ハル死で次周を立ち上げる）
   results.push(result);

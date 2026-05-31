@@ -119,7 +119,7 @@ forageBoosts・directives は介入しないなら空配列で構いません。
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userPrompt },
       ],
-      { temperature: 0.95 },
+      { temperature: 0.95, label: "director" },
     );
 
     const parsed = JSON.parse(raw) as Record<string, unknown>;

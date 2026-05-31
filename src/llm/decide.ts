@@ -104,7 +104,7 @@ export function createOllamaProvider(): DecisionProvider {
     ];
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const raw = await chatJSON(messages);
+        const raw = await chatJSON(messages, { label: "decide" });
         return parseDecision(raw, living);
       } catch (err) {
         console.error(
@@ -136,7 +136,7 @@ export function createParallelProvider(): DecisionProvider {
         ];
         for (let attempt = 0; attempt < 2; attempt++) {
           try {
-            const raw = await chatJSON(messages);
+            const raw = await chatJSON(messages, { label: `decide:${c.id}` });
             return parseSingleDecision(raw, c.id);
           } catch (err) {
             console.error(

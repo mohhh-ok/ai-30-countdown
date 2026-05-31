@@ -79,7 +79,7 @@ ${transcript}
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userPrompt },
       ],
-      { temperature: 0.9 },
+      { temperature: 0.9, label: "dialogue" },
     );
 
     const parsed = JSON.parse(raw) as unknown;

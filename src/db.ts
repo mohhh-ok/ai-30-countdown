@@ -3,7 +3,7 @@
 // - ticks:        各日の TickResult を丸ごと JSON 保存（表示・復元用）。
 // - char_metrics: 成長曲線・行動分析用に正規化した1日×1人の薄い行。
 import { Database } from "bun:sqlite";
-import type { TickResult, Weather, WorldState } from "./domain/types.ts";
+import type { LlmCallTiming, TickResult, Weather, WorldState } from "./domain/types.ts";
 import type { CampaignSnapshot } from "./domain/campaign.ts";
 
 const DB_PATH = process.env.DB_PATH ?? "data/world.db";
@@ -87,6 +87,28 @@ db.exec(`
     snapshot_json TEXT NOT NULL,
     log_json      TEXT NOT NULL DEFAULT '[]'
   );
+
+  -- LLM 呼び出し1回ぶんの所要時間（ボトルネック分析用に正規化）。
+  -- scope/ref_id で run か campaign のどちらに属すかを区別する（PK を共有しない別系統のため）。
+  -- 同一 (scope, ref_id, loop, day) は保存し直しのたびに delete→insert で入れ替える（冪等）。
+  CREATE TABLE IF NOT EXISTS llm_timings (
+    scope      TEXT NOT NULL,            -- 'run' | 'campaign'
+    ref_id     INTEGER NOT NULL,         -- run_id か campaign_id
+    loop       INTEGER NOT NULL DEFAULT 1,
+    day        INTEGER NOT NULL,
+    seq        INTEGER NOT NULL,         -- その日の呼び出し順（0始まり）
+    label      TEXT NOT NULL,            -- 種別/対象（decide:haru / dialogue / director / guardian）
+    backend    TEXT NOT NULL,
+    model      TEXT NOT NULL,
+    ms         INTEGER NOT NULL,         -- 所要ミリ秒
+    ok         INTEGER NOT NULL,         -- 成功=1 / 失敗（リトライ試行）=0
+    chars      INTEGER NOT NULL,         -- 応答文字数
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (scope, ref_id, loop, day, seq)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_timings_ref ON llm_timings(scope, ref_id, day);
+  CREATE INDEX IF NOT EXISTS idx_timings_label ON llm_timings(label);
 `);
 
 // --- prepared statements ---
@@ -118,6 +140,14 @@ const latestRun = db.query<RunRow, []>(
 );
 const ticksForRun = db.query<{ result_json: string }, [number]>(
   `SELECT result_json FROM ticks WHERE run_id = ? ORDER BY day ASC`,
+);
+const deleteTimings = db.query(
+  `DELETE FROM llm_timings WHERE scope = ? AND ref_id = ? AND loop = ? AND day = ?`,
+);
+const insertTiming = db.query(
+  `INSERT INTO llm_timings
+   (scope, ref_id, loop, day, seq, label, backend, model, ms, ok, chars, created_at)
+   VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
 );
 
 interface RunRow {
@@ -200,6 +230,39 @@ export function saveTick(runId: number, result: TickResult): void {
         line.speakerId,
         line.speakerName,
         line.text,
+      );
+    });
+  });
+  tx();
+}
+
+/**
+ * 1ティック分の LLM 呼び出し時間を llm_timings に保存する。
+ * 同一 (scope, ref_id, loop, day) は一度消してから入れ直す（再保存しても重複しない）。
+ */
+export function saveLlmTimings(
+  scope: "run" | "campaign",
+  refId: number,
+  loop: number,
+  day: number,
+  timings: LlmCallTiming[] | undefined,
+): void {
+  const tx = db.transaction(() => {
+    deleteTimings.run(scope, refId, loop, day);
+    (timings ?? []).forEach((t, i) => {
+      insertTiming.run(
+        scope,
+        refId,
+        loop,
+        day,
+        i,
+        t.label,
+        t.backend,
+        t.model,
+        t.ms,
+        t.ok ? 1 : 0,
+        t.chars,
+        nowISO(),
       );
     });
   });

@@ -57,7 +57,7 @@ ${block}
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userPrompt },
       ],
-      { temperature: 0.9 },
+      { temperature: 0.9, label: "guardian" },
     );
 
     const parsed = JSON.parse(raw) as Record<string, unknown>;

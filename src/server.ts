@@ -8,7 +8,13 @@ import { createDialogueProvider } from "./llm/dialogue.ts";
 import { createDirectorProvider } from "./llm/director.ts";
 import { createGuardianProvider } from "./llm/guardian.ts";
 import { MODEL as OLLAMA_MODEL, BACKEND_NAME, ping } from "./llm/backend.ts";
-import { createCampaign, loadLatestCampaign, saveCampaign } from "./db.ts";
+import { beginTickTiming, endTickTiming } from "./llm/timing.ts";
+import {
+  createCampaign,
+  loadLatestCampaign,
+  saveCampaign,
+  saveLlmTimings,
+} from "./db.ts";
 import index from "./web/index.html";
 
 // --- セッション状態（回帰: ハルが力尽きるたび Day1 へ巻き戻る年代記） ---
@@ -75,6 +81,7 @@ const server = Bun.serve({
         ticking = true;
         try {
           const world = campaign.world; // この日の世界（recordTick で回帰すると次周へ差し替わる）
+          beginTickTiming(); // この tick の LLM 呼び出し時間を集める
           const result = await runTick(world, campaign.weatherHistory, provider, {
             dialogueProvider,
             directorProvider,
@@ -83,10 +90,12 @@ const server = Bun.serve({
             protagonistId: campaign.protagonistId,
             skillEffects: campaign.effects(),
           });
+          result.llmTimings = endTickTiming(); // result に載せて UI へ流す
           campaign.recordTick(result); // スキル進捗・キャラ解放・回帰判定
           tickLog.push(result);
-          // 永続化（年代記スナップショット + 表示用ログ）
+          // 永続化（年代記スナップショット + 表示用ログ + LLM計測の正規化行）
           saveCampaign(campaignId, campaign.snapshot(), tickLog);
+          saveLlmTimings("campaign", campaignId, result.loop ?? 1, result.day, result.llmTimings);
           return json({
             result,
             state: campaign.world,
