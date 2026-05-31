@@ -41,7 +41,7 @@ function stripToJson(s: string): string {
  */
 async function claudeCodeChatJSON(
   messages: ChatMessage[],
-  opts: { model?: string; temperature?: number } = {},
+  opts: { model?: string; temperature?: number; agentic?: boolean } = {},
 ): Promise<string> {
   const system = messages
     .filter((m) => m.role === "system")
@@ -53,6 +53,9 @@ async function claudeCodeChatJSON(
     .join("\n\n");
   const model = opts.model ?? CLAUDE_CODE_MODEL;
 
+  // 通常は全ツールを殺して「生成専用」にする（足場トークン削減）。
+  // agentic のときだけ Task を解禁し、このプロセス内でサブエージェントを fan-out できるようにする
+  //   （onecall: 1プロセス起動で director/各キャラ判断/会話を並列に分担 → クリーンな個別文脈）。
   const args = [
     "-p",
     user,
@@ -63,13 +66,15 @@ async function claudeCodeChatJSON(
     "--strict-mcp-config",
     "--mcp-config",
     '{"mcpServers":{}}',
-    // ツール群を読み込ませない。生成しかしないので Bash/Read/Edit 等のスキーマは全部ムダ。
-    // 毎回の cacheCreation トークン（足場）を 35k→25k 程度まで削れる（残り25kは CLI のコア床）。
     "--allowedTools",
-    "",
-    "--disallowedTools",
-    "Bash,Read,Edit,Write,Glob,Grep,WebFetch,WebSearch,Task,TodoWrite,NotebookEdit",
+    opts.agentic ? "Task" : "",
   ];
+  if (!opts.agentic) {
+    args.push(
+      "--disallowedTools",
+      "Bash,Read,Edit,Write,Glob,Grep,WebFetch,WebSearch,Task,TodoWrite,NotebookEdit",
+    );
+  }
   if (system) args.push("--system-prompt", system);
 
   const proc = Bun.spawn(["claude", ...args], {
@@ -123,7 +128,7 @@ async function claudeCodeChatJSON(
  */
 export async function chatJSON(
   messages: ChatMessage[],
-  opts: { model?: string; temperature?: number; label?: string } = {},
+  opts: { model?: string; temperature?: number; label?: string; agentic?: boolean } = {},
 ): Promise<string> {
   const t0 = performance.now();
   const label = opts.label ?? "llm";

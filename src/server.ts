@@ -7,6 +7,7 @@ import { createDecisionProvider } from "./llm/decide.ts";
 import { createDialogueProvider } from "./llm/dialogue.ts";
 import { createDirectorProvider } from "./llm/director.ts";
 import { createGuardianProvider } from "./llm/guardian.ts";
+import { createOneCallProviders } from "./llm/onecall.ts";
 import { MODEL as OLLAMA_MODEL, BACKEND_NAME, ping } from "./llm/backend.ts";
 import { beginTickTiming, endTickTiming } from "./llm/timing.ts";
 import {
@@ -36,10 +37,16 @@ if (restored) {
   campaignId = createCampaign(campaign.snapshot(), OLLAMA_MODEL);
 }
 
-const provider = createDecisionProvider();
-const dialogueProvider = createDialogueProvider();
-const directorProvider = createDirectorProvider();
-const guardianProvider = createGuardianProvider();
+// LLM_ONECALL=1 のときは、1プロセスの claude -p が Task で全役を分担し1ティックを1 JSONで返す
+// 特殊バリアントに差し替える（env を外せば従来の4プロバイダに即復帰。runTick は無改造）。
+const onecall =
+  BACKEND_NAME === "claude-code" &&
+  (process.env.LLM_ONECALL === "1" || process.env.LLM_ONECALL === "true");
+const onecallProviders = onecall ? createOneCallProviders() : null;
+const provider = onecallProviders?.decision ?? createDecisionProvider();
+const dialogueProvider = onecallProviders?.dialogue ?? createDialogueProvider();
+const directorProvider = onecallProviders?.director ?? createDirectorProvider();
+const guardianProvider = onecallProviders?.guardian ?? createGuardianProvider();
 
 // 同時 tick を防ぐ簡易ロック（LLM 呼び出し中の二重押し対策）
 let ticking = false;

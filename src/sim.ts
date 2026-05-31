@@ -220,17 +220,30 @@ if (values.mock) {
 } else {
   const { BACKEND_NAME, MODEL } = await import("./llm/backend.ts");
   backendLabel = `${BACKEND_NAME}:${MODEL}`;
-  const { createDecisionProvider } = await import("./llm/decide.ts");
-  provider = createDecisionProvider();
-  if (!values["no-dialogue"]) {
-    const { createDialogueProvider } = await import("./llm/dialogue.ts");
-    dialogueProvider = createDialogueProvider();
-  }
-  if (values.director) {
-    const { createDirectorProvider } = await import("./llm/director.ts");
-    directorProvider = createDirectorProvider();
-    const { createGuardianProvider } = await import("./llm/guardian.ts");
-    guardianProvider = createGuardianProvider();
+  const onecall = process.env.LLM_ONECALL === "1" || process.env.LLM_ONECALL === "true";
+  if (onecall) {
+    // 1プロセスの claude -p が Task で全役を分担し、1ティックを1 JSON で返す特殊バリアント。
+    // director/guardian は常に必要（director が実コールのトリガ・guardian が囁き表示）。
+    const { createOneCallProviders } = await import("./llm/onecall.ts");
+    const p = createOneCallProviders();
+    provider = p.decision;
+    directorProvider = p.director;
+    guardianProvider = p.guardian;
+    if (!values["no-dialogue"]) dialogueProvider = p.dialogue;
+    backendLabel += " (onecall)";
+  } else {
+    const { createDecisionProvider } = await import("./llm/decide.ts");
+    provider = createDecisionProvider();
+    if (!values["no-dialogue"]) {
+      const { createDialogueProvider } = await import("./llm/dialogue.ts");
+      dialogueProvider = createDialogueProvider();
+    }
+    if (values.director) {
+      const { createDirectorProvider } = await import("./llm/director.ts");
+      directorProvider = createDirectorProvider();
+      const { createGuardianProvider } = await import("./llm/guardian.ts");
+      guardianProvider = createGuardianProvider();
+    }
   }
 }
 

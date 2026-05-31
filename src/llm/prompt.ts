@@ -133,7 +133,7 @@ function talentText(c: Character): string {
   }
 }
 
-function characterBlock(c: Character, weather: Weather, places: Place[], others: Character[]): string {
+export function characterBlock(c: Character, weather: Weather, places: Place[], others: Character[]): string {
   const t = temperamentText(c.params);
   const talent = talentText(c);
   return `### ${c.name}（id: ${c.id}）
@@ -158,7 +158,7 @@ ${memoryBlock(c, places)}${
   }`;
 }
 
-const ACTION_MENU = (Object.entries(ACTION_LABELS) as [string, string][])
+export const ACTION_MENU = (Object.entries(ACTION_LABELS) as [string, string][])
   .map(([key, label]) => {
     const forbidden = (FORBIDDEN_ACTIONS as string[]).includes(key);
     const note =
@@ -175,7 +175,7 @@ const ACTION_MENU = (Object.entries(ACTION_LABELS) as [string, string][])
   })
   .join("\n");
 
-const WEATHER_TEXT: Record<Weather, string> = {
+export const WEATHER_TEXT: Record<Weather, string> = {
   normal: "穏やかな日（集霊で頂ける霊力は普通）",
   lean: "気の枯れた日（頂ける霊力が乏しく、飢えが厳しい。分けるか自らが取るかの葛藤が生まれやすい）",
 };
