@@ -14,6 +14,7 @@ import { LoopsPage } from "./pages/LoopsPage.tsx";
 import { LoopPage } from "./pages/LoopPage.tsx";
 import { CharacterPage } from "./pages/CharacterPage.tsx";
 import { SkillsPage } from "./pages/SkillsPage.tsx";
+import { CharAvatar } from "./components/CharAvatar.tsx";
 import { type Route, useHashRoute } from "./router.ts";
 import { allCharIds, loopNumbers, nameOfId, skillName, ticksOfLoop } from "./util.ts";
 
@@ -52,9 +53,12 @@ function SiteNav({
         appeared.has(id) ? (
           <a
             key={id}
-            className={route.name === "char" && route.id === id ? "nav-on" : ""}
+            className={`nav-char${
+              route.name === "char" && route.id === id ? " nav-on" : ""
+            }`}
             href={`#/char/${id}`}
           >
+            <CharAvatar id={id} name={nameOfId(id)} size={26} />
             {nameOfId(id)}
           </a>
         ) : (

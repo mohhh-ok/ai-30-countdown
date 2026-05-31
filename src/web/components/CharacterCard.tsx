@@ -6,6 +6,7 @@ import type {
 } from "../../domain/types.ts";
 import { AXIS_LABEL, stageOf } from "../../domain/rules.ts";
 import { ParamBar } from "./ParamBar.tsx";
+import { CharAvatar } from "./CharAvatar.tsx";
 
 const MAX_ENERGY = 100; // バー表示の基準（実際は上限なしだが目安）
 
@@ -49,7 +50,10 @@ export function CharacterCard({
     <div className={`card${c.alive ? "" : " dead"}${spotlight ? " spotlight" : ""}`}>
       {spotlight && <span className="spotlight-badge">🎥 主役</span>}
       <div className="card-head">
-        <h2>{c.name}</h2>
+        <div className="card-head-name">
+          <CharAvatar id={c.id} name={c.name} size={52} />
+          <h2>{c.name}</h2>
+        </div>
         <span className={`stage stage-${stage}`}>
           {AXIS_LABEL[c.growthAxis]}: {stage}
         </span>

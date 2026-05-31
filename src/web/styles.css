@@ -855,6 +855,9 @@ button.auto-on {
   border: 1px solid #4a3c2a;
   border-radius: 12px;
   padding: 16px 18px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
 }
 .hero-dead {
   opacity: 0.6;
@@ -934,6 +937,83 @@ button.auto-on {
   background: #3a2433;
   color: #f0d4e6;
   border-bottom-left-radius: 3px;
+}
+
+/* =========================================================
+   キャラの顔アバター（共通）
+   ナビ・楽屋カード・主役肖像・会話の話者で使い回す小さな顔。
+   ========================================================= */
+.char-avatar {
+  flex: 0 0 auto;
+  object-fit: cover;
+  /* 絵は上半身イラスト。丸く小さく切り抜くときは顔（上部）へ寄せる */
+  object-position: 50% 15%;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.05);
+  vertical-align: middle;
+}
+/* 主役の肖像は大きいので全身を見せる（顔寄せしない） */
+.char-avatar-sq {
+  border-radius: 12px;
+  object-position: 50% 0%;
+}
+/* 絵が未生成のキャラは頭文字チップで代替 */
+.char-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: #f4eee6;
+  line-height: 1;
+}
+.avatar-haru.char-avatar-fallback {
+  background: #2a3340;
+}
+.avatar-nagi.char-avatar-fallback {
+  background: #3a2e22;
+}
+.avatar-kai.char-avatar-fallback {
+  background: #3a2433;
+}
+
+/* ナビの登場人物チップ: 顔＋名前を横並びに */
+.site-nav a.nav-char {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 5px;
+}
+.site-nav a.nav-char .char-avatar {
+  border-color: transparent;
+}
+
+/* 楽屋カードのヘッダ: 顔＋名前 */
+.card-head-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* 主役の肖像: 左に大きく置き、本文を右に回す（.hero の flex 化は上の定義に統合済み） */
+.hero-portrait {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+.hero-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.hero-dead .hero-portrait {
+  filter: grayscale(0.8);
+}
+
+/* 会話の話者ラベル内の小さな顔 */
+.stage-speaker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
 }
 
 .scene-others {

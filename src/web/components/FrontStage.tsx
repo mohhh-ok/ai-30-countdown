@@ -7,6 +7,7 @@ import type {
   TickResult,
   WorldState,
 } from "../../domain/types.ts";
+import { CharAvatar } from "./CharAvatar.tsx";
 
 const WEATHER_WORD: Record<string, string> = {
   normal: "穏やかな日",
@@ -150,16 +151,25 @@ function Scene({ t, primary }: { t: TickResult; primary: boolean }) {
       {hero &&
         (primary ? (
           <div className={`hero${hero.died ? " hero-dead" : ""}`}>
-            <div className="hero-top">
-              <span className="hero-cam">🎥</span>
-              <span className="hero-name">{hero.name}</span>
-              {!hero.died && (
-                <span className="hero-vigor">{vigorWord(hero.energyAfter)}</span>
-              )}
-              <span className="hero-place">＠{hero.placeName}</span>
+            <CharAvatar
+              id={hero.id}
+              name={hero.name}
+              size={120}
+              square
+              className="hero-portrait"
+            />
+            <div className="hero-body">
+              <div className="hero-top">
+                <span className="hero-cam">🎥</span>
+                <span className="hero-name">{hero.name}</span>
+                {!hero.died && (
+                  <span className="hero-vigor">{vigorWord(hero.energyAfter)}</span>
+                )}
+                <span className="hero-place">＠{hero.placeName}</span>
+              </div>
+              <p className="hero-act">{actStory(hero)}</p>
+              {hero.diary && <p className="hero-diary">「{hero.diary}」</p>}
             </div>
-            <p className="hero-act">{actStory(hero)}</p>
-            {hero.diary && <p className="hero-diary">「{hero.diary}」</p>}
           </div>
         ) : (
           <div className={`hero-line${hero.died ? " hero-dead" : ""}`}>
@@ -174,7 +184,10 @@ function Scene({ t, primary }: { t: TickResult; primary: boolean }) {
         <div className="scene-dialogue">
           {t.dialogue.map((line, i) => (
             <div key={i} className={`stage-bubble bubble-${line.speakerId}`}>
-              <span className="stage-speaker">{line.speakerName}</span>
+              <span className="stage-speaker">
+                <CharAvatar id={line.speakerId} name={line.speakerName} size={42} />
+                {line.speakerName}
+              </span>
               <span className="stage-bubble-text">{line.text}</span>
             </div>
           ))}
