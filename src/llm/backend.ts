@@ -9,6 +9,8 @@ import {
   type ChatMessage,
 } from "./ollama.ts";
 import { recordTiming } from "./timing.ts";
+import { llog } from "./log.ts";
+import { logLlmCallStart, logLlmCallEnd } from "../db.ts";
 
 export type { ChatMessage } from "./ollama.ts";
 
@@ -77,6 +79,13 @@ async function claudeCodeChatJSON(
   }
   if (system) args.push("--system-prompt", system);
 
+  const t0 = performance.now();
+  llog("claude-cli", "spawn", {
+    model,
+    agentic: opts.agentic ? "yes" : "no",
+    promptChars: user.length,
+    sysChars: system.length,
+  });
   const proc = Bun.spawn(["claude", ...args], {
     stdin: "ignore",
     stdout: "pipe",
@@ -97,26 +106,55 @@ async function claudeCodeChatJSON(
   });
   // stdout/stderr を必ず「並行で」読み切る。片方しか読まないとパイプバッファが詰まり、
   // 子プロセスが書き込みでブロックして proc.exited が返らなくなる（デッドロック）。
+  const tSpawned = performance.now();
   const [stdout, stderrText] = await Promise.all([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text().catch(() => ""),
   ]);
+  const tOut = performance.now(); // 出力を読み切った時刻
   const code = await proc.exited;
+  const wallMs = Math.round(performance.now() - t0);
+
+  // 外側は Claude Code の result JSON。claude 自身が報告する所要時間も取り出して、
+  //   wall（こちらの計測）との差で「待ちがどこで生じたか」を切り分ける:
+  //   - apiMs ≈ wallMs        → モデル/API 側で時間がかかっている（スロットリング等）
+  //   - apiMs ≪ wallMs        → bun 側のプロセス起動/出力読み取りの待ち（イベントループ詰まり等）
+  let content = "";
+  let apiMs: number | undefined;
+  let claudeMs: number | undefined;
+  let isError = false;
+  try {
+    const outer = JSON.parse(stdout) as {
+      result?: string;
+      is_error?: boolean;
+      duration_api_ms?: number;
+      duration_ms?: number;
+    };
+    content = outer.result ?? "";
+    apiMs = outer.duration_api_ms;
+    claudeMs = outer.duration_ms;
+    isError = !!outer.is_error;
+  } catch {
+    content = stdout;
+  }
+
+  llog("claude-cli", "exit", {
+    code,
+    wallMs,
+    apiMs,
+    claudeMs,
+    overheadMs: claudeMs !== undefined ? wallMs - claudeMs : undefined,
+    readMs: Math.round(tOut - tSpawned),
+    outBytes: stdout.length,
+  });
+
   if (code !== 0) {
+    llog("claude-cli", "nonzero-exit", { code, stderr: stderrText.slice(0, 200) });
     throw new Error(`claude -p exited ${code}: ${stderrText.slice(0, 300)}`);
   }
 
-  // 外側は Claude Code の result JSON。result フィールドに本文（モデルの生成）が入る。
-  let content: string;
-  try {
-    const outer = JSON.parse(stdout) as { result?: string; is_error?: boolean };
-    content = outer.result ?? "";
-    if (outer.is_error || !content) {
-      throw new Error(`claude -p returned no result: ${stdout.slice(0, 300)}`);
-    }
-  } catch (e) {
-    // result が素のテキストでない/JSONでないとき
-    content = stdout;
+  if (isError || !content) {
+    throw new Error(`claude -p returned no result: ${stdout.slice(0, 300)}`);
   }
   return stripToJson(content);
 }
@@ -133,29 +171,25 @@ export async function chatJSON(
   const t0 = performance.now();
   const label = opts.label ?? "llm";
   const model = opts.model ?? MODEL;
+  // 「叩いた」瞬間に記録（コンソール＋SQLite llm_calls。status='started' で1行）。
+  llog("llm", "→fire", { label, backend: BACKEND_NAME, model, agentic: opts.agentic ? "yes" : "no" });
+  const callId = logLlmCallStart(label, BACKEND_NAME, model, opts.agentic);
   try {
     const out =
       BACKEND === "ollama"
         ? await ollamaChatJSON(messages, opts)
         : await claudeCodeChatJSON(messages, opts);
-    recordTiming({
-      label,
-      backend: BACKEND_NAME,
-      model,
-      ms: Math.round(performance.now() - t0),
-      ok: true,
-      chars: out.length,
-    });
+    const ms = Math.round(performance.now() - t0);
+    recordTiming({ label, backend: BACKEND_NAME, model, ms, ok: true, chars: out.length });
+    llog("llm", "✓done", { label, ms, chars: out.length });
+    logLlmCallEnd(callId, "ok", ms, out.length);
     return out;
   } catch (err) {
-    recordTiming({
-      label,
-      backend: BACKEND_NAME,
-      model,
-      ms: Math.round(performance.now() - t0),
-      ok: false,
-      chars: 0,
-    });
+    const ms = Math.round(performance.now() - t0);
+    const emsg = err instanceof Error ? err.message : String(err);
+    recordTiming({ label, backend: BACKEND_NAME, model, ms, ok: false, chars: 0 });
+    llog("llm", "✗error", { label, ms, err: emsg });
+    logLlmCallEnd(callId, "error", ms, 0, emsg);
     throw err;
   }
 }

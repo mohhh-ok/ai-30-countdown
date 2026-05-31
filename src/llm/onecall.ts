@@ -33,6 +33,7 @@ import type {
 import { ACTIONS, ACTION_LABELS } from "../domain/types.ts";
 import { findPlace } from "../domain/places.ts";
 import { chatJSON } from "./backend.ts";
+import { llog } from "./log.ts";
 import { SYSTEM_PROMPT, ACTION_MENU, characterBlock } from "./prompt.ts";
 
 /** 1ティック分の「LLM が決める部分」をまとめたもの。数値計算はエンジンが別途行う。 */
@@ -92,15 +93,17 @@ function fallbackDecision(id: string): CharacterDecision {
 
 // ---- プロンプト構築 ----
 
-const ORCHESTRATOR_SYSTEM = `あなたは「妖の京（あやかしのみやこ）」の1日を統括する進行役（オーケストレータ）です。
+export const ORCHESTRATOR_SYSTEM = `あなたは「妖の京（あやかしのみやこ）」の1日を統括する進行役（オーケストレータ）です。
 あなた自身は各キャラの行動を直接決めず、サブエージェント（Task ツール）に分担させて結果を集約します。
 
 手順を厳密に守ること:
-1. まず「演出家」として、この1日の環境を決める: 天候(normal/lean)・幕開けナレーション・演出意図・場所の実り増減(forageBoosts)・主役(spotlight)・各キャラへの守護神の指示(directives)と一人称の囁き(whispers)。
+1. まず「演出家」として、この1日の環境を決める: 天候(normal/lean)・幕開けナレーション・演出意図(intent)・場所の実り増減(forageBoosts)・主役(spotlight)・各キャラへの守護神の指示(directives)と一人称の囁き(whispers)。
    - キャラの芯・行動は直接操作しない。動かせるのは環境と「囁き」だけ。停滞していたら出会いを誘発する。
+   - directives には「この者をどう動かしたいか＝あなた（演出家）が見たい絵」を書く。intent（その日の演出の狙い）に沿わせること。
+   - whispers は、その directive を **本人の芯と今の気分に根ざした一人称の内なる声に翻訳したもの**。命令口調にしない（背中をそっと押す／迷いを言葉にする／欲求を自覚させる）。芯に反する強制はしない（強いても本人は抗ってよい）。directive を与えた各キャラには必ず対応する whisper を作り、囁きが演出家の欲しい絵を体現するようにする。
 2. 次に、生者ひとりにつき1つ、Task ツールでサブエージェント（subagent_type "general-purpose"）を **並列に** 起動する（1メッセージ内でまとめて呼ぶ）。
    - 各サブエージェントには、与えられた「キャラ判断プロンプト（そのキャラ専用）」をそのまま渡す。
-   - その際、プロンプト末尾に「今日の天候: <あなたが決めた天候>」を1行加える。そのキャラに囁き(whisper)があるなら「心の声（従っても抗ってもよい）: <囁き>」も1行加える。
+   - その際、プロンプト末尾に「今日の天候: <あなたが決めた天候>」を1行加える。そのキャラに囁き(whisper)があるなら「心の声（守護神のささやき。演出家の意図を本人の声に翻訳したもの。従っても抗ってもよい）: <囁き>」も1行加える。この囁きを通じてのみ演出家の意図がそのキャラに届く（directive 文そのものは渡さない）。
    - 各サブエージェントは、そのキャラ1人ぶんの行動JSONを返す。あなたはそれを受け取る。
 3. すべてのキャラ判断が揃ったら、同じ霊地にいる2人が互いに talk を選んでいるか確認する。成立していれば、Task でもう1つサブエージェントを起動し、その2人の会話劇（交互の短いセリフ・最初の話者は talk を選んだ側）を書かせる。成立していなければ会話は空配列。
 4. 最後に、すべてを下記スキーマの **1つの JSON オブジェクト** にまとめて出力する。JSON 以外（説明・前置き・コードブロック外の文）は一切書かない。`;
@@ -184,7 +187,7 @@ ${block}
 ${schema}`;
 }
 
-function buildOrchestratorUserPrompt(
+export function buildOrchestratorUserPrompt(
   state: WorldState,
   tension: Tension,
   recentLog: TickResult[],
@@ -239,8 +242,12 @@ function parseTickPlan(raw: string, state: WorldState): TickPlan {
   try {
     const p = JSON.parse(raw);
     if (p && typeof p === "object") parsed = p as Record<string, unknown>;
-  } catch {
+  } catch (e) {
     // 全体が壊れていても以降のフォールバックで最低限は埋める
+    llog("onecall", "⚠parse-failed（全体フォールバック）", {
+      chars: raw.length,
+      head: raw.slice(0, 80),
+    });
   }
 
   // director
@@ -308,6 +315,10 @@ function parseTickPlan(raw: string, state: WorldState): TickPlan {
     if (norm) byId.set(id, norm);
   }
   const characters = living.map((c) => byId.get(c.id) ?? fallbackDecision(c.id));
+  if (byId.size < living.length) {
+    const missing = living.filter((c) => !byId.has(c.id)).map((c) => c.id);
+    llog("onecall", "⚠キャラ判断が欠落→フォールバック", { missing: missing.join(",") });
+  }
 
   // dialogue
   const dialogue: DialogueLine[] = Array.isArray(parsed.dialogue)
@@ -331,7 +342,14 @@ async function runOneCall(
   tension: Tension,
   recentLog: TickResult[],
 ): Promise<TickPlan> {
+  const living = state.characters.filter((c) => c.alive);
   const user = buildOrchestratorUserPrompt(state, tension, recentLog);
+  llog("onecall", "tick→orchestrate", {
+    day: state.day,
+    tension,
+    living: living.length,
+    ids: living.map((c) => c.id).join(","),
+  });
   try {
     const raw = await chatJSON(
       [
@@ -340,13 +358,20 @@ async function runOneCall(
       ],
       { label: "onecall", agentic: true, temperature: 0.9 },
     );
-    return parseTickPlan(raw, state);
+    const plan = parseTickPlan(raw, state);
+    llog("onecall", "✓plan", {
+      weather: plan.director.weather,
+      spotlight: plan.director.spotlightId,
+      chars: plan.decision.characters.length,
+      whispers: plan.whispers.length,
+      boosts: plan.director.forageBoosts.length,
+      dialogue: plan.dialogue.length,
+    });
+    return plan;
   } catch (err) {
-    console.error(
-      "[onecall] failed, falling back to safe plan:",
-      err instanceof Error ? err.message : err,
-    );
-    const living = state.characters.filter((c) => c.alive);
+    llog("onecall", "✗failed→safe-plan", {
+      err: err instanceof Error ? err.message : String(err),
+    });
     return {
       director: {
         weather: "normal",
@@ -385,9 +410,11 @@ export function createOneCallProviders(): {
 
   const decision: DecisionProvider = async (state) => {
     // 通常は director シムが先に走って current を埋めている。保険として単独でも回す。
-    if (!current) current = await runOneCall(state, "calm", []);
-    const plan = current;
-    return plan.decision;
+    if (!current) {
+      llog("onecall", "⚠decision-shim がトリガ（director 未実行）→単独で叩く");
+      current = await runOneCall(state, "calm", []);
+    }
+    return current.decision;
   };
 
   const dialogue: DialogueProvider = async (_state, _weather, _speakers, history) => {

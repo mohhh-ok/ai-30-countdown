@@ -10,6 +10,7 @@ import { createGuardianProvider } from "./llm/guardian.ts";
 import { createOneCallProviders } from "./llm/onecall.ts";
 import { MODEL as OLLAMA_MODEL, BACKEND_NAME, ping } from "./llm/backend.ts";
 import { beginTickTiming, endTickTiming } from "./llm/timing.ts";
+import { llog } from "./llm/log.ts";
 import {
   createCampaign,
   loadLatestCampaign,
@@ -84,10 +85,19 @@ const server = Bun.serve({
     "/api/tick": {
       POST: async () => {
         // 回帰モードに「終了」はない（ハルが死ねば巻き戻る）。二重押しだけ防ぐ。
-        if (ticking) return json({ error: "処理中です" }, 429);
+        if (ticking) {
+          llog("server", "⚠tick 二重押し→429（処理中）");
+          return json({ error: "処理中です" }, 429);
+        }
         ticking = true;
+        const tickT0 = performance.now();
         try {
           const world = campaign.world; // この日の世界（recordTick で回帰すると次周へ差し替わる）
+          llog("server", "tick→start", {
+            loop: campaign.chronicle.loop,
+            day: world.day + 1,
+            onecall: onecall ? "yes" : "no",
+          });
           beginTickTiming(); // この tick の LLM 呼び出し時間を集める
           const result = await runTick(world, campaign.weatherHistory, provider, {
             dialogueProvider,
@@ -98,6 +108,12 @@ const server = Bun.serve({
             skillEffects: campaign.effects(),
           });
           result.llmTimings = endTickTiming(); // result に載せて UI へ流す
+          llog("server", "tick→done", {
+            day: result.day,
+            ms: Math.round(performance.now() - tickT0),
+            tempo: result.tempo,
+            calls: result.llmTimings?.length ?? 0,
+          });
           campaign.recordTick(result); // スキル進捗・キャラ解放・回帰判定
           tickLog.push(result);
           // 永続化（年代記スナップショット + 表示用ログ + LLM計測の正規化行）
@@ -110,6 +126,10 @@ const server = Bun.serve({
             model: OLLAMA_MODEL,
           });
         } catch (err) {
+          llog("server", "✗tick-error", {
+            ms: Math.round(performance.now() - tickT0),
+            err: err instanceof Error ? err.message : String(err),
+          });
           console.error("[tick] error:", err);
           return json(
             { error: err instanceof Error ? err.message : "tick 失敗" },

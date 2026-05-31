@@ -109,6 +109,26 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_timings_ref ON llm_timings(scope, ref_id, day);
   CREATE INDEX IF NOT EXISTS idx_timings_label ON llm_timings(label);
+
+  -- LLM 呼び出しの「発火ログ」。叩いた瞬間に1行（status='started'）を残し、
+  -- 完了時に status/ms/chars/finished_at を更新する。tick の集計(llm_timings)とは別系統で、
+  -- 「いま実際に叩いているか／どこで詰まっているか」を進行中でも DB から確認できる。
+  -- status='started' のまま残っている行 = 未完了（ハングやプロセス強制終了の痕跡）。
+  CREATE TABLE IF NOT EXISTS llm_calls (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    started_at  TEXT NOT NULL,
+    label       TEXT NOT NULL,            -- 種別/対象（decide:haru / dialogue / director / onecall ...）
+    backend     TEXT NOT NULL,
+    model       TEXT NOT NULL,
+    agentic     INTEGER NOT NULL DEFAULT 0, -- Task サブエージェント解禁で叩いたか（onecall）
+    status      TEXT NOT NULL,            -- 'started' | 'ok' | 'error'
+    ms          INTEGER,                  -- 所要ミリ秒（完了時に埋める）
+    chars       INTEGER,                  -- 応答文字数（完了時）
+    finished_at TEXT,                     -- 完了時刻
+    error       TEXT                      -- 失敗時のメッセージ
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_calls_status ON llm_calls(status, id);
 `);
 
 // --- prepared statements ---
@@ -148,6 +168,13 @@ const insertTiming = db.query(
   `INSERT INTO llm_timings
    (scope, ref_id, loop, day, seq, label, backend, model, ms, ok, chars, created_at)
    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+);
+const insertCallStart = db.query<{ id: number }, [string, string, string, string, number]>(
+  `INSERT INTO llm_calls (started_at, label, backend, model, agentic, status)
+   VALUES (?, ?, ?, ?, ?, 'started') RETURNING id`,
+);
+const updateCallEnd = db.query(
+  `UPDATE llm_calls SET status = ?, ms = ?, chars = ?, finished_at = ?, error = ? WHERE id = ?`,
 );
 
 interface RunRow {
@@ -267,6 +294,40 @@ export function saveLlmTimings(
     });
   });
   tx();
+}
+
+/**
+ * LLM 呼び出しを「叩いた瞬間」に記録し、行 id を返す（status='started'）。
+ * 失敗してもログのために本処理を止めない（呼び出し側で try/catch する想定だが、二重に保険）。
+ */
+export function logLlmCallStart(
+  label: string,
+  backend: string,
+  model: string,
+  agentic = false,
+): number | null {
+  try {
+    const row = insertCallStart.get(nowISO(), label, backend, model, agentic ? 1 : 0);
+    return row?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** 上で開始した呼び出しの完了（成功/失敗）を記録する。id が null なら何もしない。 */
+export function logLlmCallEnd(
+  id: number | null,
+  status: "ok" | "error",
+  ms: number,
+  chars: number,
+  error?: string | null,
+): void {
+  if (id == null) return;
+  try {
+    updateCallEnd.run(status, ms, chars, nowISO(), error ?? null, id);
+  } catch {
+    /* ログ失敗は握りつぶす */
+  }
 }
 
 /** 最新 run を復元（state・天候履歴・tickログ）。無ければ null。 */
