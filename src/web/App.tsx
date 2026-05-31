@@ -13,6 +13,7 @@ import { Highlights } from "./components/Highlights.tsx";
 import { LoopsPage } from "./pages/LoopsPage.tsx";
 import { LoopPage } from "./pages/LoopPage.tsx";
 import { CharacterPage } from "./pages/CharacterPage.tsx";
+import { SkillsPage } from "./pages/SkillsPage.tsx";
 import { type Route, useHashRoute } from "./router.ts";
 import { loopNumbers, nameOfId, skillName, ticksOfLoop } from "./util.ts";
 
@@ -38,6 +39,9 @@ function SiteNav({
       </a>
       <a className={onLoop ? "nav-on" : ""} href="#/loops">
         回帰一覧{loops.length > 0 ? `（${loops.length}）` : ""}
+      </a>
+      <a className={route.name === "skills" ? "nav-on" : ""} href="#/skills">
+        スキル一覧
       </a>
       <span className="nav-sep">登場人物</span>
       {charIds.map((id) => (
@@ -190,6 +194,7 @@ export function App() {
         {route.name === "char" && (
           <CharacterPage id={route.id} log={log} chronicle={chronicle} />
         )}
+        {route.name === "skills" && <SkillsPage chronicle={chronicle} />}
       </div>
     );
   }

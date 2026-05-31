@@ -1491,6 +1491,88 @@ button.auto-on {
   color: var(--accent);
 }
 
+/* --- スキル一覧 --- */
+.skill-lead {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+  margin: 0 0 18px;
+  max-width: 640px;
+}
+.skill-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+.skill-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+}
+.skill-card.skill-acquired {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+}
+.skill-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.skill-card-name {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.skill-scope {
+  flex-shrink: 0;
+  font-size: 11px;
+  border-radius: 999px;
+  padding: 1px 8px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+.skill-scope-career {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.skill-card-desc {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--fg, inherit);
+}
+.skill-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.skill-progress-done {
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 700;
+}
+.skill-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+.skill-bar-fill {
+  height: 100%;
+  background: var(--up);
+  border-radius: 999px;
+  transition: width 0.2s;
+}
+.skill-progress-num {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 /* --- 回帰ページの結末サマリ --- */
 .loop-summary {
   display: flex;

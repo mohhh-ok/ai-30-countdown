@@ -4,17 +4,20 @@
 //   #/loops       … 回帰一覧
 //   #/loop/3      … 第3回帰の物語
 //   #/char/haru   … キャラ別ページ（全周横断）
+//   #/skills      … スキル一覧（獲得式・永続）
 import { useEffect, useState } from "react";
 
 export type Route =
   | { name: "home" }
   | { name: "loops" }
   | { name: "loop"; loop: number }
-  | { name: "char"; id: string };
+  | { name: "char"; id: string }
+  | { name: "skills" };
 
 function parse(hash: string): Route {
   const parts = hash.replace(/^#\/?/, "").split("/").filter(Boolean);
   if (parts[0] === "loops") return { name: "loops" };
+  if (parts[0] === "skills") return { name: "skills" };
   if (parts[0] === "loop" && parts[1]) {
     const loop = Number(parts[1]);
     if (Number.isFinite(loop)) return { name: "loop", loop };
