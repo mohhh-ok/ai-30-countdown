@@ -1456,6 +1456,12 @@ button.ghost {
   background: rgba(160, 196, 90, 0.1);
   border-color: rgba(160, 196, 90, 0.3);
 }
+.highlight.mark-record {
+  color: #f5d97a;
+  background: rgba(228, 189, 90, 0.12);
+  border-color: rgba(228, 189, 90, 0.34);
+  letter-spacing: 0.02em;
+}
 .highlight.mark-death {
   color: #e9a8a9;
   background: rgba(200, 88, 90, 0.12);

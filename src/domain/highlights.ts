@@ -2,8 +2,9 @@
 // ルールベースで抽出する（LLM を使わない・決定的）。
 //
 //  1. 回帰を超えたハイライト（crossLoopHighlights）
-//     全周を貫く「持ち越し級／初めて起きた」節目。スキル会得・キャラ解放・回帰（一生の終わり）・
+//     全周を貫く「持ち越し級／初めて起きた」節目。スキル会得・キャラ解放・
 //     段階の初到達・最長生存の更新。＝視聴者だけが追えるメタ進行の糸。
+//     ※力尽き（回帰そのもの）はこの年代記には出さない。回帰内の見せ場側に任せる。
 //
 //  2. その回帰内のハイライト（loopHighlights）
 //     ある一周回の中の山場。その一生のティックを点数化し、上位だけを日付順に拾う。
@@ -18,6 +19,7 @@ export type HighlightKind =
   | "unlock"
   | "regress"
   | "stage"
+  | "record"
   // 回帰内の山場
   | "death"
   | "worldEvent"
@@ -40,7 +42,8 @@ export interface Highlight {
  * 全周ログを古い順に走査し、メタ進行の節目だけを取り出す。
  * - スキル会得 / キャラ解放: 周回をまたいで持ち越される2つ（plan.md 第13節）。
  * - 段階の初到達: ハルが「揺らぎ」「成熟」へ全周で初めて至った瞬間（1度だけ）。
- * - 回帰: 一生の終わり。生存日数が過去最長を更新したらその旨も添える。
+ * - 最長生存の更新: 生存日数が過去最長を超えた周回だけ拾う。
+ * 力尽き（回帰そのもの）は出さない。前向きな節目＝最長更新だけを残す。
  */
 export function crossLoopHighlights(
   log: TickResult[],
@@ -80,17 +83,18 @@ export function crossLoopHighlights(
       });
     }
     if (t.regressed) {
+      // 力尽き（回帰）自体はこの年代記には出さない。
+      // 生存日数が過去最長を更新した周回だけ、前向きな節目として拾う。
       const life = t.day; // 周回内の day はその一生の長さ（周ごとに1から数え直す）
-      const record = life > maxDays;
-      if (record) maxDays = life;
-      out.push({
-        loop: t.loop,
-        day: t.day,
-        kind: "regress",
-        text: record
-          ? `ハル力尽き、時は巻き戻る（${life}日＝最長生存を更新）`
-          : "ハル力尽き、時は巻き戻る",
-      });
+      if (life > maxDays) {
+        maxDays = life;
+        out.push({
+          loop: t.loop,
+          day: t.day,
+          kind: "record",
+          text: `最長生存を更新（${life}日）`,
+        });
+      }
     }
   }
   return out;
