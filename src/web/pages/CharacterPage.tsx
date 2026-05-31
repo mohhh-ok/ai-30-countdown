@@ -26,6 +26,8 @@ function LoopTrace({ loop, entries }: { loop: number; entries: LoopEntry[] }) {
   const peakAltruism = Math.max(...entries.map((e) => e.c.paramsAfter.altruism));
   const last = entries[entries.length - 1].c;
   const died = entries.some((e) => e.c.died);
+  // 日記タイムラインは date desc（新しい日が上）。集計は昇順のまま使う。
+  const daysDesc = [...entries].reverse();
 
   return (
     <section className="char-loop">
@@ -39,7 +41,7 @@ function LoopTrace({ loop, entries }: { loop: number; entries: LoopEntry[] }) {
         </span>
       </h3>
       <ol className="char-days">
-        {entries.map(({ t, c }) => (
+        {daysDesc.map(({ t, c }) => (
           <li
             key={t.day}
             className={`char-day${c.died ? " char-day-died" : ""}`}
