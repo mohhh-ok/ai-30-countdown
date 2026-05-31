@@ -1121,6 +1121,102 @@ button.auto-on {
   margin-left: 4px;
 }
 
+/* 年代記パネル（節目イベントの常設表示）。
+   表/裏どちらのビューでも画面上部に貼り付いて流れない。 */
+.highlights {
+  position: sticky;
+  top: 6px;
+  z-index: 20;
+  margin: 0 0 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.highlights-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+}
+.highlights-head:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.highlights-title {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.highlights-count {
+  font-size: 11px;
+  color: var(--muted);
+}
+.highlights-toggle {
+  margin-left: auto;
+  color: var(--muted);
+}
+.highlights-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 10px 10px;
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.highlight {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+.highlight-when {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.highlight-loop {
+  font-weight: 700;
+  color: var(--accent);
+  margin-right: 4px;
+}
+.highlight-icon {
+  flex: 0 0 auto;
+}
+.highlight-text {
+  flex: 1 1 auto;
+  font-weight: 600;
+}
+/* 種別ごとの色は既存の mark-* に合わせる */
+.highlight.mark-skill {
+  color: #ffd9a0;
+  background: rgba(232, 153, 90, 0.12);
+  border-color: rgba(232, 153, 90, 0.3);
+}
+.highlight.mark-unlock {
+  color: #bfe6c2;
+  background: rgba(111, 191, 115, 0.1);
+  border-color: rgba(111, 191, 115, 0.3);
+}
+.highlight.mark-regress {
+  color: #f0b6b7;
+  background: rgba(216, 105, 107, 0.1);
+  border-color: rgba(216, 105, 107, 0.32);
+  letter-spacing: 0.03em;
+}
+
 /* 節目マーク（会得・解放・回帰） */
 .scene-marks,
 .log-marks {
@@ -1159,4 +1255,49 @@ button.auto-on {
   font-weight: 700;
   color: var(--accent);
   margin-right: 6px;
+}
+
+/* --- LLM 生成時間の内訳（裏ログ） --- */
+.log-timing {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: baseline;
+  font-size: 11px;
+  color: #9aa4b0;
+}
+.timing-head {
+  font-weight: 700;
+  color: #c7d0db;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+}
+.timing-slow {
+  font-weight: 600;
+  color: #e0c089;
+}
+.timing-fail {
+  font-weight: 600;
+  color: #f0b6b7;
+}
+.timing-groups {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.timing-group {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
+}
+.timing-count {
+  margin-left: 4px;
+  opacity: 0.6;
 }

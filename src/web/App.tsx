@@ -9,6 +9,7 @@ import { CharacterCard } from "./components/CharacterCard.tsx";
 import { TickLog } from "./components/TickLog.tsx";
 import { PlacesMap } from "./components/PlacesMap.tsx";
 import { FrontStage } from "./components/FrontStage.tsx";
+import { Highlights } from "./components/Highlights.tsx";
 import { findSkill } from "../domain/skills.ts";
 import { createInitialCharacters } from "../domain/characters.ts";
 
@@ -218,6 +219,8 @@ export function App() {
           </span>
         </div>
       )}
+
+      <Highlights log={log} />
 
       {view === "front" ? (
         <FrontStage state={state} log={log} chronicle={chronicle} />
