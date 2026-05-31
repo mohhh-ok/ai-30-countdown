@@ -16,7 +16,7 @@ import { CharacterPage } from "./pages/CharacterPage.tsx";
 import { SkillsPage } from "./pages/SkillsPage.tsx";
 import { CharAvatar } from "./components/CharAvatar.tsx";
 import { type Route, useHashRoute } from "./router.ts";
-import { allCharIds, loopNumbers, nameOfId, skillName, ticksOfLoop } from "./util.ts";
+import { allCharIds, loopNumbers, nameOfId, skillName, ticksOfLoop, unlockOf } from "./util.ts";
 
 /** ページ切り替えのナビ。回帰一覧と各キャラへの入口を常設する。 */
 function SiteNav({
@@ -62,10 +62,17 @@ function SiteNav({
             {nameOfId(id)}
           </a>
         ) : (
-          // まだ登場していない（解放前）キャラは名前を伏せ、リンクも張らない
-          <span key={id} className="nav-locked" title="まだ登場していません">
-            ???
-          </span>
+          // まだ登場していない（解放前）キャラ。名前は伏せるが、開放条件は見られるようにリンクを張る
+          <a
+            key={id}
+            className={`nav-locked${
+              route.name === "char" && route.id === id ? " nav-on" : ""
+            }`}
+            href={`#/char/${id}`}
+            title={unlockOf(id)?.requirement ?? "まだ登場していません"}
+          >
+            🔒 ???
+          </a>
         ),
       )}
     </nav>
@@ -277,22 +284,40 @@ export function App() {
         {error && <span className="warn">{error}</span>}
       </div>
 
-      {chronicle && (
-        <div className="chronicle-bar">
-          <span className="chron-roster">
-            京の住人: {chronicle.roster.map((id) => nameOfId(id)).join("・")}
-            {chronicle.roster.length < 3 && (
-              <span className="chron-locked">（未解放あり）</span>
+      {chronicle && (() => {
+        const lockedIds = allCharIds().filter((id) => !chronicle.roster.includes(id));
+        return (
+          <div className="chronicle-bar">
+            <span className="chron-roster">
+              京の住人: {chronicle.roster.map((id) => nameOfId(id)).join("・")}
+              {lockedIds.length > 0 && (
+                <span className="chron-locked">（未解放 {lockedIds.length} 名）</span>
+              )}
+            </span>
+            <span className="chron-skills">
+              ハルの会得スキル:{" "}
+              {chronicle.skills.acquired.length
+                ? chronicle.skills.acquired.map((id) => skillName(id)).join("・")
+                : "まだない"}
+            </span>
+            {lockedIds.length > 0 && (
+              <div className="chron-unlocks">
+                {lockedIds.map((id) => {
+                  const u = unlockOf(id);
+                  return (
+                    <a key={id} className="chron-unlock" href={`#/char/${id}`}>
+                      <span className="chron-unlock-lock">🔒 ???</span>
+                      <span className="chron-unlock-req">
+                        {u?.requirement ?? "条件は霧の中"}
+                      </span>
+                    </a>
+                  );
+                })}
+              </div>
             )}
-          </span>
-          <span className="chron-skills">
-            ハルの会得スキル:{" "}
-            {chronicle.skills.acquired.length
-              ? chronicle.skills.acquired.map((id) => skillName(id)).join("・")
-              : "まだない"}
-          </span>
-        </div>
-      )}
+          </div>
+        );
+      })()}
 
       <div className="body-cols">
         <div className="main-col">

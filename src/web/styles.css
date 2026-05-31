@@ -1224,6 +1224,63 @@ button.auto-on {
   margin-left: 4px;
 }
 
+/* 未解放キャラの開放条件（ホームの一覧） */
+.chron-unlocks {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex-basis: 100%;
+}
+.chron-unlock {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+  background: var(--bg);
+  text-decoration: none;
+}
+.chron-unlock:hover {
+  border-color: var(--accent);
+}
+.chron-unlock-lock {
+  color: var(--muted);
+  font-weight: 700;
+}
+.chron-unlock-req {
+  color: var(--text);
+  font-size: 12px;
+}
+
+/* 未解放キャラページの開放条件カード */
+.unlock-card {
+  margin-top: 16px;
+  padding: 16px 18px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+.unlock-card h3 {
+  margin: 0 0 10px;
+  color: var(--text);
+}
+.unlock-req {
+  margin: 0 0 8px;
+  color: var(--text);
+  font-weight: 700;
+}
+.unlock-hint {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-style: italic;
+}
+.unlock-now {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 /* 年代記パネル（節目イベントの常設表示）。
    表/裏どちらのビューでも画面上部に貼り付いて流れない。 */
 .highlights {
@@ -1265,8 +1322,6 @@ button.auto-on {
   list-style: none;
   margin: 0;
   padding: 4px 10px 10px;
-  max-height: 220px;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1474,15 +1529,24 @@ button.auto-on {
   background: var(--accent);
   border-color: var(--accent);
 }
-/* 未登場枠も登場済みチップと同じ見た目に揃える（リンクだけ張らない） */
+/* 未登場枠も登場済みチップと同じ見た目に揃える。名前は伏せるが開放条件ページへは飛べる。 */
 .site-nav .nav-locked {
   color: var(--muted);
   padding: 4px 10px;
   border: 1px solid var(--line);
   border-radius: 999px;
   letter-spacing: 0.1em;
-  cursor: default;
+  cursor: pointer;
   user-select: none;
+  text-decoration: none;
+}
+.site-nav .nav-locked:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+.site-nav .nav-locked.nav-on {
+  color: var(--text);
+  border-color: var(--accent);
 }
 .site-nav .nav-sep {
   margin-left: 8px;

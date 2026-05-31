@@ -10,6 +10,8 @@ const PALETTE: Record<string, CharColor> = {
   haru: { bg: "#2a3340", fg: "#d4e3f0" }, // クール: 青系
   nagi: { bg: "#3a2e22", fg: "#f0e0cd" }, // 陽: 暖色
   kai: { bg: "#3a2433", fg: "#f0d4e6" }, // 餓: 紫
+  sora: { bg: "#243a36", fg: "#cdeede" }, // 風: 緑青
+  shiori: { bg: "#33342a", fg: "#e9ecc9" }, // 社守り: 苔色
 };
 
 /** id を決定的に色相へ。同じ id は常に同じ色になる。

@@ -1,7 +1,10 @@
 // 表示用の共有ヘルパ（App と各ページで使い回す）。
 import type { TickResult } from "../domain/types.ts";
-import { createInitialCharacters } from "../domain/characters.ts";
+import { CHARACTER_UNLOCKS, createInitialCharacters } from "../domain/characters.ts";
 import { findSkill } from "../domain/skills.ts";
+
+/** id→解放ルール（未解放キャラの「あと何をすれば現れるか」を引く）。条件無し（主人公など）は undefined。 */
+export const unlockOf = (id: string) => CHARACTER_UNLOCKS.find((u) => u.id === id);
 
 const CHAR_NAMES = new Map(
   createInitialCharacters().map((c) => [c.id, c.name] as const),

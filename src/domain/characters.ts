@@ -102,6 +102,66 @@ export function createInitialCharacters(): Character[] {
       diary: [],
       relationLabel: "値踏み",
     },
+    {
+      id: "sora",
+      name: "ソラ",
+      core: "どこにも根を下ろさぬ、風来の妖。来ては去り、執着を笑う。",
+      background: "戦と飢えで里が焼けた日、ただ一人だけ風に乗って逃げ延びた。",
+      initialLesson: "留まれば失う。だから根を張らず、風のように生きる。",
+      // 固定口調: 飄々として軽い、達観したタメ口。とらえどころがない。
+      voice:
+        "飄々として軽い達観タメ口。「まあいいじゃん」「どうでもよくない？」「ふーん、で？」とらえどころがなく、深刻な話もはぐらかす。執着を鼻で笑うが、たまに寂しさが滲む。絵文字は🍃😌くらい。一人称は『俺』。",
+      growthAxis: "trust", // 成長軸: 信頼（誰かを信じて根を張れるか）
+      // 異能なし。風を読むだけで、特別な集霊の才はない。
+      talent: "none",
+      // 何も抱えない芯ゆえ、エネルギーへの執着は薄い
+      satiety: 35,
+      // 安らぎ（漂泊の自由）に飽きにくく、絆にはすぐ飽きる（留まれない）。立ち直りは速い。
+      sensitization: { achievement: 0.45, bond: 0.55, comfort: 0.12, thrill: 0.4 },
+      clearance: 0.22,
+      // 「留まらない」芯ゆえ孤独には強いが、根の無さがふと効く
+      lonelinessSensitivity: 3,
+      antibodies: freshAntibodies(),
+      mood: freshMood(),
+      energy: 60,
+      params: { altruism: 40, independence: 90, trust: 20 },
+      alive: true,
+      // 旅人の行き交う西郊の竹林から始める
+      currentPlaceId: "arashiyama",
+      episodicMemory: ["焼けた里をただ一人、風に乗って逃げた。"],
+      diary: [],
+      relationLabel: "気まぐれ",
+    },
+    {
+      id: "shiori",
+      name: "シオリ",
+      core: "古い約束に縛られた、社守りの神使。義に厚く、己を許さない。",
+      background: "守ると誓った社は朽ち、守るべき主はもういない。",
+      initialLesson: "約束だけが己を律する。だから掟を曲げない。",
+      // 固定口調: 折り目正しく硬い丁寧語。古風で生真面目。
+      voice:
+        "折り目正しく硬い丁寧語。「〜にございます」「それは許されぬことです」「失礼を」古風で生真面目、感情を抑える。掟と義の言葉が多い。崩れると声が震える。絵文字は使わない。一人称は『私（わたくし）』。",
+      growthAxis: "independence", // 成長軸: 自立（縛りから己の意志へ）
+      // 異能: 結の力 — 気を鎮め、その地の清霊を癒し戻す。
+      talent: "bond",
+      // 務めを全うする芯ゆえ、確保にはそれなりに執着する
+      satiety: 45,
+      // 安らぎを己に許さず飽きにくい。背徳には強く忌避し、達成にはやや飽きやすい。立ち直りは遅い。
+      sensitization: { achievement: 0.4, bond: 0.3, comfort: 0.55, thrill: 0.5 },
+      clearance: 0.1,
+      // 主を失ってなお仕える者。孤独は中程度こたえる。
+      lonelinessSensitivity: 5,
+      antibodies: freshAntibodies(),
+      mood: freshMood(),
+      energy: 60,
+      params: { altruism: 70, independence: 25, trust: 55 },
+      alive: true,
+      // 祈りと暮らしの澄んだ里・大原から始める
+      currentPlaceId: "ohara",
+      episodicMemory: ["守ると誓った社が朽ち、主は去った。"],
+      diary: [],
+      relationLabel: "礼節",
+    },
   ];
 }
 
@@ -113,7 +173,8 @@ export function createInitialCharacters(): Character[] {
 export interface CharacterUnlock {
   id: string; // 解放されるキャラの id
   name: string; // 表示名
-  describe: string; // どんな成長で世界に現れるか（演出・メタ記録）
+  describe: string; // どんな成長で世界に現れるか（演出・物語の地の文）
+  requirement: string; // 解放条件の平たい説明（観客に見せる「あと何をすれば現れるか」）
   isUnlocked: (ctx: { acquired: SkillId[]; peakAltruism: number; loop: number }) => boolean;
 }
 
@@ -122,13 +183,30 @@ export const CHARACTER_UNLOCKS: CharacterUnlock[] = [
     id: "nagi",
     name: "ナギ",
     describe: "ハルが独りで生き抜く力（スキル）を一つでも得た頃、結びの妖が京に現れる。",
+    requirement: "ハルがスキルを1つ会得する",
     isUnlocked: ({ acquired }) => acquired.length >= 1,
   },
   {
     id: "kai",
     name: "カイ",
     describe: "ハルが殻を破り、利他が成熟に届いた先で、最も信じない半妖と向き合うことになる。",
+    requirement: "ハルの利他が成熟（70以上）に届く／「独りを断つ」を会得／スキルを3つ会得（いずれか）",
     isUnlocked: ({ acquired, peakAltruism }) =>
       peakAltruism >= 70 || acquired.includes("sever_solitude") || acquired.length >= 3,
+  },
+  {
+    id: "sora",
+    name: "ソラ",
+    describe: "幾度もの回帰を越えてなお歩みを止めぬハルの噂が、風来の妖を京へ吹き寄せる。",
+    requirement: "回帰を3周まで重ねる／「観の眼・冴え」を会得（いずれか）",
+    isUnlocked: ({ acquired, loop }) => loop >= 3 || acquired.includes("insight_edge"),
+  },
+  {
+    id: "shiori",
+    name: "シオリ",
+    describe: "ハルが他者と心を結ぶ手を覚えた頃、朽ちた社を捨てきれぬ神使が、その背を頼って現れる。",
+    requirement: "「結ぶ手」を会得／スキルを4つ会得／ハルの利他が85以上に届く（いずれか）",
+    isUnlocked: ({ acquired, peakAltruism }) =>
+      acquired.includes("binding_hands") || acquired.length >= 4 || peakAltruism >= 85,
   },
 ];

@@ -7,7 +7,7 @@ import type {
   TickResult,
 } from "../../domain/types.ts";
 import { createInitialCharacters } from "../../domain/characters.ts";
-import { loopNumbers, nameOfId, ticksOfLoop } from "../util.ts";
+import { loopNumbers, nameOfId, ticksOfLoop, unlockOf } from "../util.ts";
 
 const TALENT_LABEL: Record<Talent, string> = {
   insight: "観の眼（霊脈を読む）",
@@ -68,6 +68,43 @@ export function CharacterPage({
 }) {
   const def = createInitialCharacters().find((c) => c.id === id);
   const isHero = chronicle?.protagonistId === id;
+
+  // まだ恒久ロスターに入っていない（＝未解放の）キャラか。chronicle があるときだけ判定できる。
+  const locked = !!chronicle && !chronicle.roster.includes(id);
+
+  // 未解放キャラは正体を伏せ、「どうすれば京に現れるか（解放条件）」だけを見せる。
+  if (locked) {
+    const unlock = unlockOf(id);
+    return (
+      <div className="page">
+        <div className="page-head">
+          <a className="back-link" href="#/">
+            ← ホーム
+          </a>
+          <h2 className="page-title">
+            🔒 ???
+            <span className="loop-badge">未解放</span>
+          </h2>
+        </div>
+        <p className="page-empty">まだ京には現れていない者。</p>
+        <section className="unlock-card">
+          <h3>解放条件</h3>
+          {unlock ? (
+            <>
+              <p className="unlock-req">{unlock.requirement}</p>
+              <p className="unlock-hint">{unlock.describe}</p>
+            </>
+          ) : (
+            <p className="unlock-req">この者が現れる条件は、まだ霧の中。</p>
+          )}
+          <p className="unlock-now">
+            現在: 第 {chronicle?.loop ?? 1} 回帰 ／ ハルの会得スキル{" "}
+            {chronicle?.skills.acquired.length ?? 0} 個
+          </p>
+        </section>
+      </div>
+    );
+  }
 
   const sections = loopNumbers(log)
     .map((loop) => {
