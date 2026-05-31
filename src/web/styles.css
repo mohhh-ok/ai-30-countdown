@@ -1607,7 +1607,7 @@ button.auto-on {
   height: 140px;
   object-fit: cover;
   border-radius: 8px;
-  border: 6px solid red;
+  border: 1px solid var(--line);
 }
 .char-profile-text {
   flex: 1 1 auto;
