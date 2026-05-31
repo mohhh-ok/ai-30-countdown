@@ -122,6 +122,7 @@ async function claudeCodeChatJSON(
   let content = "";
   let apiMs: number | undefined;
   let claudeMs: number | undefined;
+  let numTurns: number | undefined; // 親が回したエージェントターン数（agentic の多ターン代償の指標）
   let isError = false;
   try {
     const outer = JSON.parse(stdout) as {
@@ -129,10 +130,12 @@ async function claudeCodeChatJSON(
       is_error?: boolean;
       duration_api_ms?: number;
       duration_ms?: number;
+      num_turns?: number;
     };
     content = outer.result ?? "";
     apiMs = outer.duration_api_ms;
     claudeMs = outer.duration_ms;
+    numTurns = outer.num_turns;
     isError = !!outer.is_error;
   } catch {
     content = stdout;
@@ -143,6 +146,7 @@ async function claudeCodeChatJSON(
     wallMs,
     apiMs,
     claudeMs,
+    turns: numTurns,
     overheadMs: claudeMs !== undefined ? wallMs - claudeMs : undefined,
     readMs: Math.round(tOut - tSpawned),
     outBytes: stdout.length,
