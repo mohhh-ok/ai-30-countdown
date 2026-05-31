@@ -60,7 +60,8 @@ export const WORLD_EVENTS: WorldEventDef[] = [
     name: "豊穣",
     icon: "🌾",
     blurb: "豊穣の気が満ちる。実りは増し、民の霊力も豊かに湧き出る。",
-    dailyChance: 0.06,
+    // 救済は稀に。環境を厳しく保ち、キャラ成長（利他・自立・信頼）の重みを残すため低めに絞る。
+    dailyChance: 0.025,
     duration: [2, 3],
     effects: { forageDelta: 5, regenMult: 1.6, extraLoad: 0 },
   },
