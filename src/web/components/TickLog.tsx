@@ -1,5 +1,7 @@
 // ティックログ（plan.md 第10節の出力フォーマット相当をカード化）
+import type { CSSProperties } from "react";
 import type { LlmCallTiming, TickResult } from "../../domain/types.ts";
+import { charColor } from "../charTheme.ts";
 
 /** ミリ秒を読みやすく（1秒以上は「1.2s」、未満は「840ms」）。 */
 function fmtMs(ms: number): string {
@@ -163,15 +165,27 @@ export function TickLog({ log }: { log: TickResult[] }) {
           ))}
           {t.dialogue && t.dialogue.length > 0 && (
             <div className="dialogue">
-              {t.dialogue.map((line, i) => (
-                <div
-                  key={i}
-                  className={`bubble bubble-${line.speakerId}`}
-                >
-                  <span className="speaker">{line.speakerName}</span>
-                  <span className="bubble-text">{line.text}</span>
-                </div>
-              ))}
+              {t.dialogue.map((line, i) => {
+                // 観客ビューと統一: 主役(spotlight)=右、相手=左。色は charTheme の map から。
+                // 古いログで spotlightId 未設定なら undefined 同士の誤一致を避ける。
+                const isHero = !!t.spotlightId && line.speakerId === t.spotlightId;
+                const col = charColor(line.speakerId);
+                return (
+                  <div
+                    key={i}
+                    className={`bubble ${isHero ? "bubble-right" : "bubble-left"}`}
+                    style={
+                      {
+                        "--bubble-bg": col.bg,
+                        "--bubble-fg": col.fg,
+                      } as CSSProperties
+                    }
+                  >
+                    <span className="speaker">{line.speakerName}</span>
+                    <span className="bubble-text">{line.text}</span>
+                  </div>
+                );
+              })}
             </div>
           )}
           {t.llmTimings && t.llmTimings.length > 0 && (

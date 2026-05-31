@@ -7,6 +7,8 @@ import type {
   TickResult,
   WorldState,
 } from "../../domain/types.ts";
+import type { CSSProperties } from "react";
+import { charColor } from "../charTheme.ts";
 import { CharAvatar } from "./CharAvatar.tsx";
 
 const WEATHER_WORD: Record<string, string> = {
@@ -182,15 +184,31 @@ function Scene({ t, primary }: { t: TickResult; primary: boolean }) {
 
       {t.dialogue && t.dialogue.length > 0 && (
         <div className="scene-dialogue">
-          {t.dialogue.map((line, i) => (
-            <div key={i} className={`stage-bubble bubble-${line.speakerId}`}>
-              <span className="stage-speaker">
-                <CharAvatar id={line.speakerId} name={line.speakerName} size={42} />
-                {line.speakerName}
-              </span>
-              <span className="stage-bubble-text">{line.text}</span>
-            </div>
-          ))}
+          {t.dialogue.map((line, i) => {
+            // 主役（spotlight）は右、相手は左に寄せる。顔も外側へミラーする。
+            // 古いログで spotlightId 未設定なら undefined 同士の誤一致を避け、全員左に倒す。
+            const isHero = !!t.spotlightId && line.speakerId === t.spotlightId;
+            // 色は「誰の声か」をキャラ別に。クラス直書きをやめ map から CSS 変数で流す。
+            const col = charColor(line.speakerId);
+            return (
+              <div
+                key={i}
+                className={`stage-bubble ${isHero ? "bubble-right" : "bubble-left"}`}
+                style={
+                  {
+                    "--bubble-bg": col.bg,
+                    "--bubble-fg": col.fg,
+                  } as CSSProperties
+                }
+              >
+                <span className="stage-speaker">
+                  <CharAvatar id={line.speakerId} name={line.speakerName} size={42} />
+                  {line.speakerName}
+                </span>
+                <span className="stage-bubble-text">{line.text}</span>
+              </div>
+            );
+          })}
         </div>
       )}
 

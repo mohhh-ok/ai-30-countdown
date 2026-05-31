@@ -758,23 +758,23 @@ button.auto-on {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  /* 色は誰の声か＝キャラ別。charTheme の map から CSS 変数で受け取る */
+  background: var(--bubble-bg, #2a3340);
+  color: var(--bubble-fg, #d4e3f0);
 }
 .bubble .speaker {
   font-size: 10px;
   font-weight: 700;
   opacity: 0.7;
 }
-/* ハルは左・冷色、ナギは右・暖色 */
-.bubble-haru {
+/* 左右の寄せは「主役＝右／相手＝左」で決める（観客ビューと統一） */
+.bubble-left {
   align-self: flex-start;
-  background: #2a3340;
-  color: #d4e3f0;
   border-bottom-left-radius: 3px;
 }
-.bubble-nagi {
+.bubble-right {
   align-self: flex-end;
-  background: #3a2e22;
-  color: #f0e0cd;
+  text-align: right;
   border-bottom-right-radius: 3px;
 }
 
@@ -914,29 +914,28 @@ button.auto-on {
   display: flex;
   flex-direction: column;
   gap: 3px;
+  /* 色は誰の声か＝キャラ別。charTheme の map から CSS 変数で受け取る（既定はフォールバック） */
+  background: var(--bubble-bg, #2a3340);
+  color: var(--bubble-fg, #d4e3f0);
 }
 .stage-speaker {
   font-size: 11px;
   font-weight: 700;
   opacity: 0.7;
 }
-.scene-dialogue .bubble-haru {
+/* 左右の寄せは「主役＝右／相手＝左」で決める。
+   顔は外側（右バブルは右、左バブルは左）へミラーし、しっぽも外側を尖らせる。 */
+.scene-dialogue .bubble-left {
   align-self: flex-start;
-  background: #2a3340;
-  color: #d4e3f0;
   border-bottom-left-radius: 3px;
 }
-.scene-dialogue .bubble-nagi {
+.scene-dialogue .bubble-right {
   align-self: flex-end;
-  background: #3a2e22;
-  color: #f0e0cd;
+  text-align: right;
   border-bottom-right-radius: 3px;
 }
-.scene-dialogue .bubble-kai {
-  align-self: flex-start;
-  background: #3a2433;
-  color: #f0d4e6;
-  border-bottom-left-radius: 3px;
+.scene-dialogue .bubble-right .stage-speaker {
+  flex-direction: row-reverse;
 }
 
 /* =========================================================
