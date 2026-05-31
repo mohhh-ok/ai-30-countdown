@@ -28,7 +28,16 @@ import type {
 import { ACTION_LABELS } from "./types.ts";
 import { distance, findPlace, isNeighbor, stepToward } from "./places.ts";
 import { noSkillEffects } from "./skills.ts";
-import { aggregateEventEffects, decayEvents, rollNewEvents } from "./events.ts";
+import {
+  CLIMAX_MENACE,
+  DEADLINE_DAY,
+  aggregateEventEffects,
+  creepingLoad,
+  decayEvents,
+  disasterIntensity,
+  makeCalamity,
+  rollNewEvents,
+} from "./events.ts";
 import {
   AXIS_LABEL,
   DAILY_LOAD,
@@ -206,6 +215,28 @@ export async function runTick(
   const newWorldEvents = rollNewEvents(state, rng);
   const eventEffects = aggregateEventEffects(state.activeEvents);
 
+  // 0.05 災害は日を追うごとに強まる。猛威度（dayScale）を災いの負の効果に乗じ、30日へ近づくほど京を荒らす。
+  const dayScale = disasterIntensity(state.day);
+  if (eventEffects.forageDelta < 0) eventEffects.forageDelta = Math.round(eventEffects.forageDelta * dayScale);
+  if (eventEffects.extraLoad > 0) eventEffects.extraLoad = Math.round(eventEffects.extraLoad * dayScale);
+  if (eventEffects.regenMult < 1) eventEffects.regenMult = eventEffects.regenMult / dayScale;
+  // 地脈の乱れ（決定論の逓増圧）。イベントの有無に関わらず日が進むほど全員の消耗が増す。
+  const creepLoad = creepingLoad(state.day);
+
+  // 0.06 30日目の大禍（確定災害）。ハルが持ち越した結界力で祓い退けられれば回避＝クリア。
+  //   足りねば京は呑まれ、全員が打ち倒される（→ ハル死で回帰）。
+  let climax: { menace: number; wardPower: number; averted: boolean } | undefined;
+  let climaxBlow = 0;
+  if (state.day === DEADLINE_DAY) {
+    const wardPower = skillEffects.wardPower;
+    const averted = wardPower >= CLIMAX_MENACE;
+    climax = { menace: CLIMAX_MENACE, wardPower, averted };
+    const calamity = makeCalamity();
+    state.activeEvents.push(calamity); // 表示（worldEvents）に乗せる。世界は周末で作り直されるので残らない。
+    newWorldEvents.push(calamity); // 幕開けで必ず告げる
+    if (!averted) climaxBlow = 9999; // 結界が及ばねば京は呑まれる
+  }
+
   // 0.1 演出家の介入（環境＋守護神への指示）。緊張度を読む。
   const tension = assessTension(state, recentLog);
   let director: DirectorDecision | undefined;
@@ -285,8 +316,8 @@ export async function runTick(
     const baseLoad = isHero(c.id)
       ? Math.max(1, DAILY_LOAD - skillEffects.loadReduction)
       : DAILY_LOAD;
-    // 疫病など環境イベントの追加消耗は災いなので主人公にも等しくのしかかる
-    c.energy -= baseLoad + eventEffects.extraLoad;
+    // 疫病など環境イベントの追加消耗・地脈の乱れ・大禍は災いなので主人公にも等しくのしかかる
+    c.energy -= baseLoad + eventEffects.extraLoad + creepLoad + climaxBlow;
   }
 
   // 2. LLM に行動・移動先・対人相手・日記・関係・パラメータ変動を決めさせる（囁きはプロンプトに乗る）
@@ -719,6 +750,8 @@ export async function runTick(
     // 表示・記憶用の相手。follow は離れた相手も追うため followTargetById から取る。
     const personalTarget = action === "follow" ? followTargetById.get(actor.id) : target;
 
+    // 大禍を祓い退けた日（averted）は、結界を成したハルはその日倒れない（通常負荷で力尽きてクリアを取りこぼさない）。
+    if (climax?.averted && isHero(actor.id) && actor.energy <= 0) actor.energy = 1;
     const died = actor.energy <= 0;
     if (died) actor.alive = false;
 
@@ -828,10 +861,18 @@ export async function runTick(
   // 注目の変化（plan.md 第10節）
   const notableParts: string[] = [];
   for (const e of newWorldEvents) {
+    if (e.kind === "calamity") continue; // 大禍は下で専用の一文を立てる
     notableParts.push(
       e.kind === "bounty"
         ? `${e.name}が京を潤しはじめた（${e.totalDays}日続く）。`
         : `${e.name}が京を襲った（${e.totalDays}日続く）。`,
+    );
+  }
+  if (climax) {
+    notableParts.unshift(
+      climax.averted
+        ? `——大禍、来たる。ハルの結界が京を護り抜いた（結界力${climax.wardPower}≧猛威${climax.menace}）。京は救われた。`
+        : `——大禍、来たる。結界は及ばず（結界力${climax.wardPower}＜猛威${climax.menace}）、京は呑まれた。`,
     );
   }
   for (const r of results) {
@@ -973,8 +1014,10 @@ export async function runTick(
   if (dialogue && dialogue.length > 0) tempoReasons.push("会話劇");
   if (metUp) tempoReasons.push("出会い");
   for (const e of newWorldEvents) {
+    if (e.kind === "calamity") continue; // 大禍は下で専用の理由を立てる
     tempoReasons.push(e.kind === "bounty" ? `${e.name}が京を潤す` : `${e.name}が京を襲う`);
   }
+  if (climax) tempoReasons.push(climax.averted ? "大禍を祓い退けた" : "大禍が京を呑んだ");
   for (const r of results) {
     if (r.died) tempoReasons.push(`${r.name}が力尽きた`);
     else if (r.energyAfter <= DANGER_ENERGY) tempoReasons.push(`${r.name}が餓死寸前`);
@@ -991,6 +1034,8 @@ export async function runTick(
     tempo,
     tempoReasons,
     notable,
+    climax,
+    cleared: climax?.averted === true ? true : undefined,
     dialogue,
     director: director
       ? {

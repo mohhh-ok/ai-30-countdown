@@ -5,6 +5,7 @@ import type {
   TickResult,
   WorldState,
 } from "../domain/types.ts";
+import { DEADLINE_DAY } from "../domain/events.ts";
 import { CharacterCard } from "./components/CharacterCard.tsx";
 import { TickLog } from "./components/TickLog.tsx";
 import { PlacesMap } from "./components/PlacesMap.tsx";
@@ -226,12 +227,15 @@ export function App() {
       <SiteNav route={route} chronicle={chronicle} log={log} />
       <header className="topbar">
         <div className="title">
-          <h1>小さなエージェント世界</h1>
-          <span className="subtitle">群像・テキスト版 / {backend || "ローカルLLM"}</span>
+          <h1>30日のカウントダウン</h1>
         </div>
         <div className="day-box">
           {chronicle && <span className="loop-num">第 {chronicle.loop} 回帰</span>}
           <span className="day-num">Day {state.day}</span>
+          {state.day > 0 && state.day < DEADLINE_DAY && (
+            <span className="countdown">大禍まで {DEADLINE_DAY - state.day} 日</span>
+          )}
+          {state.day >= DEADLINE_DAY && <span className="countdown countdown-now">大禍の日</span>}
           {state.day > 0 && (
             <span className={`weather weather-${state.weather}`}>
               {state.weather === "normal" ? "通常日" : "不作日"}

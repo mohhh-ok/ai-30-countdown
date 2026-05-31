@@ -18,11 +18,23 @@ const WEATHER_WORD: Record<string, string> = {
 
 /** 回帰の節目（スキル会得・キャラ解放・巻き戻り）を物語の言葉で添える */
 function SceneMarks({ t }: { t: TickResult }) {
-  if (!t.acquiredSkills?.length && !t.unlockedCharacters?.length && !t.regressed) {
+  if (
+    !t.acquiredSkills?.length &&
+    !t.unlockedCharacters?.length &&
+    !t.regressed &&
+    !t.climax
+  ) {
     return null;
   }
   return (
     <div className="scene-marks">
+      {t.climax ? (
+        <span className={`mark mark-climax${t.climax.averted ? " mark-climax-saved" : ""}`}>
+          {t.climax.averted
+            ? "☄️ 大禍、来たる——ハルの結界が京を護り抜いた。京は救われた"
+            : "☄️ 大禍、来たる——結界は及ばず、京は呑まれた"}
+        </span>
+      ) : null}
       {t.acquiredSkills?.length ? (
         <span className="mark mark-skill">
           ✨ ハルは「{t.acquiredSkills.join("」「")}」を会得した

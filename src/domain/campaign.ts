@@ -185,23 +185,28 @@ export class Campaign {
       if (unlocked.length > 0) result.unlockedCharacters = unlocked.map((u) => u.name);
     }
 
-    // 回帰判定: 主人公が力尽きたら、この周を閉じて巻き戻す。
+    // 周末判定: 30日目の大禍を祓い退けたらクリア、主人公が力尽きたら回帰。どちらも周を閉じて次周へ。
+    //  クリアを死亡より先に見る（結界が届けば、同じ日に通常負荷で倒れていても勝ちを取りこぼさない）。
     const heroDied = heroResult?.died ?? !(this.hero()?.alive ?? false);
-    if (heroDied) {
+    if (result.cleared) {
+      // 大禍を祓い退けて京を救った。勝利を刻み、次の周（また30日のカウントダウン）を立ち上げる。
+      this.closeLoop("大禍を祓い、京を救った", true);
+    } else if (heroDied) {
       result.regressed = true;
-      this.closeLoop(heroResult ? heroResult.placeName : "");
+      this.closeLoop(heroResult ? `${heroResult.placeName}で力尽きた` : "力尽きた");
     }
   }
 
-  /** 周回を閉じ、履歴に結末を刻んで次周の世界を立ち上げる。 */
-  private closeLoop(heroDeathPlace: string): void {
+  /** 周回を閉じ、履歴に結末を刻んで次周の世界を立ち上げる。cleared なら勝利の周として記録する。 */
+  private closeLoop(causeOfEnd: string, cleared = false): void {
     const summary: LoopSummary = {
       loop: this.chronicle.loop,
       days: this.loopDays,
-      causeOfEnd: heroDeathPlace ? `${heroDeathPlace}で力尽きた` : "力尽きた",
+      causeOfEnd,
       altruismReached: this.loopMaxAltruism,
       stageReached: stageOf(this.loopMaxAltruism),
       acquiredSkills: [...this.chronicle.skills.acquired],
+      cleared: cleared || undefined,
     };
     this.chronicle.history.push(summary);
 

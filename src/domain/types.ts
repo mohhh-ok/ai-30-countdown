@@ -58,8 +58,10 @@ export type Weather = "normal" | "lean";
  * - plague（疫病）: 集霊とは無関係に、全員へ毎日追加の霊力消耗。
  * - coldRain（長雨・冷害）: 集霊上限を中程度下げる。飢饉の軽量版・頻度高め。
  * - bounty（豊穣）: 集霊上限を上げ、民の霊力回復も増す救済イベント。
+ * - calamity（大禍）: 30日目に必ず訪れる確定の大災害。ランダム抽選ではなく engine が直接起こす。
+ *   ハルが持ち越した結界力（wardPower）で祓い退けられればクリア、足りねば京は呑まれる。
  */
-export type WorldEventKind = "famine" | "plague" | "coldRain" | "bounty";
+export type WorldEventKind = "famine" | "plague" | "coldRain" | "bounty" | "calamity";
 
 /** いま京に起きている1件の災い/恵み（残り日数つき） */
 export interface WorldEvent {
@@ -337,6 +339,13 @@ export interface TickResult {
   unlockedCharacters?: string[];
   /** この日にハルが力尽き、回帰（Day1 巻き戻し）が起きたか。campaign が付与する。 */
   regressed?: boolean;
+  /**
+   * 30日目の大禍（確定災害）が訪れた日だけ載る。menace=猛威度 / wardPower=ハルの結界力 / averted=祓い退けたか。
+   * averted なら cleared、足りねば京は呑まれて全滅→回帰。
+   */
+  climax?: { menace: number; wardPower: number; averted: boolean };
+  /** この日にハルが大禍を祓い退けて京を救ったか（クリア）。engine が付与する。 */
+  cleared?: boolean;
   characters: CharacterTickResult[];
   /** その日の見せ方の密度（montage=早回し / scene=カメラ寄り）。CLI/UI が出し分ける。 */
   tempo: Tempo;
@@ -432,6 +441,7 @@ export interface SkillEffectRaw {
   startEnergyBonus?: number; // 周開始時のエネルギー +n
   startTrustBonus?: number; // 周開始時の信頼 +n
   startAltruismBonus?: number; // 周開始時の利他 +n
+  wardPower?: number; // 結界力 +n（30日目の大禍を祓い退けるための備え。これが猛威度に届けばクリア）
 }
 
 /** 全習得スキルを合算した実効効果（engine / freshWorldFor が読む） */
@@ -442,6 +452,7 @@ export interface SkillEffects {
   startEnergyBonus: number;
   startTrustBonus: number;
   startAltruismBonus: number;
+  wardPower: number; // 結界力の総和（30日目の大禍の猛威度に届けば回避＝クリア）
 }
 
 /**
@@ -485,6 +496,7 @@ export interface LoopSummary {
   altruismReached: number; // その周でハルの利他が届いた最大値
   stageReached: Stage; // その周で届いた最高段階（成長軸）
   acquiredSkills: SkillId[]; // その周で会得したスキル
+  cleared?: boolean; // 30日目の大禍を祓い退けて京を救った（クリア）周か
 }
 
 /**

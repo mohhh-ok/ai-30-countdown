@@ -69,6 +69,41 @@ export const WORLD_EVENTS: WorldEventDef[] = [
 
 const EVENT_BY_KIND = new Map(WORLD_EVENTS.map((d) => [d.kind, d]));
 
+// ============================================================
+// 30日のカウントダウン — 逓増する災害と、最終日の大禍（確定災害）。
+// 災害は日を追うごとに強まり、30日目に必ず「大禍」が訪れる。
+// ハルが持ち越した結界力（wardPower）が猛威度に届けば祓い退けてクリア、足りねば京は呑まれる。
+// 確率・強度・猛威度の調整はすべてここで行う（単一の調整場所）。
+// ============================================================
+
+/** 大禍が必ず訪れる日（カウントダウンの終点）。 */
+export const DEADLINE_DAY = 30;
+
+/** 大禍の猛威度。ハルの結界力（wardPower）がこれ以上なら祓い退けてクリア。 */
+export const CLIMAX_MENACE = 30;
+
+/**
+ * 災害の「猛威度」係数。経過日数に応じて 1.0 → 約1.8 までなだらかに増す。
+ * 災いの発生確率と負の効果（集霊減・追加消耗・回復鈍化）に乗じ、日が進むほど京を厳しくする。
+ */
+export function disasterIntensity(day: number): number {
+  const t = Math.min(1, Math.max(0, day) / DEADLINE_DAY);
+  return 1 + 0.8 * t;
+}
+
+/**
+ * 地脈の乱れ（決定論の逓増圧）。イベントの有無に関わらず、日が進むほど全員の日次消耗が増す。
+ * 8日ごとに +1（Day8→1, 16→2, 24→3, 30→3）。確実な「どんどん強く」を担保する土台。
+ */
+export function creepingLoad(day: number): number {
+  return Math.floor(Math.max(0, day) / 8);
+}
+
+/** 30日目の大禍（確定災害）を1件作る。ランダム抽選ではなく engine が直接起こす。 */
+export function makeCalamity(): WorldEvent {
+  return { kind: "calamity", name: "大禍", icon: "☄️", remainingDays: 1, totalDays: 1 };
+}
+
 /** 効果なしの中立値（イベントが何も無い日） */
 export function noEventEffects(): WorldEventEffects {
   return { forageDelta: 0, regenMult: 1, extraLoad: 0 };
@@ -91,9 +126,12 @@ export function decayEvents(state: WorldState): void {
 export function rollNewEvents(state: WorldState, rng: () => number): WorldEvent[] {
   const active = new Set(state.activeEvents.map((e) => e.kind));
   const spawned: WorldEvent[] = [];
+  // 災害は日を追うごとに起きやすく（負の災いは確率を増幅、救済の豊穣は逆に出にくくする）。
+  const intensity = disasterIntensity(state.day);
   for (const def of WORLD_EVENTS) {
     if (active.has(def.kind)) continue;
-    if (rng() >= def.dailyChance) continue;
+    const chance = def.kind === "bounty" ? def.dailyChance / intensity : def.dailyChance * intensity;
+    if (rng() >= chance) continue;
     const [min, max] = def.duration;
     const days = min + Math.floor(rng() * (max - min + 1));
     const ev: WorldEvent = {

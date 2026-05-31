@@ -315,6 +315,7 @@ for (let i = 0; i < days; i++) {
     // 天変地異の発生・進行は密度に関わらず必ず告げる（世界の波）
     if (result.newWorldEvents?.length) {
       for (const e of result.newWorldEvents) {
+        if (e.kind === "calamity") continue; // 大禍は下の climax ブロックで専用に告げる（重複させない）
         const verb = e.kind === "bounty" ? "京を潤す" : "京を襲う";
         console.log(`   ${e.icon} ${e.name}が${verb}（${e.totalDays}日続く）`);
       }
@@ -327,6 +328,18 @@ for (let i = 0; i < days; i++) {
     }
     if (result.unlockedCharacters?.length) {
       console.log(`   🆕 ${result.unlockedCharacters.join("・")} が解放（次の周から京に現れる）`);
+    }
+    if (result.climax) {
+      const c = result.climax;
+      console.log(
+        c.averted
+          ? `   🏯 大禍を祓い退けた！ 結界力${c.wardPower} ≧ 猛威${c.menace} — 京は救われた`
+          : `   ☄️ 大禍が京を呑んだ。 結界力${c.wardPower} ＜ 猛威${c.menace} — 結界は及ばず`,
+      );
+    }
+    if (result.cleared) {
+      const sk = campaign.chronicle.skills.acquired.length;
+      console.log(`   🎉 Loop ${result.loop} クリア！ 30日を越え京を救った → 次の30日へ（持ち越しスキル ${sk}）`);
     }
     if (result.regressed) {
       const sk = campaign.chronicle.skills.acquired.length;

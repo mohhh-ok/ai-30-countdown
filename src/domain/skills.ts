@@ -89,6 +89,45 @@ export const SKILLS: SkillDef[] = [
     measure: ({ hero }) => (hero.action === "rest" ? 1 : 0),
     effect: { startAltruismBonus: 8 },
   },
+  // --- 結界スキル（30日目の大禍を祓い退けるための「結界力 wardPower」を積む）---
+  // 単独（ハルひとり）の周でも、祓い×8 と 休む×10 だけで wardPower 18+14=32 ≥ 猛威度30 に届く設計。
+  // 仲間が解放されれば、分与・庇いの道でも結界を編める。
+  {
+    id: "ward_basics",
+    name: "結界の心得",
+    description: "通算8度、祓い清めると会得（周をまたいで蓄積）。荒れた地を鎮める手が結界の基礎となり、大禍への結界力+18。",
+    scope: "career",
+    threshold: 8,
+    measure: ({ hero }) => (hero.action === "purify" ? 1 : 0),
+    effect: { wardPower: 18 },
+  },
+  {
+    id: "ward_vigil",
+    name: "守りの静坐",
+    description: "通算10度、身を鎮めて休むと会得（周をまたいで蓄積）。澄んだ静けさが心の備えとなり、大禍への結界力+14。",
+    scope: "career",
+    threshold: 10,
+    measure: ({ hero }) => (hero.action === "rest" ? 1 : 0),
+    effect: { wardPower: 14 },
+  },
+  {
+    id: "ward_bonds",
+    name: "守りの絆",
+    description: "通算12度、霊力を分け与えると会得（周をまたいで蓄積）。人と結んだ絆が盾となり、大禍への結界力+12。",
+    scope: "career",
+    threshold: 12,
+    measure: ({ hero }) => (hero.action === "share" && hero.targetId ? 1 : 0),
+    effect: { wardPower: 12 },
+  },
+  {
+    id: "ward_resolve",
+    name: "捨て身の守り",
+    description: "通算6度、誰かを庇い守ると会得（周をまたいで蓄積）。身を挺して守る覚悟が力に変わり、大禍への結界力+14。",
+    scope: "career",
+    threshold: 6,
+    measure: ({ hero }) => (hero.action === "guard" ? 1 : 0),
+    effect: { wardPower: 14 },
+  },
 ];
 
 const SKILL_BY_ID = new Map<SkillId, SkillDef>(SKILLS.map((s) => [s.id, s]));
@@ -148,6 +187,7 @@ export function noSkillEffects(): SkillEffects {
     startEnergyBonus: 0,
     startTrustBonus: 0,
     startAltruismBonus: 0,
+    wardPower: 0,
   };
 }
 
@@ -164,6 +204,7 @@ export function aggregateEffects(acquired: SkillId[]): SkillEffects {
     if (e.startEnergyBonus) eff.startEnergyBonus += e.startEnergyBonus;
     if (e.startTrustBonus) eff.startTrustBonus += e.startTrustBonus;
     if (e.startAltruismBonus) eff.startAltruismBonus += e.startAltruismBonus;
+    if (e.wardPower) eff.wardPower += e.wardPower;
   }
   return eff;
 }
