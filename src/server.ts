@@ -51,6 +51,9 @@ const dialogueProvider = onecallProviders?.dialogue ?? createOneShotDialogueProv
 const directorProvider = onecallProviders?.director ?? dirGuard!.director;
 const guardianProvider = onecallProviders?.guardian ?? dirGuard!.guardian;
 
+// 開発時はフロントの HMR・画像の再取得を効かせる（本番は NODE_ENV=production で長期キャッシュ）
+const DEV = process.env.NODE_ENV !== "production";
+
 // 同時 tick を防ぐ簡易ロック（LLM 呼び出し中の二重押し対策）
 let ticking = false;
 
@@ -150,7 +153,8 @@ const server = Bun.serve({
         const f = Bun.file(`assets/characters/${safe}`);
         if (!(await f.exists())) return new Response("not found", { status: 404 });
         return new Response(f, {
-          headers: { "Cache-Control": "public, max-age=86400" },
+          // dev は再生成した絵がすぐ見えるようキャッシュ無効。本番のみ長期キャッシュ。
+          headers: { "Cache-Control": DEV ? "no-store" : "public, max-age=86400" },
         });
       },
     },
@@ -165,7 +169,7 @@ const server = Bun.serve({
       },
     },
   },
-  development: true,
+  development: DEV,
 });
 
 console.log(`🌱 小さなエージェント世界  →  ${server.url}`);
