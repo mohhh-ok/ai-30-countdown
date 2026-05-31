@@ -28,6 +28,7 @@ import type {
 import { ACTION_LABELS } from "./types.ts";
 import { distance, findPlace, isNeighbor, stepToward } from "./places.ts";
 import { noSkillEffects } from "./skills.ts";
+import { aggregateEventEffects, decayEvents, rollNewEvents } from "./events.ts";
 import {
   AXIS_LABEL,
   DAILY_LOAD,
@@ -195,7 +196,14 @@ export async function runTick(
 
   state.day += 1;
 
-  // 0. 演出家の介入（環境＋守護神への指示）。緊張度を読む。
+  // 0. 環境イベント（災い/恵み）の更新。天候・演出家より前に確定させ、演出家とも共有する。
+  //    残日数を減らして尽きたものを除き、その日の新規をランダム抽選（複数同時多発し得る）。
+  if (!state.activeEvents) state.activeEvents = []; // 旧スナップショット後方互換
+  decayEvents(state);
+  const newWorldEvents = rollNewEvents(state, rng);
+  const eventEffects = aggregateEventEffects(state.activeEvents);
+
+  // 0.1 演出家の介入（環境＋守護神への指示）。緊張度を読む。
   const tension = assessTension(state, recentLog);
   let director: DirectorDecision | undefined;
   if (directorProvider) {
@@ -224,16 +232,27 @@ export async function runTick(
     if (c) c.currentWhisper = w.whisper;
   }
 
-  // 場所ごとの実り一時増減（演出家の介入）
+  // 場所ごとの実り一時増減（演出家の介入＋環境イベント）。
+  //  イベントの forageDelta は京全体（全場所）へ一律にかかり、演出家の局所操作と重なる。
   const forageBoost = new Map<string, number>();
+  for (const p of state.places) {
+    if (eventEffects.forageDelta !== 0) forageBoost.set(p.id, eventEffects.forageDelta);
+  }
   for (const b of director?.forageBoosts ?? []) {
     forageBoost.set(b.placeId, (forageBoost.get(b.placeId) ?? 0) + b.delta);
   }
 
-  // 民の霊力は日ごとにゆっくり回復する（枯れた地も時を経て息を吹き返す）
+  // 民の霊力は日ごとにゆっくり回復する（枯れた地も時を経て息を吹き返す）。
+  //  飢饉/冷害では回復が鈍り（regenMult<1）、豊穣では増す（>1）。持続するほど京がじわり枯れる。
   for (const p of state.places) {
-    p.populace.sei = Math.min(p.populaceMax.sei, p.populace.sei + p.regen.sei);
-    p.populace.daku = Math.min(p.populaceMax.daku, p.populace.daku + p.regen.daku);
+    p.populace.sei = Math.min(
+      p.populaceMax.sei,
+      p.populace.sei + Math.round(p.regen.sei * eventEffects.regenMult),
+    );
+    p.populace.daku = Math.min(
+      p.populaceMax.daku,
+      p.populace.daku + Math.round(p.regen.daku * eventEffects.regenMult),
+    );
   }
 
   // 集霊の結果（取れ高の内訳）。step4 で1度だけ引き、報酬・表示で使い回す。
@@ -258,10 +277,11 @@ export async function runTick(
   for (const c of living) {
     energyBefore.set(c.id, c.energy);
     // 主人公のスキル「飢えを越えた者」などで日次負荷が軽くなる（最低1は残す）
-    const load = isHero(c.id)
+    const baseLoad = isHero(c.id)
       ? Math.max(1, DAILY_LOAD - skillEffects.loadReduction)
       : DAILY_LOAD;
-    c.energy -= load;
+    // 疫病など環境イベントの追加消耗は災いなので主人公にも等しくのしかかる
+    c.energy -= baseLoad + eventEffects.extraLoad;
   }
 
   // 2. LLM に行動・移動先・対人相手・日記・関係・パラメータ変動を決めさせる（囁きはプロンプトに乗る）
@@ -652,6 +672,13 @@ export async function runTick(
 
   // 注目の変化（plan.md 第10節）
   const notableParts: string[] = [];
+  for (const e of newWorldEvents) {
+    notableParts.push(
+      e.kind === "bounty"
+        ? `${e.name}が京を潤しはじめた（${e.totalDays}日続く）。`
+        : `${e.name}が京を襲った（${e.totalDays}日続く）。`,
+    );
+  }
   for (const r of results) {
     if (r.moved) {
       notableParts.push(`${r.name} が${r.fromPlaceName}から${r.placeName}へ移った。`);
@@ -790,6 +817,9 @@ export async function runTick(
   const tempoReasons: string[] = [];
   if (dialogue && dialogue.length > 0) tempoReasons.push("会話劇");
   if (metUp) tempoReasons.push("出会い");
+  for (const e of newWorldEvents) {
+    tempoReasons.push(e.kind === "bounty" ? `${e.name}が京を潤す` : `${e.name}が京を襲う`);
+  }
   for (const r of results) {
     if (r.died) tempoReasons.push(`${r.name}が力尽きた`);
     else if (r.energyAfter <= DANGER_ENERGY) tempoReasons.push(`${r.name}が餓死寸前`);
@@ -817,6 +847,8 @@ export async function runTick(
         }
       : undefined,
     whispers: whispers.length > 0 ? whispers : undefined,
+    worldEvents: state.activeEvents.length > 0 ? state.activeEvents.map((e) => ({ ...e })) : undefined,
+    newWorldEvents: newWorldEvents.length > 0 ? newWorldEvents.map((e) => ({ ...e })) : undefined,
     spotlightId,
     spotlightName: spot?.name,
     spotlightReason,

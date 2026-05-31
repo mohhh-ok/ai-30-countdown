@@ -25,6 +25,7 @@ import { runTick } from "./domain/engine.ts";
 import { beginTickTiming, endTickTiming } from "./llm/timing.ts";
 import { Campaign } from "./domain/campaign.ts";
 import { findSkill } from "./domain/skills.ts";
+import { eventLabel } from "./domain/events.ts";
 import { ACTION_LABELS } from "./domain/types.ts";
 import {
   createMockProvider,
@@ -295,6 +296,15 @@ for (let i = 0; i < days; i++) {
     console.log(
       `${marker} L${result.loop} Day${result.day} [${result.weather === "normal" ? "通常" : "不作"}] ${line}`,
     );
+    // 天変地異の発生・進行は密度に関わらず必ず告げる（世界の波）
+    if (result.newWorldEvents?.length) {
+      for (const e of result.newWorldEvents) {
+        const verb = e.kind === "bounty" ? "京を潤す" : "京を襲う";
+        console.log(`   ${e.icon} ${e.name}が${verb}（${e.totalDays}日続く）`);
+      }
+    } else if (result.worldEvents?.length) {
+      console.log(`   ${result.worldEvents.map(eventLabel).join("  ")}`);
+    }
     // スキル会得・回帰は密度に関わらず必ず告げる（メタ進行の見どころ）
     if (result.acquiredSkills?.length) {
       console.log(`   ✨ ハル、「${result.acquiredSkills.join("」「")}」を会得`);

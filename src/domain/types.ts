@@ -36,6 +36,32 @@ export const FORBIDDEN_ACTIONS: Action[] = ["steal", "deceive"];
 /** 天候（plan.md 第2節）。通常 約2/3 / 不作 約1/3。 */
 export type Weather = "normal" | "lean";
 
+/**
+ * 世界を襲う/恵む環境イベント（天候とは別レイヤー）。
+ * ランダムに発生し、数日間持続し、複数が同時多発し得る。回帰（Loop）でリセット。
+ * - famine（大飢饉）: 集霊上限を大きく下げ、民の霊力回復をほぼ止める。京全体が枯れる。
+ * - plague（疫病）: 集霊とは無関係に、全員へ毎日追加の霊力消耗。
+ * - coldRain（長雨・冷害）: 集霊上限を中程度下げる。飢饉の軽量版・頻度高め。
+ * - bounty（豊穣）: 集霊上限を上げ、民の霊力回復も増す救済イベント。
+ */
+export type WorldEventKind = "famine" | "plague" | "coldRain" | "bounty";
+
+/** いま京に起きている1件の災い/恵み（残り日数つき） */
+export interface WorldEvent {
+  kind: WorldEventKind;
+  name: string; // 表示名（例「大飢饉」）
+  icon: string; // 表示用の絵文字
+  remainingDays: number; // 残り持続日数（毎ティック頭で1減り、0で消える）
+  totalDays: number; // 発生時の総日数（「3日目/5」の表示に使う）
+}
+
+/** 進行中イベントを合算した、その日の実効効果（engine が読む） */
+export interface WorldEventEffects {
+  forageDelta: number; // 全場所の集霊上限への加算（負で飢える）
+  regenMult: number; // 民の霊力回復の倍率（1.0 が基準）
+  extraLoad: number; // 全員への追加の日次負荷（霊力消耗）
+}
+
 /** 民の霊力プール（人は数字。清＝澄んだ霊力 / 濁＝淀んだ霊力） */
 export interface Populace {
   sei: number; // 清霊（穏当に頂ける。奪う/喰らうと禁忌）
@@ -160,6 +186,8 @@ export interface WorldState {
   characters: Character[];
   places: Place[]; // 世界の場所（静的・京都）
   finished: boolean; // 全員死亡などで終了したか
+  /** いま京に起きている災い/恵み（複数同時可・数日持続）。回帰でリセット。 */
+  activeEvents: WorldEvent[];
 }
 
 /** 1人分の1ティックの結果（差分・観察用） */
@@ -300,6 +328,10 @@ export interface TickResult {
     directives: DirectorDirective[];
   };
   whispers?: GuardianWhisper[]; // 守護神の囁き（この日キャラに注がれた声）
+  /** この日に進行していた災い/恵み（持続中のものを含む）。表示用。 */
+  worldEvents?: WorldEvent[];
+  /** この日に新たに発生した災い/恵み（幕開けで強調する）。 */
+  newWorldEvents?: WorldEvent[];
   spotlightId?: string; // この日の主役（カメラの視点）。演出家が選ぶ。
   spotlightName?: string; // 主役の名前（表示用）
   spotlightReason?: string; // 主役に選んだ理由

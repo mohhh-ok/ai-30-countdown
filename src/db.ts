@@ -286,6 +286,7 @@ export function loadLatestRun(): {
   // 旧スキーマで保存された state に新フィールドが無い場合を補完（後方互換）
   for (const c of state.characters) normalizeCharacter(c);
   for (const p of state.places) normalizePlace(p);
+  if (!state.activeEvents) state.activeEvents = [];
   return { runId: run.id, state, weatherHistory, log };
 }
 
@@ -352,6 +353,7 @@ export function loadLatestCampaign(): {
   // 旧スキーマで保存された world に新フィールドが無い場合を補完（後方互換）
   for (const c of snapshot.world.characters) normalizeCharacter(c);
   for (const p of snapshot.world.places) normalizePlace(p);
+  if (!snapshot.world.activeEvents) snapshot.world.activeEvents = [];
   return { id: row.id, snapshot, log };
 }
 

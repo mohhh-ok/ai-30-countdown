@@ -7,6 +7,7 @@ import type {
   WorldState,
 } from "../domain/types.ts";
 import { findPlace } from "../domain/places.ts";
+import { eventBlurb, eventLabel } from "../domain/events.ts";
 import { chatJSON } from "./backend.ts";
 
 const SYSTEM_PROMPT = `あなたは、ある小さな世界を見守る「演出家」です。観客（読者）がこの物語に飽きないよう、舞台＝環境に介入します。
@@ -38,6 +39,11 @@ const SYSTEM_PROMPT = `あなたは、ある小さな世界を見守る「演出
 - 葛藤・危機・決断・出会い・裏切りなど、いちばんドラマが宿る人物を主役に選ぶ。
 - 原則として、前回カメラを向けた主役とは「別の人物」を選ぶこと。視点は日ごとに移し、群像を順に見せる。漫然と同じ人物を映し続けて飽きさせない。（例外: 前回の主役が今まさに退場寸前など、どうしてもその人物の場面が要るときのみ続投可）
 - 主役が力尽きて退場したら、カメラは残った者の中で最も目が離せない者へ移る。こうして物語は途切れず続く。
+
+天変地異（災い/恵み）について:
+- 京には時折「大飢饉・疫病・長雨・豊穣」といった天変地異が、あなたの手とは別に天から降りかかる（数日続く）。
+- これらは環境として既に効いている（実り・霊力・消耗に反映済み）。あなたはそれを覆す力はないが、幕開けの語りに織り込み、守護神への指示や実り操作を災いに合わせて研ぎ澄ますこと。
+- 飢饉のさなかなら、それは登場人物を死に近づける好機でもあり、絆や禁忌が試される局面でもある。ドラマとして最も映えるよう活かせ。
 
 ナレーションは観客に向けた一人称の地の文。短く、情景と次への引きを込めて。可能なら主役の視点に寄り添う。芝居がかってよい。
 必ず指定の JSON だけを出力し、説明文を付けないこと。`;
@@ -87,10 +93,20 @@ export function createDirectorProvider(): DirectorProvider {
       ? state.characters.find((c) => c.id === prevSpotId)?.name ?? prevSpotId
       : "（まだない）";
 
+    const eventNote =
+      state.activeEvents.length > 0
+        ? state.activeEvents
+            .map((e) => `  - ${eventLabel(e)}：${eventBlurb(e.kind)}`)
+            .join("\n")
+        : "  （なし。京は穏やか）";
+
     const userPrompt = `現在 Day ${state.day} を迎えようとしています。
 緊張度: ${TENSION_LABEL[tension]}
 ${separationNote}
 前回カメラを向けた主役: ${prevSpotName}
+
+いま京に起きている天変地異（あなたの手の外。既に環境へ反映済み）:
+${eventNote}
 
 登場人物:
 ${cast}

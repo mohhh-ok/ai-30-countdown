@@ -62,6 +62,20 @@ export function TickLog({ log }: { log: TickResult[] }) {
             <span className={`weather weather-${t.weather}`}>
               {t.weather === "normal" ? "通常" : "不作"}
             </span>
+            {t.worldEvents?.map((e) => {
+              const dayNo = e.totalDays - e.remainingDays + 1;
+              const isNew = t.newWorldEvents?.some((n) => n.kind === e.kind);
+              return (
+                <span
+                  key={e.kind}
+                  className={`world-event world-event-${e.kind}${isNew ? " world-event-new" : ""}`}
+                  title={`${dayNo}日目 / 全${e.totalDays}日`}
+                >
+                  {e.icon} {e.name}
+                  {isNew ? "（発生）" : `（${dayNo}/${e.totalDays}）`}
+                </span>
+              );
+            })}
           </div>
           {(t.acquiredSkills?.length ||
             t.unlockedCharacters?.length ||

@@ -63,6 +63,7 @@ export function freshWorldFor(chronicle: Chronicle): WorldState {
     characters,
     places: placesCopy(),
     finished: false,
+    activeEvents: [], // 災い/恵みは周回ごとにまっさら
   };
 }
 
