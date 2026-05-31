@@ -1395,6 +1395,16 @@ button.auto-on {
   background: var(--accent);
   border-color: var(--accent);
 }
+/* 未登場枠も登場済みチップと同じ見た目に揃える（リンクだけ張らない） */
+.site-nav .nav-locked {
+  color: var(--muted);
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  letter-spacing: 0.1em;
+  cursor: default;
+  user-select: none;
+}
 .site-nav .nav-sep {
   margin-left: 8px;
   color: var(--muted);

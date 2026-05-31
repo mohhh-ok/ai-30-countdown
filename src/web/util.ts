@@ -10,6 +10,9 @@ const CHAR_NAMES = new Map(
 /** キャラ id → 名前（未知なら id をそのまま） */
 export const nameOfId = (id: string): string => CHAR_NAMES.get(id) ?? id;
 
+/** 全キャラ id を定義順で（ナビの並び・未登場枠の表示に使う） */
+export const allCharIds = (): string[] => [...CHAR_NAMES.keys()];
+
 /** スキル id → 表示名（未知なら id をそのまま） */
 export const skillName = (id: string): string => findSkill(id)?.name ?? id;
 

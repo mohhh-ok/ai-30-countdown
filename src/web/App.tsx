@@ -15,7 +15,7 @@ import { LoopPage } from "./pages/LoopPage.tsx";
 import { CharacterPage } from "./pages/CharacterPage.tsx";
 import { SkillsPage } from "./pages/SkillsPage.tsx";
 import { type Route, useHashRoute } from "./router.ts";
-import { loopNumbers, nameOfId, skillName, ticksOfLoop } from "./util.ts";
+import { allCharIds, loopNumbers, nameOfId, skillName, ticksOfLoop } from "./util.ts";
 
 /** ページ切り替えのナビ。回帰一覧と各キャラへの入口を常設する。 */
 function SiteNav({
@@ -28,9 +28,13 @@ function SiteNav({
   log: TickResult[];
 }) {
   const loops = loopNumbers(log);
-  const charIds = chronicle?.roster?.length
-    ? chronicle.roster
-    : [...new Set(log.flatMap((t) => t.characters.map((c) => c.id)))];
+  // ナビは全キャラを定義順で並べる。まだ登場（解放）していない子は名前を伏せて「???」に。
+  const appeared = new Set<string>(
+    chronicle
+      ? chronicle.roster
+      : log.flatMap((t) => t.characters.map((c) => c.id)),
+  );
+  const charIds = allCharIds();
   const onLoop = route.name === "loops" || route.name === "loop";
   return (
     <nav className="site-nav">
@@ -44,15 +48,22 @@ function SiteNav({
         スキル一覧
       </a>
       <span className="nav-sep">登場人物</span>
-      {charIds.map((id) => (
-        <a
-          key={id}
-          className={route.name === "char" && route.id === id ? "nav-on" : ""}
-          href={`#/char/${id}`}
-        >
-          {nameOfId(id)}
-        </a>
-      ))}
+      {charIds.map((id) =>
+        appeared.has(id) ? (
+          <a
+            key={id}
+            className={route.name === "char" && route.id === id ? "nav-on" : ""}
+            href={`#/char/${id}`}
+          >
+            {nameOfId(id)}
+          </a>
+        ) : (
+          // まだ登場していない（解放前）キャラは名前を伏せ、リンクも張らない
+          <span key={id} className="nav-locked" title="まだ登場していません">
+            ???
+          </span>
+        ),
+      )}
     </nav>
   );
 }
