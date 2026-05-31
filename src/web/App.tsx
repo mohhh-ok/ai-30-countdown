@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   Character,
   Chronicle,
@@ -18,6 +18,9 @@ import { SkillsPage } from "./pages/SkillsPage.tsx";
 import { CharAvatar } from "./components/CharAvatar.tsx";
 import { type Route, useHashRoute } from "./router.ts";
 import { allCharIds, loopNumbers, nameOfId, ticksOfLoop, unlockOf } from "./util.ts";
+
+// サーバ側ワーカーが自走で世界を進める。UI は進行操作を持たず、一定間隔で最新状態を取りに行くだけ。
+const POLL_INTERVAL_MS = 3000;
 
 /** ページ切り替えのナビ。回帰一覧と各キャラへの入口を常設する。 */
 function SiteNav({
@@ -84,32 +87,43 @@ interface StatePayload {
   state: WorldState;
   log: TickResult[];
   chronicle?: Chronicle;
+  running?: boolean;
 }
 
 export function App() {
   const [state, setState] = useState<WorldState | null>(null);
   const [log, setLog] = useState<TickResult[]>([]);
   const [chronicle, setChronicle] = useState<Chronicle | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [running, setRunning] = useState(false);
   const [error, setError] = useState<string>("");
   const [ollamaOk, setOllamaOk] = useState<boolean | null>(null);
   const [backend, setBackend] = useState<string>("");
-  const [auto, setAuto] = useState(false);
   const [view, setView] = useState<"front" | "back">("front");
-  const autoRef = useRef(false);
-  autoRef.current = auto;
   const route = useHashRoute();
 
   async function loadState() {
-    const res = await fetch("/api/state");
-    const data = (await res.json()) as StatePayload;
-    setState(data.state);
-    setLog(data.log);
-    if (data.chronicle) setChronicle(data.chronicle);
+    try {
+      const res = await fetch("/api/state");
+      const data = (await res.json()) as StatePayload;
+      setState(data.state);
+      setLog(data.log);
+      if (data.chronicle) setChronicle(data.chronicle);
+      if (typeof data.running === "boolean") setRunning(data.running);
+      setError("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "通信エラー");
+    }
   }
 
+  // サーバ側ワーカーが自走で1日ずつ進める。UI は進行操作を持たず、最新状態を一定間隔で
+  // 取りに行くだけ（観るだけ画面）。
   useEffect(() => {
     loadState();
+    const id = setInterval(loadState, POLL_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
     fetch("/api/health")
       .then((r) => r.json())
       .then((h: { ollama: boolean; backend?: string }) => {
@@ -118,65 +132,6 @@ export function App() {
       })
       .catch(() => setOllamaOk(false));
   }, []);
-
-  /** 1ティック進める。継続してよいなら true、終了/エラーなら false。 */
-  async function tickOnce(): Promise<boolean> {
-    setBusy(true);
-    setError("");
-    try {
-      const res = await fetch("/api/tick", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "エラーが発生しました");
-        return false;
-      }
-      setState(data.state as WorldState);
-      setLog((prev) => [...prev, data.result as TickResult]);
-      if (data.chronicle) setChronicle(data.chronicle as Chronicle);
-      // 回帰モードに終わりはない（ハルが死ねば巻き戻る）。エラー以外は進み続ける。
-      return true;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "通信エラー");
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // オートモード: auto が立っている間、tick を連続実行する
-  useEffect(() => {
-    if (!auto) return;
-    let cancelled = false;
-    (async () => {
-      while (autoRef.current && !cancelled) {
-        const cont = await tickOnce();
-        if (!cont) {
-          setAuto(false);
-          break;
-        }
-        // LLM 完了後に少し間を置く（UI 反映と過負荷防止）
-        await new Promise((r) => setTimeout(r, 700));
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [auto]);
-
-  async function reset() {
-    setAuto(false);
-    setBusy(true);
-    setError("");
-    try {
-      const res = await fetch("/api/reset", { method: "POST" });
-      const data = (await res.json()) as StatePayload;
-      setState(data.state);
-      setLog(data.log);
-      if (data.chronicle) setChronicle(data.chronicle);
-    } finally {
-      setBusy(false);
-    }
-  }
 
   if (!state) return <div className="loading">読み込み中…</div>;
 
@@ -253,27 +208,10 @@ export function App() {
             裏（楽屋）
           </button>
         </div>
-        <div className="controls">
-          <button
-            onClick={() => tickOnce()}
-            disabled={busy || auto}
-          >
-            {busy && !auto ? "思索中…" : "次の1日 ▶"}
-          </button>
-          <button
-            className={auto ? "auto-on" : "ghost"}
-            onClick={() => setAuto((v) => !v)}
-          >
-            {auto ? "⏸ 停止" : "▶▶ オート"}
-          </button>
-          <button className="ghost" onClick={reset} disabled={busy && !auto}>
-            リセット
-          </button>
-        </div>
       </header>
 
       <div className="status-line">
-        {auto && <span className="auto-badge">● オート進行中{busy ? "（思索中…）" : ""}</span>}
+        {running && <span className="auto-badge">● 自動進行中</span>}
         {ollamaOk === false && (
           <span className="warn">
             {backend === "ollama"

@@ -64,6 +64,77 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
+// 1ティック進めて永続化する。二重実行の防止は呼び出し側（ticking ロック）の責務。
+async function runOneTick(): Promise<TickResult> {
+  const tickT0 = performance.now();
+  const world = campaign.world; // この日の世界（recordTick で回帰すると次周へ差し替わる）
+  llog("server", "tick→start", {
+    loop: campaign.chronicle.loop,
+    day: world.day + 1,
+    onecall: onecall ? "yes" : "no",
+  });
+  beginTickTiming(); // この tick の LLM 呼び出し時間を集める
+  const result = await runTick(world, campaign.weatherHistory, provider, {
+    dialogueProvider,
+    directorProvider,
+    guardianProvider,
+    recentLog: campaign.loopLog,
+    protagonistId: campaign.protagonistId,
+    skillEffects: campaign.effects(),
+  });
+  result.llmTimings = endTickTiming(); // result に載せて UI へ流す
+  llog("server", "tick→done", {
+    day: result.day,
+    ms: Math.round(performance.now() - tickT0),
+    tempo: result.tempo,
+    calls: result.llmTimings?.length ?? 0,
+  });
+  campaign.recordTick(result); // スキル進捗・キャラ解放・回帰判定
+  tickLog.push(result);
+  // 永続化（年代記スナップショット + 表示用ログ + LLM計測の正規化行）
+  saveCampaign(campaignId, campaign.snapshot(), tickLog);
+  saveLlmTimings("campaign", campaignId, result.loop ?? 1, result.day, result.llmTimings);
+  return result;
+}
+
+// --- サーバ側ワーカー（自走進行） ---
+// ワーカーはサーバが自律的に回し続けるので、ブラウザを閉じても世界は進む（配信モデル向き）。
+// 進行はこのワーカーだけが行い、外部から開始・停止する API は持たない（公開時のいたずら防止）。
+const WORKER_INTERVAL_MS = Number(process.env.WORKER_INTERVAL_MS ?? 1000);
+let workerOn = false;
+
+async function workerLoop() {
+  llog("server", "worker→start", { intervalMs: WORKER_INTERVAL_MS });
+  while (workerOn) {
+    if (ticking) {
+      // 手動 tick 等と衝突したら少し待って再挑戦
+      await Bun.sleep(200);
+      continue;
+    }
+    ticking = true;
+    try {
+      await runOneTick();
+    } catch (err) {
+      llog("server", "✗worker-tick-error", {
+        err: err instanceof Error ? err.message : String(err),
+      });
+      console.error("[worker] tick error:", err);
+      // LLM 不通などで連打しないよう、エラー時は長めに待つ
+      await Bun.sleep(5000);
+    } finally {
+      ticking = false;
+    }
+    await Bun.sleep(WORKER_INTERVAL_MS);
+  }
+  llog("server", "worker→stopped");
+}
+
+function startWorker() {
+  if (workerOn) return;
+  workerOn = true;
+  void workerLoop();
+}
+
 const server = Bun.serve({
   port: Number(process.env.PORT ?? 5566),
   // LLM 応答は数十秒かかることがあるため idle timeout を延長（最大255秒）
@@ -78,6 +149,7 @@ const server = Bun.serve({
           state: campaign.world,
           log: tickLog,
           chronicle: campaign.chronicle,
+          running: workerOn,
           model: OLLAMA_MODEL,
         }),
     },
@@ -85,65 +157,6 @@ const server = Bun.serve({
     "/api/health": {
       GET: async () =>
         json({ ollama: await ping(), backend: BACKEND_NAME, model: OLLAMA_MODEL }),
-    },
-
-    "/api/tick": {
-      POST: async () => {
-        // 回帰モードに「終了」はない（ハルが死ねば巻き戻る）。二重押しだけ防ぐ。
-        if (ticking) {
-          llog("server", "⚠tick 二重押し→429（処理中）");
-          return json({ error: "処理中です" }, 429);
-        }
-        ticking = true;
-        const tickT0 = performance.now();
-        try {
-          const world = campaign.world; // この日の世界（recordTick で回帰すると次周へ差し替わる）
-          llog("server", "tick→start", {
-            loop: campaign.chronicle.loop,
-            day: world.day + 1,
-            onecall: onecall ? "yes" : "no",
-          });
-          beginTickTiming(); // この tick の LLM 呼び出し時間を集める
-          const result = await runTick(world, campaign.weatherHistory, provider, {
-            dialogueProvider,
-            directorProvider,
-            guardianProvider,
-            recentLog: campaign.loopLog,
-            protagonistId: campaign.protagonistId,
-            skillEffects: campaign.effects(),
-          });
-          result.llmTimings = endTickTiming(); // result に載せて UI へ流す
-          llog("server", "tick→done", {
-            day: result.day,
-            ms: Math.round(performance.now() - tickT0),
-            tempo: result.tempo,
-            calls: result.llmTimings?.length ?? 0,
-          });
-          campaign.recordTick(result); // スキル進捗・キャラ解放・回帰判定
-          tickLog.push(result);
-          // 永続化（年代記スナップショット + 表示用ログ + LLM計測の正規化行）
-          saveCampaign(campaignId, campaign.snapshot(), tickLog);
-          saveLlmTimings("campaign", campaignId, result.loop ?? 1, result.day, result.llmTimings);
-          return json({
-            result,
-            state: campaign.world,
-            chronicle: campaign.chronicle,
-            model: OLLAMA_MODEL,
-          });
-        } catch (err) {
-          llog("server", "✗tick-error", {
-            ms: Math.round(performance.now() - tickT0),
-            err: err instanceof Error ? err.message : String(err),
-          });
-          console.error("[tick] error:", err);
-          return json(
-            { error: err instanceof Error ? err.message : "tick 失敗" },
-            500,
-          );
-        } finally {
-          ticking = false;
-        }
-      },
     },
 
     // キャラ絵（assets/characters/<id>.webp）。ファイル名以外の文字は除去（パストラバーサル対策）。
@@ -159,15 +172,6 @@ const server = Bun.serve({
       },
     },
 
-    "/api/reset": {
-      POST: () => {
-        // 新しい年代記を始める（過去キャンペーンは履歴として DB に残す）
-        campaign = new Campaign();
-        tickLog = [];
-        campaignId = createCampaign(campaign.snapshot(), OLLAMA_MODEL);
-        return json({ state: campaign.world, log: tickLog, chronicle: campaign.chronicle });
-      },
-    },
   },
   development: DEV,
 });
@@ -180,3 +184,7 @@ console.log(
     ? `   ${BACKEND_NAME}: 接続OK`
     : `   ⚠ ${BACKEND_NAME} に接続できません。`,
 );
+
+// 配信モデル: 起動と同時にワーカーを立ち上げ、自走で世界を進め続ける（外部から停止する手段は持たない）
+startWorker();
+console.log(`   ワーカー起動（自動進行 / 間隔 ${WORKER_INTERVAL_MS}ms）`);
