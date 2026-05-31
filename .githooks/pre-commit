@@ -1,0 +1,17 @@
+#!/bin/sh
+# ステージされた変更にシークレットが含まれていないか gitleaks で検査する。
+# gitleaks 未インストールならスキップ（CI 側で担保する想定）。
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "gitleaks 未インストールのため pre-commit のシークレット検査をスキップしました（brew install gitleaks）。" >&2
+  exit 0
+fi
+
+gitleaks git --staged --no-banner --redact --exit-code 1
+status=$?
+if [ "$status" -ne 0 ]; then
+  echo "" >&2
+  echo "❌ gitleaks がシークレットを検出しました。コミットを中止します。" >&2
+  echo "   誤検知の場合は該当行末に「gitleaks:allow」を付けるか .gitleaks.toml で除外してください。" >&2
+  exit "$status"
+fi
+exit 0
