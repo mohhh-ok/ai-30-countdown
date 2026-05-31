@@ -93,6 +93,17 @@ async function claudeCodeChatJSON(
     // テレメトリ・自動更新・非必須モデル呼び出しを止めて、起動を軽く・静かにする
     env: {
       ...process.env,
+      // ★課金事故の再発防止（過去にこれで従量課金が出た）:
+      //   ANTHROPIC_API_KEY が環境にあると claude はサブスク(OAuth)ではなく
+      //   その API キー認証＝従量課金で動く（公式仕様・実機で確認済み）。
+      //   ここで明示的に除去し、claude -p を必ず Max サブスク枠で走らせる。
+      //   キー無しなら OAuth サブスク認証となり、枠内なら追加課金は出ない。
+      //   API キー認証に倒しうる変数を網羅して除去する（AWS/Foundry 含む）。
+      //   ※ CLAUDE_CODE_OAUTH_TOKEN はサブスク側なので除去しない（消すと逆効果）。
+      ANTHROPIC_API_KEY: undefined,
+      ANTHROPIC_AUTH_TOKEN: undefined,
+      ANTHROPIC_AWS_API_KEY: undefined,
+      ANTHROPIC_FOUNDRY_API_KEY: undefined,
       // 非必須の外部通信（テレメトリ/エラー報告/自動更新等）を一括停止。
       // これを切らないと毎回ネットワークのタイムアウト待ちで数〜十数秒遅くなる。
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",

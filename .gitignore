@@ -30,3 +30,6 @@ tmp/
 
 # Playwright MCP の生成物
 .playwright-mcp/
+
+# スケジュールタスクのロックファイル（実行時生成物）
+.claude/scheduled_tasks.lock
