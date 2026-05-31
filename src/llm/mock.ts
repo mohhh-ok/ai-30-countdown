@@ -194,13 +194,13 @@ export function createMockGuardian(): import("../domain/types.ts").GuardianProvi
 }
 
 export function createMockDialogueProvider(): DialogueProvider {
-  return async (state, _weather, speakers) => {
-    const names = speakers.map(
-      (s) => state.characters.find((c) => c.id === s.id)?.name ?? s.id,
-    );
-    return [
-      { speaker: speakers[0].id, text: `（mock）${names[0]}「……話せるか。」` },
-      { speaker: speakers[1].id, text: `（mock）${names[1]}「ああ。」` },
-    ];
+  // 一発言ずつ返す簡易会話劇（生成品質は問わない）。history の長さでセリフと締めを決める。
+  const lines = ["……話せるか。", "ああ。", "……達者でな。", "そちらも。"];
+  return async (state, _weather, _speakers, history, nextSpeakerId) => {
+    const name = state.characters.find((c) => c.id === nextSpeakerId)?.name ?? nextSpeakerId;
+    const turn = history.length;
+    const text = `（mock）${name}「${lines[turn % lines.length]}」`;
+    const end = turn >= 3; // 4発言で締める
+    return { text, end };
   };
 }

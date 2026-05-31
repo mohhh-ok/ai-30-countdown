@@ -1,5 +1,5 @@
 // 登場人物の初期定義（plan.md 第4節）
-import type { Character, ChannelMap } from "./types.ts";
+import type { Character, ChannelMap, SkillId } from "./types.ts";
 
 /** 抗体・気分の初期値（まっさら） */
 export function freshAntibodies(): ChannelMap {
@@ -95,3 +95,31 @@ export function createInitialCharacters(): Character[] {
     },
   ];
 }
+
+/**
+ * キャラ解放ルール（キャラ持ち越し）。
+ * 1周目はハルだけが京にいる。ハルの成長・スキル達成が条件を満たすと、その者が恒久ロスターに加わり、
+ * 次に回帰した周の Day1 から登場するようになる。
+ */
+export interface CharacterUnlock {
+  id: string; // 解放されるキャラの id
+  name: string; // 表示名
+  describe: string; // どんな成長で世界に現れるか（演出・メタ記録）
+  isUnlocked: (ctx: { acquired: SkillId[]; peakAltruism: number; loop: number }) => boolean;
+}
+
+export const CHARACTER_UNLOCKS: CharacterUnlock[] = [
+  {
+    id: "nagi",
+    name: "ナギ",
+    describe: "ハルが独りで生き抜く力（スキル）を一つでも得た頃、結びの妖が京に現れる。",
+    isUnlocked: ({ acquired }) => acquired.length >= 1,
+  },
+  {
+    id: "kai",
+    name: "カイ",
+    describe: "ハルが殻を破り、利他が成熟に届いた先で、最も信じない半妖と向き合うことになる。",
+    isUnlocked: ({ acquired, peakAltruism }) =>
+      peakAltruism >= 70 || acquired.includes("sever_solitude") || acquired.length >= 3,
+  },
+];

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type {
   Character,
+  Chronicle,
   TickResult,
   WorldState,
 } from "../domain/types.ts";
@@ -8,20 +9,32 @@ import { CharacterCard } from "./components/CharacterCard.tsx";
 import { TickLog } from "./components/TickLog.tsx";
 import { PlacesMap } from "./components/PlacesMap.tsx";
 import { FrontStage } from "./components/FrontStage.tsx";
+import { findSkill } from "../domain/skills.ts";
+import { createInitialCharacters } from "../domain/characters.ts";
+
+// 表示用ヘルパ: id → 名前 / スキル id → スキル名
+const CHAR_NAMES = new Map(
+  createInitialCharacters().map((c) => [c.id, c.name] as const),
+);
+const nameOfId = (id: string) => CHAR_NAMES.get(id) ?? id;
+const skillName = (id: string) => findSkill(id)?.name ?? id;
 
 interface StatePayload {
   state: WorldState;
   log: TickResult[];
+  chronicle?: Chronicle;
   model?: string;
 }
 
 export function App() {
   const [state, setState] = useState<WorldState | null>(null);
   const [log, setLog] = useState<TickResult[]>([]);
+  const [chronicle, setChronicle] = useState<Chronicle | null>(null);
   const [model, setModel] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>("");
   const [ollamaOk, setOllamaOk] = useState<boolean | null>(null);
+  const [backend, setBackend] = useState<string>("");
   const [auto, setAuto] = useState(false);
   const [view, setView] = useState<"front" | "back">("front");
   const autoRef = useRef(false);
@@ -32,6 +45,7 @@ export function App() {
     const data = (await res.json()) as StatePayload;
     setState(data.state);
     setLog(data.log);
+    if (data.chronicle) setChronicle(data.chronicle);
     if (data.model) setModel(data.model);
   }
 
@@ -39,7 +53,10 @@ export function App() {
     loadState();
     fetch("/api/health")
       .then((r) => r.json())
-      .then((h: { ollama: boolean }) => setOllamaOk(h.ollama))
+      .then((h: { ollama: boolean; backend?: string }) => {
+        setOllamaOk(h.ollama);
+        if (h.backend) setBackend(h.backend);
+      })
       .catch(() => setOllamaOk(false));
   }, []);
 
@@ -56,7 +73,9 @@ export function App() {
       }
       setState(data.state as WorldState);
       setLog((prev) => [...prev, data.result as TickResult]);
-      return !(data.state as WorldState).finished;
+      if (data.chronicle) setChronicle(data.chronicle as Chronicle);
+      // 回帰モードに終わりはない（ハルが死ねば巻き戻る）。エラー以外は進み続ける。
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "通信エラー");
       return false;
@@ -94,6 +113,7 @@ export function App() {
       const data = (await res.json()) as StatePayload;
       setState(data.state);
       setLog(data.log);
+      if (data.chronicle) setChronicle(data.chronicle);
     } finally {
       setBusy(false);
     }
@@ -125,9 +145,10 @@ export function App() {
       <header className="topbar">
         <div className="title">
           <h1>小さなエージェント世界</h1>
-          <span className="subtitle">群像・テキスト版 / Ollama</span>
+          <span className="subtitle">群像・テキスト版 / {backend || "ローカルLLM"}</span>
         </div>
         <div className="day-box">
+          {chronicle && <span className="loop-num">第 {chronicle.loop} 回帰</span>}
           <span className="day-num">Day {state.day}</span>
           {state.day > 0 && (
             <span className={`weather weather-${state.weather}`}>
@@ -152,14 +173,13 @@ export function App() {
         <div className="controls">
           <button
             onClick={() => tickOnce()}
-            disabled={busy || auto || state.finished}
+            disabled={busy || auto}
           >
             {busy && !auto ? "思索中…" : "次の1日 ▶"}
           </button>
           <button
             className={auto ? "auto-on" : "ghost"}
             onClick={() => setAuto((v) => !v)}
-            disabled={state.finished}
           >
             {auto ? "⏸ 停止" : "▶▶ オート"}
           </button>
@@ -173,14 +193,34 @@ export function App() {
         <span>モデル: {model || "?"}</span>
         {auto && <span className="auto-badge">● オート進行中{busy ? "（思索中…）" : ""}</span>}
         {ollamaOk === false && (
-          <span className="warn">⚠ Ollama に接続できません（ollama serve を起動）</span>
+          <span className="warn">
+            {backend === "ollama"
+              ? "⚠ Ollama に接続できません（ollama serve を起動）"
+              : "⚠ Claude Code に接続できません（claude CLI のログインを確認）"}
+          </span>
         )}
-        {state.finished && <span className="finished">この世界は終わりを迎えた</span>}
         {error && <span className="warn">{error}</span>}
       </div>
 
+      {chronicle && (
+        <div className="chronicle-bar">
+          <span className="chron-roster">
+            京の住人: {chronicle.roster.map((id) => nameOfId(id)).join("・")}
+            {chronicle.roster.length < 3 && (
+              <span className="chron-locked">（未解放あり）</span>
+            )}
+          </span>
+          <span className="chron-skills">
+            ハルの会得スキル:{" "}
+            {chronicle.skills.acquired.length
+              ? chronicle.skills.acquired.map((id) => skillName(id)).join("・")
+              : "まだない"}
+          </span>
+        </div>
+      )}
+
       {view === "front" ? (
-        <FrontStage state={state} log={log} />
+        <FrontStage state={state} log={log} chronicle={chronicle} />
       ) : (
         <>
           <main className="cards cards-multi">

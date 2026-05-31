@@ -62,6 +62,12 @@ async function claudeCodeChatJSON(
     "--strict-mcp-config",
     "--mcp-config",
     '{"mcpServers":{}}',
+    // ツール群を読み込ませない。生成しかしないので Bash/Read/Edit 等のスキーマは全部ムダ。
+    // 毎回の cacheCreation トークン（足場）を 35k→25k 程度まで削れる（残り25kは CLI のコア床）。
+    "--allowedTools",
+    "",
+    "--disallowedTools",
+    "Bash,Read,Edit,Write,Glob,Grep,WebFetch,WebSearch,Task,TodoWrite,NotebookEdit",
   ];
   if (system) args.push("--system-prompt", system);
 

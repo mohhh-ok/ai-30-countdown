@@ -9,14 +9,35 @@ export function TickLog({ log }: { log: TickResult[] }) {
   const items = [...log].reverse();
   return (
     <div className="log">
-      {items.map((t) => (
-        <div key={t.day} className="log-tick">
+      {items.map((t, i) => (
+        // 回帰で day が周ごとに重複するので複合キー
+        <div key={`${t.loop ?? 1}-${t.day}-${i}`} className="log-tick">
           <div className="log-day">
+            {t.loop != null && <span className="log-loop">L{t.loop}</span>}
             Day {t.day}
             <span className={`weather weather-${t.weather}`}>
               {t.weather === "normal" ? "通常" : "不作"}
             </span>
           </div>
+          {(t.acquiredSkills?.length ||
+            t.unlockedCharacters?.length ||
+            t.regressed) && (
+            <div className="log-marks">
+              {t.acquiredSkills?.length ? (
+                <span className="mark mark-skill">
+                  ✨ ハル、「{t.acquiredSkills.join("」「")}」を会得
+                </span>
+              ) : null}
+              {t.unlockedCharacters?.length ? (
+                <span className="mark mark-unlock">
+                  🆕 {t.unlockedCharacters.join("・")} 解放（次の回帰から登場）
+                </span>
+              ) : null}
+              {t.regressed ? (
+                <span className="mark mark-regress">↻ ハル力尽き、時は巻き戻る</span>
+              ) : null}
+            </div>
+          )}
           {t.spotlightName && (
             <div className="spotlight-line">
               <span className="cam">🎥</span>

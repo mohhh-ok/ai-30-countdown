@@ -943,6 +943,52 @@ button.auto-on {
   margin-bottom: 14px;
 }
 
+/* 早回し（montage）の1日 — 1行で淡々と流す。見せ場の場面カードとの密度差がリズムになる。 */
+.montage-line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 5px 14px;
+  margin-bottom: 4px;
+  border-left: 2px solid var(--line);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.montage-day {
+  color: var(--muted);
+  font-weight: 700;
+  opacity: 0.7;
+  white-space: nowrap;
+}
+.montage-weather {
+  opacity: 0.5;
+  white-space: nowrap;
+}
+.montage-acts {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+.montage-act-name {
+  color: var(--text);
+  opacity: 0.75;
+  margin-right: 4px;
+}
+.montage-act.montage-low {
+  color: var(--down);
+}
+.montage-act.montage-low .montage-act-name {
+  color: var(--down);
+  opacity: 1;
+}
+.montage-warn {
+  margin-left: 3px;
+  font-size: 11px;
+  opacity: 0.85;
+}
+
 /* 過去の場面（最新よりやや控えめだが、ちゃんと読める） */
 .scene-past {
   background: #1b1712;
@@ -1039,4 +1085,78 @@ button.auto-on {
 }
 .kyo-daku {
   background: #9a6db0;
+}
+
+/* ===== 回帰（ローグライク）UI ===== */
+.loop-num {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--bg);
+  background: var(--accent);
+  padding: 2px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+}
+
+/* 年代記バー（ロスター・習得スキル） */
+.chronicle-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  padding: 8px 16px;
+  margin: 0 0 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.chronicle-bar strong,
+.chron-skills,
+.chron-roster {
+  color: var(--text);
+}
+.chron-locked {
+  color: var(--muted);
+  margin-left: 4px;
+}
+
+/* 節目マーク（会得・解放・回帰） */
+.scene-marks,
+.log-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}
+.mark {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+.mark-skill {
+  color: #ffd9a0;
+  background: rgba(232, 153, 90, 0.16);
+  border-color: rgba(232, 153, 90, 0.4);
+}
+.mark-unlock {
+  color: #bfe6c2;
+  background: rgba(111, 191, 115, 0.14);
+  border-color: rgba(111, 191, 115, 0.4);
+}
+.mark-regress {
+  color: #f0b6b7;
+  background: rgba(216, 105, 107, 0.14);
+  border-color: rgba(216, 105, 107, 0.45);
+  letter-spacing: 0.04em;
+}
+
+.scene-loop,
+.log-loop {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-right: 6px;
 }

@@ -3,6 +3,7 @@
 // 最新の場面を大きく、過去の場面も同じ「シーン」として全部読める（留守でも遡れる）。
 import type {
   CharacterTickResult,
+  Chronicle,
   TickResult,
   WorldState,
 } from "../../domain/types.ts";
@@ -11,6 +12,30 @@ const WEATHER_WORD: Record<string, string> = {
   normal: "穏やかな日",
   lean: "実りの薄い日",
 };
+
+/** 回帰の節目（スキル会得・キャラ解放・巻き戻り）を物語の言葉で添える */
+function SceneMarks({ t }: { t: TickResult }) {
+  if (!t.acquiredSkills?.length && !t.unlockedCharacters?.length && !t.regressed) {
+    return null;
+  }
+  return (
+    <div className="scene-marks">
+      {t.acquiredSkills?.length ? (
+        <span className="mark mark-skill">
+          ✨ ハルは「{t.acquiredSkills.join("」「")}」を会得した
+        </span>
+      ) : null}
+      {t.unlockedCharacters?.length ? (
+        <span className="mark mark-unlock">
+          🆕 {t.unlockedCharacters.join("・")} が次の回帰から京に現れる
+        </span>
+      ) : null}
+      {t.regressed ? (
+        <span className="mark mark-regress">↻ ハルは力尽き、時は巻き戻る——</span>
+      ) : null}
+    </div>
+  );
+}
 
 /** エネルギーを観客向けのざっくりした言葉に（数値は見せない） */
 function vigorWord(e: number): string {
@@ -55,6 +80,54 @@ function actStory(c: CharacterTickResult): string {
   }
 }
 
+/** 早回し用の短い行為ラベル（名前は別に出すので動詞句だけ） */
+function briefAct(c: CharacterTickResult): string {
+  if (c.died) return "力尽きた…";
+  if (c.moved) return `${c.placeName}へ`;
+  switch (c.action) {
+    case "forage":
+      return c.forageDraw?.taboo ? "禁忌の業" : "霊を集めた";
+    case "rest":
+      return "気を鎮めた";
+    case "talk":
+      return c.targetName ? `${c.targetName}に語りかけ` : "ひとり言ちた";
+    case "share":
+      return c.targetName ? `${c.targetName}に分けた` : "分けようとした";
+    case "steal":
+      return c.targetName ? `${c.targetName}から奪った` : "奪った";
+    case "deceive":
+      return c.targetName ? `${c.targetName}を欺いた` : "欺いた";
+    default:
+      return "日を過ごした";
+  }
+}
+
+/**
+ * 早回し（montage）の1日。1行で淡々と流す。
+ * 数値は見せないが、霊力が細った者にはそっと気配を添え、生存のヒリつきだけは残す。
+ */
+function MontageLine({ t }: { t: TickResult }) {
+  return (
+    <div className="montage-line">
+      <span className="montage-day">第 {t.day} 日</span>
+      <span className="montage-weather">{WEATHER_WORD[t.weather] ?? ""}</span>
+      <span className="montage-acts">
+        {t.characters.map((c) => {
+          const low = !c.died && c.energyAfter <= 25;
+          return (
+            <span key={c.id} className={`montage-act${low ? " montage-low" : ""}`}>
+              <span className="montage-act-name">{c.name}</span>
+              {briefAct(c)}
+              {low && <span className="montage-warn">…{vigorWord(c.energyAfter)}</span>}
+            </span>
+          );
+        })}
+      </span>
+      <SceneMarks t={t} />
+    </div>
+  );
+}
+
 /** 1日ぶんの「場面」。primary=最新の場面は大きく、過去はやや控えめに。 */
 function Scene({ t, primary }: { t: TickResult; primary: boolean }) {
   const hero = t.characters.find((c) => c.id === t.spotlightId);
@@ -63,9 +136,12 @@ function Scene({ t, primary }: { t: TickResult; primary: boolean }) {
   return (
     <div className={`scene${primary ? "" : " scene-past"}`}>
       <div className="scene-head">
+        {t.loop != null && <span className="scene-loop">第 {t.loop} 回帰</span>}
         <span className="scene-day">第 {t.day} 日</span>
         <span className="scene-weather">{WEATHER_WORD[t.weather] ?? ""}</span>
       </div>
+
+      <SceneMarks t={t} />
 
       {t.director?.narration && (
         <p className="scene-narration">{t.director.narration}</p>
@@ -122,15 +198,22 @@ function Scene({ t, primary }: { t: TickResult; primary: boolean }) {
 export function FrontStage({
   state,
   log,
+  chronicle,
 }: {
   state: WorldState;
   log: TickResult[];
+  chronicle?: Chronicle | null;
 }) {
   if (log.length === 0) {
+    const solo = chronicle && chronicle.roster.length <= 1;
     return (
       <div className="stage-empty">
         <p>幕が上がるのを待っています。</p>
-        <p className="stage-empty-sub">「次の1日 ▶」で物語を始めましょう。</p>
+        <p className="stage-empty-sub">
+          {solo
+            ? "第一の回帰——京にはまだハルひとり。「次の1日 ▶」で物語を始めましょう。"
+            : "「次の1日 ▶」で物語を始めましょう。"}
+        </p>
       </div>
     );
   }
@@ -167,18 +250,19 @@ export function FrontStage({
         </div>
       </div>
 
-      {/* これまでの物語（過去の場面を全部・新しい順に読める） */}
+      {/* これまでの物語（新しい順）。早回しの日は1行で流し、見せ場の日だけ場面として開く。 */}
       {past.length > 0 && (
         <div className="story-feed">
           <h3 className="story-title">これまでの物語</h3>
-          {past.map((t) => (
-            <Scene key={t.day} t={t} primary={false} />
-          ))}
+          {past.map((t, i) =>
+            // tempo 無し（旧データ）は場面扱いで後方互換。回帰で day が重複するので複合キー。
+            t.tempo === "montage" ? (
+              <MontageLine key={`${t.loop ?? 1}-${t.day}-${i}`} t={t} />
+            ) : (
+              <Scene key={`${t.loop ?? 1}-${t.day}-${i}`} t={t} primary={false} />
+            ),
+          )}
         </div>
-      )}
-
-      {state.finished && (
-        <div className="stage-finished">— この世界の物語は幕を閉じた —</div>
       )}
     </div>
   );

@@ -10,13 +10,16 @@ import type {
   DecisionProvider,
   DialogueLine,
   DialogueProvider,
+  DialogueSpeaker,
   DirectorDecision,
   DirectorProvider,
   GuardianProvider,
   GuardianWhisper,
   Place,
   RewardEvent,
+  SkillEffects,
   Talent,
+  Tempo,
   Tension,
   TickResult,
   Weather,
@@ -24,6 +27,7 @@ import type {
 } from "./types.ts";
 import { ACTION_LABELS } from "./types.ts";
 import { distance, findPlace, isNeighbor, stepToward } from "./places.ts";
+import { noSkillEffects } from "./skills.ts";
 import {
   AXIS_LABEL,
   DAILY_LOAD,
@@ -58,7 +62,7 @@ function decideWeather(recentWeather: Weather[], rng: () => number): Weather {
  */
 function assessTension(state: WorldState, recentLog: TickResult[]): Tension {
   const living = state.characters.filter((c) => c.alive);
-  if (living.some((c) => c.energy <= 12)) return "tragic";
+  if (living.some((c) => c.energy <= DANGER_ENERGY)) return "tragic";
 
   // 2人以上が全員別々の場所に留まり、誰とも出会えないまま日が過ぎている → 膠着
   if (living.length >= 2) {
@@ -100,6 +104,16 @@ function eventScore(r: CharacterTickResult): number {
 
 /** ナギ（結の力）が休んだ地で癒し戻す清霊の量 */
 const BOND_HEAL = 8;
+
+/** 会話劇1シーンの長さ（往復ループの最小／最大発言数）。最低 MIN は続け、MAX で打ち切る。 */
+const DIALOGUE_MIN_TURNS = 2;
+const DIALOGUE_MAX_TURNS = 8;
+
+/**
+ * 餓死寸前とみなす霊力（カメラを寄せる＝シーンに昇格させる危険水準）。
+ * plan.md「時間モデル」で合意した値。assessTension の tragic 判定と統一する。
+ */
+const DANGER_ENERGY = 12;
 
 /** 集霊の結果（この地から頂いた/喰らった霊力） */
 interface ForageDraw {
@@ -160,6 +174,10 @@ export interface RunTickOptions {
   guardianProvider?: GuardianProvider;
   rng?: () => number;
   recentLog?: TickResult[];
+  /** 主人公（スキル効果の適用先・カメラ固定先）の id。回帰ランナーが渡す。 */
+  protagonistId?: string;
+  /** 主人公が持ち越したスキルの実効効果（負荷/集霊/分与に効く）。 */
+  skillEffects?: SkillEffects;
 }
 
 export async function runTick(
@@ -170,6 +188,10 @@ export async function runTick(
 ): Promise<TickResult> {
   const { dialogueProvider, directorProvider, guardianProvider, recentLog = [] } = opts;
   const rng = opts.rng ?? Math.random;
+  // スキル効果は主人公（protagonistId）にのみ効く。未指定なら従来どおり効果なし。
+  const protagonistId = opts.protagonistId;
+  const skillEffects = opts.skillEffects ?? noSkillEffects();
+  const isHero = (id: string): boolean => id === protagonistId;
 
   state.day += 1;
 
@@ -219,6 +241,10 @@ export async function runTick(
   const doForage = (actor: Character, place: Place): number => {
     const boost = forageBoost.get(place.id) ?? 0;
     const r = drawForagePool(place, weather, boost, actor.talent);
+    // 主人公のスキル「観の眼・冴え」など、集霊倍率を取れ高に乗せる
+    if (isHero(actor.id) && skillEffects.forageMult !== 1) {
+      r.gain = Math.round(r.gain * skillEffects.forageMult);
+    }
     forageDrawById.set(actor.id, r);
     return r.gain;
   };
@@ -231,7 +257,11 @@ export async function runTick(
   const energyBefore = new Map<string, number>();
   for (const c of living) {
     energyBefore.set(c.id, c.energy);
-    c.energy -= DAILY_LOAD;
+    // 主人公のスキル「飢えを越えた者」などで日次負荷が軽くなる（最低1は残す）
+    const load = isHero(c.id)
+      ? Math.max(1, DAILY_LOAD - skillEffects.loadReduction)
+      : DAILY_LOAD;
+    c.energy -= load;
   }
 
   // 2. LLM に行動・移動先・対人相手・日記・関係・パラメータ変動を決めさせる（囁きはプロンプトに乗る）
@@ -378,8 +408,13 @@ export async function runTick(
     }
     const place = findPlace(state.places, placeBefore.get(actor.id)!)!;
     const eff = actionEffect(action, weather, place);
+    // 主人公のスキル「分かち合いの味」で、分け与えるときの自己消費が軽くなる（self は負値なので加算で軽減）
+    let self = eff.self;
+    if (action === "share" && isHero(actor.id)) {
+      self = Math.min(0, self + skillEffects.shareSelfReduction);
+    }
     // forage（集霊）は民の霊力プールから引く。それ以外は固定効果。
-    actor.energy += action === "forage" ? doForage(actor, place) : eff.self;
+    actor.energy += action === "forage" ? doForage(actor, place) : self;
     if (target && eff.partner !== 0) target.energy += eff.partner;
     // ナギ（結の力）が気を鎮める（休む）と、その地の清霊を癒し戻す
     if (actor.talent === "bond" && action === "rest") {
@@ -643,8 +678,10 @@ export async function runTick(
     arr.push(r);
     byPlace.set(r.placeId, arr);
   }
+  let metUp = false; // 誰かが移動してきて出会いが成立した日か（カメラを寄せる合図）
   for (const members of byPlace.values()) {
     if (members.length >= 2 && members.some((m) => m.moved)) {
+      metUp = true;
       notableParts.unshift(
         `${members[0].placeName}で${members.map((m) => m.name).join("と")}が同じ場所に居合わせた。`,
       );
@@ -652,7 +689,9 @@ export async function runTick(
   }
   const notable = notableParts.length > 0 ? notableParts.join(" ") : "特になし";
 
-  // 会話の生成: 「語りかける」が成立した（相手が同室にいる）日だけ、その2人の短い会話を作る
+  // 会話の生成（会話劇の1シーン化）: 「語りかける」が成立した（相手が同室にいる）日だけ、
+  //  話し手を交代させながら一発言ずつ積み上げ、一場面の会話を組み立てる。
+  //  各ターンは直前までの応酬（history）を見て応えるので、噛み合った会話劇になる。
   let dialogue: DialogueLine[] | undefined;
   if (dialogueProvider) {
     const talker = results.find((r) => r.action === "talk" && !r.died);
@@ -664,22 +703,34 @@ export async function runTick(
           )
         : undefined;
     if (talker && partner) {
+      // 口火は語りかけた側。以後この2人で交互に喋る。
+      const order: CharacterTickResult[] = [talker, partner];
+      const speakersInfo: DialogueSpeaker[] = order.map((r) => ({
+        id: r.id,
+        action: r.action,
+      }));
+      const history: DialogueLine[] = [];
       try {
-        const raw = await dialogueProvider(state, weather, [
-          { id: talker.id, action: talker.action },
-          { id: partner.id, action: partner.action },
-        ]);
-        const validIds = new Set([talker.id, partner.id]);
-        const lines = raw
-          .filter((l) => validIds.has(l.speaker) && l.text?.trim())
-          .slice(0, 8)
-          .map((l) => ({
-            speakerId: l.speaker,
-            speakerName:
-              state.characters.find((c) => c.id === l.speaker)?.name ?? l.speaker,
-            text: l.text.trim(),
-          }));
-        if (lines.length > 0) dialogue = lines;
+        for (let turn = 0; turn < DIALOGUE_MAX_TURNS; turn++) {
+          const speaker = order[turn % 2];
+          const { text, end } = await dialogueProvider(
+            state,
+            weather,
+            speakersInfo,
+            history,
+            speaker.id,
+          );
+          const line = text?.trim();
+          if (!line) break; // 言葉が出なければ打ち切り
+          history.push({
+            speakerId: speaker.id,
+            speakerName: speaker.name,
+            text: line,
+          });
+          // 自然な締めの合図が出たら（最低 DIALOGUE_MIN_TURNS は続けたうえで）終える
+          if (end && history.length >= DIALOGUE_MIN_TURNS) break;
+        }
+        if (history.length > 0) dialogue = history;
       } catch (err) {
         console.error(
           "[dialogue] generation failed:",
@@ -691,31 +742,69 @@ export async function runTick(
 
   // 主役（カメラの視点）の確定。演出家の選択を優先し、無効/未指定なら最も見せ場のある者へ。
   //  死亡した者はその日の死の場面までは主役になりうるが、翌ティック以降は生者から選ばれる（カメラが次へ移る）。
-  let spotlightId =
-    director?.spotlightId && results.some((r) => r.id === director!.spotlightId)
-      ? director.spotlightId
+  let spotlightId: string | undefined;
+  let spotlightReason = director?.spotlightReason;
+  const heroInResults = protagonistId && results.some((r) => r.id === protagonistId);
+  if (heroInResults) {
+    // 主人公固定: 基本はハル。ただし他者に大事件（死・禁忌・段階変化）があった日だけ、
+    //  その日はカメラがそちらへ移る（見せ場の例外移動）。
+    const bigOthers = results.filter(
+      (r) => r.id !== protagonistId && (r.died || r.forageDraw?.taboo || r.stageChanged),
+    );
+    if (bigOthers.length > 0) {
+      const top = [...bigOthers].sort((a, b) => eventScore(b) - eventScore(a))[0];
+      spotlightId = top.id;
+      spotlightReason = top.died
+        ? `${top.name}の最期`
+        : top.forageDraw?.taboo
+          ? `${top.name}の禁忌`
+          : `${top.name}の段階変化`;
+    } else {
+      spotlightId = protagonistId;
+    }
+  } else {
+    // 主人公未指定（従来の群像モード）: 演出家の選択 → 見せ場スコア → 2日連続回避
+    spotlightId =
+      director?.spotlightId && results.some((r) => r.id === director!.spotlightId)
+        ? director.spotlightId
+        : undefined;
+    if (!spotlightId && results.length > 0) {
+      spotlightId = [...results].sort((a, b) => eventScore(b) - eventScore(a))[0].id;
+    }
+    const prevSpotId = recentLog.length
+      ? recentLog[recentLog.length - 1].spotlightId
       : undefined;
-  if (!spotlightId && results.length > 0) {
-    spotlightId = [...results].sort((a, b) => eventScore(b) - eventScore(a))[0].id;
-  }
-  // カメラは2日続けて同じ人物に留めない（群像として日ごとに視点を移す）。
-  //  例外: その人物が今日退場（死亡）した＝死の場面、または他に生存者がいない場合は留まる。
-  const prevSpotId = recentLog.length
-    ? recentLog[recentLog.length - 1].spotlightId
-    : undefined;
-  if (spotlightId && prevSpotId === spotlightId) {
-    const current = results.find((r) => r.id === spotlightId);
-    const aliveOthers = results.filter((r) => r.id !== spotlightId && !r.died);
-    if (!current?.died && aliveOthers.length > 0) {
-      spotlightId = [...aliveOthers].sort((a, b) => eventScore(b) - eventScore(a))[0].id;
+    if (spotlightId && prevSpotId === spotlightId) {
+      const current = results.find((r) => r.id === spotlightId);
+      const aliveOthers = results.filter((r) => r.id !== spotlightId && !r.died);
+      if (!current?.died && aliveOthers.length > 0) {
+        spotlightId = [...aliveOthers].sort((a, b) => eventScore(b) - eventScore(a))[0].id;
+      }
     }
   }
   const spot = results.find((r) => r.id === spotlightId);
+
+  // テンポの確定（時間モデル＝シーン駆動・可変テンポ）。
+  //  「面白い瞬間」——出会い・会話劇・生存の危機・禁忌・段階変化・衝動・死——があれば
+  //  カメラを寄せる（scene）。何もなければ早回し（montage）で1行ステータスだけ流す。
+  const tempoReasons: string[] = [];
+  if (dialogue && dialogue.length > 0) tempoReasons.push("会話劇");
+  if (metUp) tempoReasons.push("出会い");
+  for (const r of results) {
+    if (r.died) tempoReasons.push(`${r.name}が力尽きた`);
+    else if (r.energyAfter <= DANGER_ENERGY) tempoReasons.push(`${r.name}が餓死寸前`);
+    if (r.stageChanged) tempoReasons.push(`${r.name}の段階変化`);
+    if (r.impulse) tempoReasons.push(`${r.name}の衝動`);
+    if (r.forageDraw?.taboo) tempoReasons.push(`${r.name}の禁忌`);
+  }
+  const tempo: Tempo = tempoReasons.length > 0 ? "scene" : "montage";
 
   return {
     day: state.day,
     weather,
     characters: results,
+    tempo,
+    tempoReasons,
     notable,
     dialogue,
     director: director
@@ -730,6 +819,6 @@ export async function runTick(
     whispers: whispers.length > 0 ? whispers : undefined,
     spotlightId,
     spotlightName: spot?.name,
-    spotlightReason: director?.spotlightReason,
+    spotlightReason,
   };
 }

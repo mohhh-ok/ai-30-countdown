@@ -18,12 +18,12 @@ import type {
   GuardianProvider,
   Place,
   TickResult,
-  Weather,
   WorldState,
 } from "./domain/types.ts";
-import { createInitialCharacters } from "./domain/characters.ts";
 import { placesCopy } from "./domain/places.ts";
 import { runTick } from "./domain/engine.ts";
+import { Campaign } from "./domain/campaign.ts";
+import { findSkill } from "./domain/skills.ts";
 import { ACTION_LABELS } from "./domain/types.ts";
 import {
   createMockProvider,
@@ -58,7 +58,7 @@ if (values.help) {
   --seed <n>         天候の乱数シード（再現性）
   --mock             LLM を使わず簡易ロジックで高速実行
   --director         演出家を有効化（環境に介入してドラマを作る）
-  --model <name>     Ollama モデル名 (env OLLAMA_MODEL を上書き)
+  --model <name>     Ollama モデル名 (env OLLAMA_MODEL を上書き / ollama バックエンド時のみ)
   --config <path>    初期データ JSON を読み込む（characters/places を上書き or 丸ごと定義）
   --set <path=value> 個別に初期値を上書き（複数可）
                      例: --set haru.energy=40 --set nagi.params.altruism=90
@@ -71,17 +71,6 @@ if (values.help) {
 }
 
 if (values.model) process.env.OLLAMA_MODEL = values.model;
-
-// --- 初期状態の構築 ---
-function freshState(): WorldState {
-  return {
-    day: 0,
-    weather: "normal",
-    characters: createInitialCharacters(),
-    places: placesCopy(),
-    finished: false,
-  };
-}
 
 function isObject(v: unknown): v is Record<string, unknown> {
   return !!v && typeof v === "object" && !Array.isArray(v);
@@ -195,8 +184,9 @@ function coerce(v: string): unknown {
   return v;
 }
 
-// --- 構築 ---
-const state = freshState();
+// --- 構築（回帰ランナー。1周目の世界に config/--set を適用） ---
+const campaign = new Campaign();
+const state = campaign.world;
 if (values.config) {
   const cfg = JSON.parse(readFileSync(values.config, "utf8"));
   if (typeof cfg.days === "number" && !process.argv.includes("--days")) {
@@ -212,11 +202,12 @@ for (const entry of values.set as string[]) applySet(state, entry);
 const days = Number(values.days);
 const rng = values.seed !== undefined ? makeRng(Number(values.seed)) : Math.random;
 
-// --- プロバイダ選択（mock or Ollama） ---
+// --- プロバイダ選択（mock or LLM バックエンド） ---
 let provider: DecisionProvider;
 let dialogueProvider: DialogueProvider | undefined;
 let directorProvider: DirectorProvider | undefined;
 let guardianProvider: GuardianProvider | undefined;
+let backendLabel = "mock"; // 起動ヘッダ用のバックエンド表示
 if (values.mock) {
   provider = createMockProvider(rng);
   dialogueProvider = values["no-dialogue"] ? undefined : createMockDialogueProvider();
@@ -225,8 +216,10 @@ if (values.mock) {
     guardianProvider = createMockGuardian();
   }
 } else {
-  const { createOllamaProvider } = await import("./llm/decide.ts");
-  provider = createOllamaProvider();
+  const { BACKEND_NAME, MODEL } = await import("./llm/backend.ts");
+  backendLabel = `${BACKEND_NAME}:${MODEL}`;
+  const { createDecisionProvider } = await import("./llm/decide.ts");
+  provider = createDecisionProvider();
   if (!values["no-dialogue"]) {
     const { createDialogueProvider } = await import("./llm/dialogue.ts");
     dialogueProvider = createDialogueProvider();
@@ -248,104 +241,136 @@ if (values.save) {
   saveTickFn = db.saveTick;
 }
 
-// --- 実行 ---
-const placeName = (id: string) => state.places.find((p) => p.id === id)?.name ?? id;
-const weatherHistory: Weather[] = [];
+// --- 実行（回帰: ハルが力尽きるたび Day1 へ巻き戻り、days ぶん連続で流す） ---
+const pn = (w: WorldState, id: string) => w.places.find((p) => p.id === id)?.name ?? id;
 const results: TickResult[] = [];
 
 if (!values.json) {
   console.log(
-    `▶ ${days}日 / ${values.mock ? "mock" : "Ollama:" + (process.env.OLLAMA_MODEL ?? "qwen2.5:7b-instruct")}` +
+    `▶ ${days}日 / ${values.mock ? "mock" : backendLabel} / 回帰モード（主役: ハル固定）` +
       `${values.seed !== undefined ? " / seed=" + values.seed : ""}` +
       `${values["no-dialogue"] ? " / 会話オフ" : ""}${values.save ? " / DB保存" : ""}`,
   );
   const init = state.characters
-    .map((c) => `${c.name}@${placeName(c.currentPlaceId)}(E${c.energy})`)
+    .map((c) => `${c.name}@${pn(state, c.currentPlaceId)}(E${c.energy})`)
     .join(" / ");
   console.log(`  初期: ${init}\n`);
 }
 
 for (let i = 0; i < days; i++) {
-  const result = await runTick(state, weatherHistory, provider, {
+  const world = campaign.world; // この日の世界（recordTick で回帰すると次周へ差し替わる）
+  const result = await runTick(world, campaign.weatherHistory, provider, {
     dialogueProvider,
     directorProvider,
     guardianProvider,
     rng,
-    recentLog: results,
+    recentLog: campaign.loopLog,
+    protagonistId: campaign.protagonistId,
+    skillEffects: campaign.effects(),
   });
-  weatherHistory.push(result.weather);
-  results.push(result);
   if (saveTickFn) {
     saveTickFn(runId, result);
     const db = await import("./db.ts");
-    db.saveRunSnapshot(runId, state, weatherHistory);
+    db.saveRunSnapshot(runId, world, [...campaign.weatherHistory, result.weather]);
   }
+  campaign.recordTick(result); // スキル進捗・習得・回帰判定（ハル死で次周を立ち上げる）
+  results.push(result);
 
   if (!values.json) {
+    const scene = result.tempo === "scene";
     const line = result.characters
       .map((c) => {
         const act = c.moved ? `→${c.placeName}` : ACTION_LABELS[c.action];
-        return `${c.name}:${act} E${c.energyBefore}→${c.energyAfter}(利${c.paramsAfter.altruism}/自${c.paramsAfter.independence}/信${c.paramsAfter.trust})${c.died ? " †" : ""}`;
+        const tail = scene
+          ? `(利${c.paramsAfter.altruism}/自${c.paramsAfter.independence}/信${c.paramsAfter.trust})`
+          : ``;
+        return `${c.name}:${act} E${c.energyBefore}→${c.energyAfter}${tail}${c.died ? " †" : ""}`;
       })
       .join("  ");
-    console.log(`Day${result.day} [${result.weather === "normal" ? "通常" : "不作"}] ${line}`);
-    // 京の枯れ具合（民の霊力 清/濁）
-    const kyo = state.places
-      .map((p) => `${p.name}:清${p.populace.sei}/濁${p.populace.daku}`)
-      .join("  ");
-    console.log(`   ⛩ 京の気: ${kyo}`);
-    if (result.director) {
-      console.log(`   🎬 ${result.director.narration}`);
-      const boosts = result.director.forageBoosts
-        .map((b) => `${placeName(b.placeId)}${b.delta >= 0 ? "+" : ""}${b.delta}`)
-        .join("、");
-      console.log(
-        `      [演出 緊張度:${result.director.tension} 意図:${result.director.intent}` +
-          `${boosts ? " 実り操作:" + boosts : ""}]`,
-      );
+    const marker = scene ? "🎬" : "·";
+    console.log(
+      `${marker} L${result.loop} Day${result.day} [${result.weather === "normal" ? "通常" : "不作"}] ${line}`,
+    );
+    // スキル会得・回帰は密度に関わらず必ず告げる（メタ進行の見どころ）
+    if (result.acquiredSkills?.length) {
+      console.log(`   ✨ ハル、「${result.acquiredSkills.join("」「")}」を会得`);
     }
-    if (result.spotlightName) {
-      console.log(
-        `   🎥 主役: ${result.spotlightName}` +
-          `${result.spotlightReason ? "（" + result.spotlightReason + "）" : ""}`,
-      );
+    if (result.unlockedCharacters?.length) {
+      console.log(`   🆕 ${result.unlockedCharacters.join("・")} が解放（次の周から京に現れる）`);
     }
-    if (result.whispers?.length) {
-      for (const w of result.whispers) {
-        const nm = state.characters.find((c) => c.id === w.id)?.name ?? w.id;
-        console.log(`   🕊️ 守護神→${nm}: 「${w.whisper}」`);
+    if (result.regressed) {
+      const sk = campaign.chronicle.skills.acquired.length;
+      console.log(`   ↻ ハル力尽き、時は巻き戻る → Loop ${campaign.chronicle.loop}（持ち越しスキル ${sk}）`);
+    }
+    if (scene) {
+      console.log(`   🎥 見せ場: ${result.tempoReasons.join("・")}`);
+      const kyo = world.places
+        .map((p) => `${p.name}:清${p.populace.sei}/濁${p.populace.daku}`)
+        .join("  ");
+      console.log(`   ⛩ 京の気: ${kyo}`);
+      if (result.director) {
+        console.log(`   🎬 ${result.director.narration}`);
+        const boosts = result.director.forageBoosts
+          .map((b) => `${pn(world, b.placeId)}${b.delta >= 0 ? "+" : ""}${b.delta}`)
+          .join("、");
+        console.log(
+          `      [演出 緊張度:${result.director.tension} 意図:${result.director.intent}` +
+            `${boosts ? " 実り操作:" + boosts : ""}]`,
+        );
       }
+      if (result.spotlightName) {
+        console.log(
+          `   🎥 主役: ${result.spotlightName}` +
+            `${result.spotlightReason ? "（" + result.spotlightReason + "）" : ""}`,
+        );
+      }
+      if (result.whispers?.length) {
+        for (const w of result.whispers) {
+          const nm = result.characters.find((c) => c.id === w.id)?.name ?? w.id;
+          console.log(`   🕊️ 守護神→${nm}: 「${w.whisper}」`);
+        }
+      }
+      for (const c of result.characters) {
+        const ev = c.rewardEvents
+          .map((e) => `${e.label}(${e.effective >= 0 ? "+" : ""}${e.effective})`)
+          .join("、");
+        const m = c.mood;
+        const ab = c.antibodies;
+        console.log(
+          `   ${c.name} 報酬:${ev || "なし"}\n` +
+            `      気分[高揚${m.elation}/安${m.calm}/温${m.warmth}/ストレス${m.stress}] ` +
+            `抗体[達成${ab.achievement}/絆${ab.bond}/安${ab.comfort}/背徳${ab.thrill}]`,
+        );
+      }
+      if (result.dialogue?.length) {
+        for (const l of result.dialogue) console.log(`   💬 ${l.speakerName}: ${l.text}`);
+      }
+      if (result.notable !== "特になし") console.log(`   ▶ ${result.notable}`);
     }
-    // 報酬・気分・抗体（観察用）
-    for (const c of result.characters) {
-      const ev = c.rewardEvents
-        .map((e) => `${e.label}(${e.effective >= 0 ? "+" : ""}${e.effective})`)
-        .join("、");
-      const m = c.mood;
-      const ab = c.antibodies;
-      console.log(
-        `   ${c.name} 報酬:${ev || "なし"}\n` +
-          `      気分[高揚${m.elation}/安${m.calm}/温${m.warmth}/ストレス${m.stress}] ` +
-          `抗体[達成${ab.achievement}/絆${ab.bond}/安${ab.comfort}/背徳${ab.thrill}]`,
-      );
-    }
-    if (result.dialogue?.length) {
-      for (const l of result.dialogue) console.log(`   💬 ${l.speakerName}: ${l.text}`);
-    }
-    if (result.notable !== "特になし") console.log(`   ▶ ${result.notable}`);
   }
-  if (state.finished) break;
 }
 
 // --- 出力 ---
+const finalWorld = campaign.world;
 if (values.json) {
-  console.log(JSON.stringify({ results, finalState: state }, null, 2));
+  console.log(
+    JSON.stringify({ results, finalState: finalWorld, chronicle: campaign.chronicle }, null, 2),
+  );
 } else {
-  console.log("\n=== 最終状態 ===");
-  for (const c of state.characters) {
+  console.log(`\n=== 最終状態（Loop ${campaign.chronicle.loop} / Day ${finalWorld.day}） ===`);
+  for (const c of finalWorld.characters) {
     console.log(
-      `${c.name}: ${c.alive ? "生存" : "死亡"} E${c.energy} @${placeName(c.currentPlaceId)} ` +
+      `${c.name}: ${c.alive ? "生存" : "死亡"} E${c.energy} @${pn(finalWorld, c.currentPlaceId)} ` +
         `利他${c.params.altruism}/自立${c.params.independence}/信頼${c.params.trust}`,
+    );
+  }
+  const acquired = campaign.chronicle.skills.acquired.map((id) => findSkill(id)?.name ?? id);
+  console.log(`\n=== 年代記（回帰 ${campaign.chronicle.loop - 1} 回） ===`);
+  console.log(`  恒久ロスター: ${campaign.chronicle.roster.join("、")}`);
+  console.log(`  持ち越しスキル: ${acquired.length ? acquired.join("、") : "なし"}`);
+  for (const h of campaign.chronicle.history) {
+    console.log(
+      `  Loop ${h.loop}: ${h.days}日 / ${h.causeOfEnd} / 利他${h.altruismReached}(${h.stageReached})`,
     );
   }
   if (values.save) console.log(`\n（run #${runId} として data/world.db に保存）`);

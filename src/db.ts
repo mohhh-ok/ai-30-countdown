@@ -4,6 +4,7 @@
 // - char_metrics: 成長曲線・行動分析用に正規化した1日×1人の薄い行。
 import { Database } from "bun:sqlite";
 import type { TickResult, Weather, WorldState } from "./domain/types.ts";
+import type { CampaignSnapshot } from "./domain/campaign.ts";
 
 const DB_PATH = process.env.DB_PATH ?? "data/world.db";
 
@@ -74,6 +75,17 @@ db.exec(`
     speaker_name TEXT NOT NULL,
     text         TEXT NOT NULL,
     PRIMARY KEY (run_id, day, seq)
+  );
+
+  -- 回帰（キャンペーン）の永続化。1 campaign = 回帰をまたぐ1つの年代記。
+  -- 周回ごとに day が 1 に戻るため正規化テーブルでは PK が衝突する。
+  -- そこで年代記まるごと（chronicle/world/天候/現周ログ）と表示用ログを JSON で保存する。
+  CREATE TABLE IF NOT EXISTS campaigns (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    started_at    TEXT NOT NULL,
+    model         TEXT NOT NULL,
+    snapshot_json TEXT NOT NULL,
+    log_json      TEXT NOT NULL DEFAULT '[]'
   );
 `);
 
@@ -233,6 +245,51 @@ function normalizePlace(p: any): void {
   if (!p.populace) p.populace = { sei: cap * 3, daku: Math.round(cap * 1.5) };
   if (!p.populaceMax) p.populaceMax = { sei: p.populace.sei, daku: p.populace.daku };
   if (!p.regen) p.regen = { sei: Math.max(2, Math.round(cap / 2)), daku: 3 };
+}
+
+// ============================================================
+// 回帰（キャンペーン）の永続化
+// ============================================================
+const insertCampaign = db.query<{ id: number }, [string, string, string]>(
+  `INSERT INTO campaigns (started_at, model, snapshot_json) VALUES (?, ?, ?) RETURNING id`,
+);
+const updateCampaign = db.query(
+  `UPDATE campaigns SET snapshot_json = ?, log_json = ? WHERE id = ?`,
+);
+const latestCampaign = db.query<
+  { id: number; snapshot_json: string; log_json: string },
+  []
+>(`SELECT id, snapshot_json, log_json FROM campaigns ORDER BY id DESC LIMIT 1`);
+
+/** 新しいキャンペーンを作成して id を返す */
+export function createCampaign(snapshot: CampaignSnapshot, model: string): number {
+  const row = insertCampaign.get(nowISO(), model, JSON.stringify(snapshot));
+  return row!.id;
+}
+
+/** キャンペーンのスナップショットと表示用ログを保存 */
+export function saveCampaign(
+  id: number,
+  snapshot: CampaignSnapshot,
+  log: TickResult[],
+): void {
+  updateCampaign.run(JSON.stringify(snapshot), JSON.stringify(log), id);
+}
+
+/** 最新キャンペーンを復元。無ければ null。 */
+export function loadLatestCampaign(): {
+  id: number;
+  snapshot: CampaignSnapshot;
+  log: TickResult[];
+} | null {
+  const row = latestCampaign.get();
+  if (!row) return null;
+  const snapshot = JSON.parse(row.snapshot_json) as CampaignSnapshot;
+  const log = JSON.parse(row.log_json) as TickResult[];
+  // 旧スキーマで保存された world に新フィールドが無い場合を補完（後方互換）
+  for (const c of snapshot.world.characters) normalizeCharacter(c);
+  for (const p of snapshot.world.places) normalizePlace(p);
+  return { id: row.id, snapshot, log };
 }
 
 export { db };

@@ -208,6 +208,13 @@ export interface DialogueLine {
 /** 物語の緊張度（演出家の判断材料） */
 export type Tension = "calm" | "stagnant" | "tense" | "tragic";
 
+/**
+ * その日の「見せ方の密度」（時間モデル＝シーン駆動・可変テンポ）。
+ * - montage: 早回し。離れてる/単調な日は1行ステータスだけ淡々と流す。
+ * - scene:   カメラ寄り。出会い・会話劇・生存の危機・禁忌など「面白い瞬間」をフル展開する。
+ */
+export type Tempo = "montage" | "scene";
+
 /** 演出家からキャラ付き守護神への指示（どう動かしたいか） */
 export interface DirectorDirective {
   id: string; // 対象キャラの id
@@ -254,7 +261,19 @@ export type DirectorProvider = (
 export interface TickResult {
   day: number;
   weather: Weather;
+  /** 回帰（ループ）番号。1周目=1。回帰ランナー（campaign）が付与する。 */
+  loop?: number;
+  /** この日にハル（主人公）が新たに会得したスキルの表示名。campaign が付与する。 */
+  acquiredSkills?: string[];
+  /** この日に新たに恒久ロスターへ解放されたキャラの表示名（次周 Day1 から登場）。campaign が付与する。 */
+  unlockedCharacters?: string[];
+  /** この日にハルが力尽き、回帰（Day1 巻き戻し）が起きたか。campaign が付与する。 */
+  regressed?: boolean;
   characters: CharacterTickResult[];
+  /** その日の見せ方の密度（montage=早回し / scene=カメラ寄り）。CLI/UI が出し分ける。 */
+  tempo: Tempo;
+  /** scene に昇格した理由（出会い・会話劇・餓死寸前など）。montage のときは空。 */
+  tempoReasons: string[];
   notable: string; // 注目の変化（plan.md 第10節）
   dialogue?: DialogueLine[]; // talk が成立した日の会話（セリフのやり取り）
   director?: {
@@ -303,11 +322,109 @@ export interface DialogueSpeaker {
 }
 
 /**
- * 会話プロバイダ。talk が成立した2人について、短い会話（セリフのやり取り）を返す。
- * 返すのは speakerId と text のみ（名前は engine 側で補完）。
+ * 会話プロバイダ（会話劇の1シーン化）。
+ * talk が成立した2人の会話を、**一発言ずつ**生成する。エンジンが話し手を交代させながら
+ * 何度も呼び、これまでの応酬（history）と「次に喋る人（nextSpeakerId）」を渡す。
+ * 返り値の end は「ここで会話を締めるのが自然か（話が尽きた・立ち去る等）」の意思表示。
  */
 export type DialogueProvider = (
   state: WorldState,
   weather: Weather,
   speakers: DialogueSpeaker[],
-) => Promise<{ speaker: string; text: string }[]>;
+  history: DialogueLine[],
+  nextSpeakerId: string,
+) => Promise<{ text: string; end: boolean }>;
+
+// ============================================================
+// 回帰（ローグライク）構造とスキル（plan.md「終わらなさ」の仕組み）
+//
+// 世界は主人公ハルが力尽きるたびに Day1 へ巻き戻る（＝1回帰）。
+// 記憶・成長値・異能はリセットされ、ハル自身は周回を覚えていない。
+// 周回をまたいで唯一持ち越されるのが「スキル」＝経験で獲得する永続パッシブ。
+// 視聴者だけがメタ進行（スキルの蓄積）を追える。
+// ============================================================
+
+/** スキルの一意な ID（skills.ts のレジストリのキー） */
+export type SkillId = string;
+
+/**
+ * スキルが効かせる効果の生の値（1スキル分）。aggregateEffects が全習得分を合算する。
+ * 効果はすべて主人公（ハル）にのみ適用される。
+ */
+export interface SkillEffectRaw {
+  loadReduction?: number; // 日次負荷を軽くする（−n）
+  forageBonus?: number; // 集霊の取れ高に乗る割合ボーナス（例 0.15 = +15%）
+  shareSelfReduction?: number; // 「霊力を分ける」の自己消費を軽くする（+n で消費減）
+  startEnergyBonus?: number; // 周開始時のエネルギー +n
+  startTrustBonus?: number; // 周開始時の信頼 +n
+}
+
+/** 全習得スキルを合算した実効効果（engine / freshWorldFor が読む） */
+export interface SkillEffects {
+  loadReduction: number;
+  forageMult: number; // 集霊倍率（1.0 が基準。forageBonus の総和を足す）
+  shareSelfReduction: number;
+  startEnergyBonus: number;
+  startTrustBonus: number;
+}
+
+/**
+ * スキル進捗の集計に渡す1日ぶんの文脈（measure が参照する）。
+ * 主人公（ハル）のその日の結果と世界状態を見て、進捗の増分を返す。
+ */
+export interface SkillTickContext {
+  hero: CharacterTickResult;
+  result: TickResult;
+  state: WorldState;
+}
+
+/** スキル定義（skills.ts のレジストリ要素） */
+export interface SkillDef {
+  id: SkillId;
+  name: string; // 表示名
+  description: string; // 習得条件と効果の説明
+  /**
+   * 進捗のスコープ。
+   * - "loop":   1周回ごとにリセットされるカウンタ（例: 1ループ中に share×3）
+   * - "career": 周回をまたいで貯まるカウンタ（例: 通算 forage×30）
+   */
+  scope: "loop" | "career";
+  threshold: number; // この値に達したら習得
+  /** その日の進捗増分を返す（0 なら寄与なし） */
+  measure: (ctx: SkillTickContext) => number;
+  effect: SkillEffectRaw; // 習得後に効く効果
+}
+
+/** スキルの保有・進捗状態（Chronicle が持つ） */
+export interface SkillProfile {
+  acquired: SkillId[]; // 習得済みスキル
+  progress: Record<SkillId, number>; // 各スキルの進捗カウンタ
+}
+
+/** 1周回の結末の記録（履歴・あらすじ素材） */
+export interface LoopSummary {
+  loop: number; // 何周目か
+  days: number; // ハルが生きた日数
+  causeOfEnd: string; // 終わり方（死因・状況）
+  altruismReached: number; // その周でハルの利他が届いた最大値
+  stageReached: Stage; // その周で届いた最高段階（成長軸）
+  acquiredSkills: SkillId[]; // その周で会得したスキル
+}
+
+/**
+ * 回帰をまたいで生き残るメタ状態。WorldState の外（上位の層）に置き、
+ * 周回ごとに WorldState を作り直しても保持される。
+ */
+export interface Chronicle {
+  loop: number; // 現在の周回数（1 始まり）
+  protagonistId: string; // 主人公の id（"haru" 固定）
+  skills: SkillProfile;
+  /**
+   * 恒久ロスター。世界に登場するキャラの id。初期は ["haru"] だけ。
+   * ハルの成長・スキル達成で解放されたキャラが加わり、次に回帰した周の Day1 から登場する。
+   */
+  roster: string[];
+  /** ハルがこれまでの全周で到達した利他の最大値（キャラ解放条件の判定に使う） */
+  heroPeakAltruism: number;
+  history: LoopSummary[]; // 過去の周回の結末
+}

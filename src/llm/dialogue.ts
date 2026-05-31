@@ -1,6 +1,8 @@
-// 「語りかける」が成立した日の、短い会話（セリフのやり取り）を生成する。
+// 「語りかける」が成立した日の会話劇を、一発言ずつ生成する（会話の1シーン化）。
+// エンジンが話し手を交代させながら何度も呼び、これまでの応酬を踏まえた次の一言を返す。
 import type {
   Character,
+  DialogueLine,
   DialogueProvider,
   DialogueSpeaker,
   WorldState,
@@ -11,12 +13,14 @@ import { temperamentText } from "../domain/rules.ts";
 import { findPlace } from "../domain/places.ts";
 import { chatJSON } from "./backend.ts";
 
-const SYSTEM_PROMPT = `あなたは2人の登場人物の短い会話を脚本として書きます。
+const SYSTEM_PROMPT = `あなたは2人の登場人物の会話劇を、一発言ずつ脚本として書きます。
+- 指定された「次の話し手」になりきり、これまでの会話の流れに自然に応える一言を返す。
 - 各人の「芯」と「いまの気質」「相手への感情」がにじむ、自然で具体的な口語のセリフにする。
-- 2〜4往復（合計4〜6発言）程度の短いやり取り。だらだら続けない。
+- 一度に書くのは一発言だけ（一文〜二文）。だらだら何往復も書かない。
 - 地の文・ト書き・説明は書かない。セリフ本文だけ。
 - 口調は人物ごとに変える。指定された話し手だけが喋る。
 - 今日それぞれが取った行動と矛盾しない会話にする（採取で忙しい相手はそっけない等）。
+- 話が尽きた／立ち去る／気まずく途切れる など、ここで会話を締めるのが自然なら end を true にする。
 必ず指定された JSON スキーマだけを出力し、前後に説明を付けないこと。`;
 
 function speakerProfile(c: Character, action: string, places: WorldState["places"]): string {
@@ -37,13 +41,13 @@ export function createDialogueProvider(): DialogueProvider {
     state: WorldState,
     weather: Weather,
     speakers: DialogueSpeaker[],
+    history: DialogueLine[],
+    nextSpeakerId: string,
   ) => {
-    const chars = speakers
-      .map((s) => state.characters.find((c) => c.id === s.id))
-      .filter((c): c is Character => !!c);
-    if (chars.length < 2) return [];
+    const next = state.characters.find((c) => c.id === nextSpeakerId);
+    if (!next) return { text: "", end: true };
 
-    const place = findPlace(state.places, chars[0].currentPlaceId)?.name ?? "";
+    const place = findPlace(state.places, next.currentPlaceId)?.name ?? "";
     const profiles = speakers
       .map((s) => {
         const c = state.characters.find((x) => x.id === s.id)!;
@@ -51,22 +55,24 @@ export function createDialogueProvider(): DialogueProvider {
       })
       .join("\n\n");
 
-    const firstSpeaker = chars[0]; // 話しかけた側が口火を切る
-    const idList = chars.map((c) => `"${c.id}"`).join(" / ");
+    const transcript =
+      history.length > 0
+        ? history.map((l) => `${l.speakerName}: 「${l.text}」`).join("\n")
+        : "（まだ誰も口を開いていない）";
 
     const userPrompt = `舞台: ${place}（天候: ${weather === "normal" ? "通常日" : "不作日"}）
-${firstSpeaker.name} が相手に語りかけた。次の2人の短い会話を書いてください。
 
 ${profiles}
 
-口火は ${firstSpeaker.name} が切る。それぞれの芯と感情がにじむ、短く自然な会話にしてください。
+これまでの会話:
+${transcript}
+
+次に「${next.name}（id: ${next.id}）」が話す番です。${
+      history.length === 0 ? `${next.name} が相手に語りかけ、口火を切ります。` : ""
+    }芯と相手への感情がにじむ、短く自然な次の一言を書いてください。会話をここで締めるのが自然なら end を true に。
 
 次の JSON スキーマだけを出力:
-{
-  "dialogue": [
-    { "speaker": "発言者の id（${idList}）", "text": "セリフ本文（一文〜二文）" }
-  ]
-}`;
+{ "text": "セリフ本文（一文〜二文）", "end": false }`;
 
     const raw = await chatJSON(
       [
@@ -77,18 +83,9 @@ ${profiles}
     );
 
     const parsed = JSON.parse(raw) as unknown;
-    const arr =
-      parsed && typeof parsed === "object" && Array.isArray((parsed as any).dialogue)
-        ? ((parsed as any).dialogue as unknown[])
-        : [];
-    const out: { speaker: string; text: string }[] = [];
-    for (const item of arr) {
-      if (!item || typeof item !== "object") continue;
-      const o = item as Record<string, unknown>;
-      if (typeof o.speaker === "string" && typeof o.text === "string") {
-        out.push({ speaker: o.speaker, text: o.text });
-      }
-    }
-    return out;
+    const o = (parsed && typeof parsed === "object" ? parsed : {}) as Record<string, unknown>;
+    const text = typeof o.text === "string" ? o.text : "";
+    const end = o.end === true;
+    return { text, end };
   };
 }
