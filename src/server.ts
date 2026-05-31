@@ -13,6 +13,8 @@ import { llog } from "./llm/log.ts";
 import {
   createRun,
   loadLatestRun,
+  loadLoopTicks,
+  loadCharacterTrace,
   saveRunSnapshot,
   saveTick,
   saveLlmTimings,
@@ -21,21 +23,20 @@ import {
 import index from "./web/index.html";
 
 // --- セッション状態（回帰: ハルが力尽きるたび Day1 へ巻き戻る年代記） ---
+// 表示ログは「現在の回帰ぶんだけ」をメモリに持つ（= campaign.loopLog）。全周ログは常駐させず、
+// 過去の回帰は /api/loops/:loop で DB からオンデマンドに引く（起動時の全件ロードを避ける）。
 let campaign: Campaign;
-let tickLog: TickResult[]; // 全周をまたいだ表示用ログ
 let runId: number;
 
 const restored = loadLatestRun();
 if (restored) {
   campaign = Campaign.restore(restored.snapshot);
-  tickLog = restored.log;
   runId = restored.runId;
   console.log(
-    `   復元: run #${runId}（Loop ${campaign.chronicle.loop}・Day ${campaign.world.day}・${tickLog.length}日分のログ）`,
+    `   復元: run #${runId}（Loop ${campaign.chronicle.loop}・Day ${campaign.world.day}・現周 ${campaign.loopLog.length}日）`,
   );
 } else {
   campaign = new Campaign();
-  tickLog = [];
   runId = createRun(campaign.snapshot(), OLLAMA_MODEL);
 }
 
@@ -91,10 +92,9 @@ async function runOneTick(): Promise<TickResult> {
     tempo: result.tempo,
     calls: result.llmTimings?.length ?? 0,
   });
-  campaign.recordTick(result); // スキル進捗・キャラ解放・回帰判定
-  tickLog.push(result);
+  campaign.recordTick(result); // スキル進捗・キャラ解放・回帰判定（現周ログ loopLog も内部で更新）
   // 永続化（復元スナップショット1本 + その日の tick 行 + LLM計測の正規化行）
-  // 表示ログは tickLog を丸ごと書き戻すのではなく、ticks に1日1行だけ足す（肥大しない）。
+  // 表示ログは campaign.loopLog（現周ぶん）。DB には ticks に1日1行だけ足す（肥大しない）。
   saveTick(runId, result);
   saveRunSnapshot(runId, campaign.snapshot());
   saveLlmTimings(runId, result.loop ?? 1, result.day, result.llmTimings);
@@ -162,15 +162,40 @@ const server = Bun.serve({
     // フロントエンド（bun が React をバンドルして配信）
     "/": index,
 
+    // ホームは「現在の回帰ぶん」だけ返す（全周ログは送らない＝配信が肥大しない）。
     "/api/state": {
       GET: () =>
         json({
           state: campaign.world,
-          log: tickLog,
+          log: campaign.loopLog, // 現周のログのみ。過去周は /api/loops/:loop で引く
           chronicle: campaign.chronicle,
           running: workerOn,
           model: OLLAMA_MODEL,
         }),
+    },
+
+    // 過去の回帰の物語（その周の完全 ticks を日付順に）。LoopPage がオンデマンドに取得する。
+    "/api/loops/:loop": {
+      GET: (req) => {
+        const loop = Number(req.params.loop);
+        if (!Number.isInteger(loop) || loop < 1) return json({ error: "bad loop" }, 400);
+        // 現在進行中の回帰はメモリの loopLog をそのまま返す（DBにまだ全部入っていない日があるため）。
+        // 注意: 回帰が起きた tick の直後は、その周が closeLoop で chronicle.loop を進めて loopLog を
+        // リセットし終えた一方、saveTick 完了までの数ms はその周の最終日が DB に未反映でありうる。
+        // その瞬間だけ最終日が一瞬欠けるが、観るだけ画面で次のポーリング（数秒）で回復する。
+        const ticks =
+          loop === campaign.chronicle.loop ? campaign.loopLog : loadLoopTicks(runId, loop);
+        return json({ loop, ticks });
+      },
+    },
+
+    // キャラ別ページ（全周横断）。重い TickResult ではなく char_metrics の薄い軌跡を返す。
+    "/api/character/:id": {
+      GET: (req) => {
+        const id = req.params.id.replace(/[^a-z0-9_]/gi, "");
+        if (!id) return json({ error: "bad id" }, 400); // /assets と対称にガード
+        return json({ id, trace: loadCharacterTrace(runId, id) });
+      },
     },
 
     "/api/health": {

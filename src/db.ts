@@ -198,8 +198,14 @@ const insertDialogue = db.query(
 const latestRun = db.query<RunRow, []>(
   `SELECT * FROM runs ORDER BY id DESC LIMIT 1`,
 );
-const ticksForRun = db.query<{ result_json: string }, [number]>(
-  `SELECT result_json FROM ticks WHERE run_id = ? ORDER BY loop ASC, day ASC, id ASC`,
+// 過去の回帰を見るときだけ、その周の完全 ticks を引く（起動時に全件は読まない）。
+const loopTicks = db.query<{ result_json: string }, [number, number]>(
+  `SELECT result_json FROM ticks WHERE run_id = ? AND loop = ? ORDER BY day ASC, id ASC`,
+);
+// キャラ別ページ用の「全周横断の薄い軌跡」。重い TickResult JSON ではなく char_metrics を引く。
+const charTrace = db.query<CharTraceRow, [number, string]>(
+  `SELECT loop, day, place_name, diary, died, altruism, stage
+   FROM char_metrics WHERE run_id = ? AND char_id = ? ORDER BY loop ASC, day ASC`,
 );
 const deleteTimings = db.query(
   `DELETE FROM llm_timings WHERE run_id = ? AND loop = ? AND day = ?`,
@@ -377,23 +383,46 @@ export function logLlmCallEnd(
   }
 }
 
-/** 最新 run を復元（スナップショット＋全周の表示ログ）。無ければ null。 */
+/**
+ * 最新 run を復元する。全周ログは読まない（snapshot に現周ログ loopLog が入っているので、
+ * 現在の回帰はそれだけで復元できる）。過去の回帰は loadLoopTicks でオンデマンドに引く。
+ * 無ければ null。
+ */
 export function loadLatestRun(): {
   runId: number;
   snapshot: CampaignSnapshot;
-  log: TickResult[];
 } | null {
   const run = latestRun.get();
   if (!run) return null;
   const snapshot = JSON.parse(run.snapshot_json) as CampaignSnapshot;
-  const log = ticksForRun
-    .all(run.id)
-    .map((r) => JSON.parse(r.result_json) as TickResult);
   // 旧スキーマで保存された world に新フィールドが無い場合を補完（後方互換）
   for (const c of snapshot.world.characters) normalizeCharacter(c);
   for (const p of snapshot.world.places) normalizePlace(p);
   if (!snapshot.world.activeEvents) snapshot.world.activeEvents = [];
-  return { runId: run.id, snapshot, log };
+  return { runId: run.id, snapshot };
+}
+
+/** 指定した回帰（loop）の完全 ticks を日付順に引く（LoopPage の1周再生用）。 */
+export function loadLoopTicks(runId: number, loop: number): TickResult[] {
+  return loopTicks
+    .all(runId, loop)
+    .map((r) => JSON.parse(r.result_json) as TickResult);
+}
+
+/** char_metrics の1行（キャラ別ページが必要とする薄い軌跡）。 */
+export interface CharTraceRow {
+  loop: number;
+  day: number;
+  place_name: string;
+  diary: string;
+  died: number;
+  altruism: number;
+  stage: string;
+}
+
+/** 指定キャラの全周横断の軌跡を char_metrics から引く（重い TickResult は読まない）。 */
+export function loadCharacterTrace(runId: number, charId: string): CharTraceRow[] {
+  return charTrace.all(runId, charId);
 }
 
 /** 旧データに欠けている報酬・気分・執着・異能フィールドをデフォルトで補完する */

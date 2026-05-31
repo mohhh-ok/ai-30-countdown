@@ -17,7 +17,7 @@ import { CharacterPage } from "./pages/CharacterPage.tsx";
 import { SkillsPage } from "./pages/SkillsPage.tsx";
 import { CharAvatar } from "./components/CharAvatar.tsx";
 import { type Route, useHashRoute } from "./router.ts";
-import { allCharIds, loopNumbers, nameOfId, ticksOfLoop, unlockOf } from "./util.ts";
+import { allCharIds, nameOfId, ticksOfLoop, unlockOf } from "./util.ts";
 
 // サーバ側ワーカーが自走で世界を進める。UI は進行操作を持たず、一定間隔で最新状態を取りに行くだけ。
 const POLL_INTERVAL_MS = 3000;
@@ -26,19 +26,14 @@ const POLL_INTERVAL_MS = 3000;
 function SiteNav({
   route,
   chronicle,
-  log,
 }: {
   route: Route;
   chronicle: Chronicle | null;
-  log: TickResult[];
 }) {
-  const loops = loopNumbers(log);
+  // 周の総数は現在の回帰番号（chronicle.loop）そのもの。全周ログは持たない。
+  const loopCount = chronicle?.loop ?? 1;
   // ナビは全キャラを定義順で並べる。まだ登場（解放）していない子は名前を伏せて「???」に。
-  const appeared = new Set<string>(
-    chronicle
-      ? chronicle.roster
-      : log.flatMap((t) => t.characters.map((c) => c.id)),
-  );
+  const appeared = new Set<string>(chronicle?.roster ?? []);
   const charIds = allCharIds();
   const onLoop = route.name === "loops" || route.name === "loop";
   return (
@@ -47,7 +42,7 @@ function SiteNav({
         ホーム
       </a>
       <a className={onLoop ? "nav-on" : ""} href="#/loops">
-        回帰一覧{loops.length > 0 ? `（${loops.length}）` : ""}
+        回帰一覧{loopCount > 0 ? `（${loopCount}）` : ""}
       </a>
       <a className={route.name === "skills" ? "nav-on" : ""} href="#/skills">
         スキル一覧
@@ -161,13 +156,15 @@ export function App() {
   if (route.name !== "home") {
     return (
       <div className="app">
-        <SiteNav route={route} chronicle={chronicle} log={log} />
-        {route.name === "loops" && <LoopsPage log={log} chronicle={chronicle} />}
+        <SiteNav route={route} chronicle={chronicle} />
+        {route.name === "loops" && (
+          <LoopsPage chronicle={chronicle} currentDays={log.length} />
+        )}
         {route.name === "loop" && (
-          <LoopPage loop={route.loop} log={log} chronicle={chronicle} />
+          <LoopPage loop={route.loop} chronicle={chronicle} />
         )}
         {route.name === "char" && (
-          <CharacterPage id={route.id} log={log} chronicle={chronicle} />
+          <CharacterPage id={route.id} chronicle={chronicle} />
         )}
         {route.name === "skills" && <SkillsPage chronicle={chronicle} />}
       </div>
@@ -176,7 +173,7 @@ export function App() {
 
   return (
     <div className="app">
-      <SiteNav route={route} chronicle={chronicle} log={log} />
+      <SiteNav route={route} chronicle={chronicle} />
       <header className="topbar">
         <div className="title">
           <h1>30日のカウントダウン</h1>
