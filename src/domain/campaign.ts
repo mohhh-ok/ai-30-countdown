@@ -56,6 +56,7 @@ export function freshWorldFor(chronicle: Chronicle): WorldState {
   if (hero) {
     hero.energy += eff.startEnergyBonus;
     hero.params.trust = clampParam(hero.params.trust + eff.startTrustBonus);
+    hero.params.altruism = clampParam(hero.params.altruism + eff.startAltruismBonus);
   }
   return {
     day: 0,

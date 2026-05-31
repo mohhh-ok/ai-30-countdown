@@ -20,7 +20,8 @@ export const LEAN_PROBABILITY = 1 / 3;
 
 /**
  * 行動が「同じ場所にいる相手」を必要とするか。
- * share/talk/steal/deceive は相手前提。move/forage/rest は単独で可能。
+ * share/talk/steal/deceive/guard/threaten は相手前提。move/forage/rest/purify は単独で可能。
+ * follow は相手を要するが「離れた相手」を追うため別扱い（engine が独自に解決し、独りなら休む）。
  */
 export const NEEDS_PARTNER: Record<Action, boolean> = {
   forage: false,
@@ -30,6 +31,10 @@ export const NEEDS_PARTNER: Record<Action, boolean> = {
   steal: true,
   deceive: true,
   move: false,
+  follow: false,
+  purify: false,
+  guard: true,
+  threaten: true,
 };
 
 /**
@@ -62,6 +67,18 @@ export function actionEffect(
     case "move":
       // 移動はその日を費やすのみ（採取できないのが実質コスト）
       return { self: 0, partner: 0 };
+    case "follow":
+      // 寄り添う。相手の方へ動く/傍にいるだけで、霊力の直接増減はない（その日集霊できないのがコスト）
+      return { self: 0, partner: 0 };
+    case "purify":
+      // 祓いは身を削る。地の濁りを清めるが自らはわずかに消耗する（地への効果は engine が適用）
+      return { self: -2, partner: 0 };
+    case "guard":
+      // 庇いはその日を費やすのみ。被害の肩代わりは engine が steal/deceive/threaten 解決時に適用
+      return { self: 0, partner: 0 };
+    case "threaten":
+      // 脅し。奪うほどではないが圧をかけ、相手から少し奪い退ける（禁忌未満のグレー）
+      return { self: 5, partner: -5 };
   }
 }
 
@@ -184,9 +201,16 @@ export const REWARD = {
   rest: 6, // 休んで安らいだ（安らぎ）
   satiety: 4, // 満ち足りている（安らぎ）
   illicit: 16, // 奪う/欺くの背徳の快（背徳）
+  follow: 7, // 寄り添う・傍にいる（絆）
+  purify: 7, // 荒れた地を祓い清めた（安らぎ）
+  purifyQuiet: 3, // 濁りの無い地で静かに祈った（安らぎ・控えめ）
+  guard: 9, // 誰かを庇い守った（絆・利他の満足）
+  menace: 8, // 脅して退けた・供出させた（背徳・illicit より軽い）
   // --- ストレス（負・抗体つかない） ---
   ignored: -7, // 語りかけたのに無視された
   victim: -10, // 奪われた/欺かれた
+  menaced: -7, // 脅されて退いた・供出させられた
+  guardWound: -5, // 庇って傷を負った
   hungerScale: 0.7, // 飢えの深さ(satiety-energy)×係数 → ストレス
 } as const;
 

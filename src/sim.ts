@@ -115,6 +115,7 @@ function newCharacterTemplate(id: string, state: WorldState, patch: object): Cha
     core: "",
     background: "",
     initialLesson: "",
+    appearance: "",
     voice: "",
     growthAxis: "altruism",
     talent: "none",

@@ -16,6 +16,11 @@ export function createInitialCharacters(): Character[] {
       name: "ハル",
       core: "霊脈の独占を憎む、祓いの妖。冷静で口数は少ない。",
       background: "かつて霊脈の奪い合いで眷属を失った。",
+      appearance:
+        "A cool but charming spirit (ayakashi) of purification. " +
+        "Calm confident look with a tiny smile, bright perceptive eyes (the 'eye of insight'), " +
+        "fluffy ash-silver hair, stylish dark exorcist outfit with cute accents, " +
+        "a glowing pastel spirit-wisp dancing around the hands. A little aloof but likeable.",
       initialLesson: "だから誰とも深く組まず、己の分だけを頂いて生きる。",
       // 固定口調: クール系。テンション低めの塩対応、でも語尾はゆるい現代タメ口。
       voice:
@@ -47,6 +52,11 @@ export function createInitialCharacters(): Character[] {
       name: "ナギ",
       core: "見捨てられることを何より恐れる、結びの妖（巫女筋）。明るく世話焼き。",
       background: "かつて連なっていた眷属の輪から追われた。",
+      appearance:
+        "A cheerful, caring binding-spirit of miko (shrine-maiden) lineage. " +
+        "Big warm smile, sparkling kind eyes, long black hair with a cute red ribbon, " +
+        "white-and-vermilion miko attire, glowing pastel healing light woven between her fingers. " +
+        "Sunny, energetic, lovable.",
       initialLesson: "だから人に尽くし、霊を癒して、必要とされ続けようとする。",
       // 固定口調: ギャル系テンション高め。フレンドリーで距離感近い、構ってちゃん。
       voice:
@@ -77,6 +87,10 @@ export function createInitialCharacters(): Character[] {
       name: "カイ",
       core: "生き延びるため霊を喰らう、餓えた半妖。誰も信じない。",
       background: "略奪と飢えの地獄を、他者の霊を喰らうことで生き抜いてきた。",
+      appearance:
+        "A mischievous, scrappy half-spirit with a sly grin. " +
+        "Playful sharp eyes, spiky dark hair, patched traveler's clothes with cute details, " +
+        "little floating spooky-but-cute spirit-flames around the hands. Cheeky, restless, fun.",
       initialLesson: "信じれば喰われる。だから先に喰らう。",
       // 固定口調: イキり・挑発系。ガラ悪めの強気タメ口、でもどこか余裕ぶった軽さ。
       voice:
@@ -107,6 +121,11 @@ export function createInitialCharacters(): Character[] {
       name: "ソラ",
       core: "どこにも根を下ろさぬ、風来の妖。来ては去り、執着を笑う。",
       background: "戦と飢えで里が焼けた日、ただ一人だけ風に乗って逃げ延びた。",
+      appearance:
+        "A breezy, devil-may-care wanderer spirit. " +
+        "Easygoing half-smile, carefree half-lidded eyes, tousled windswept light-green hair, " +
+        "a loose travel-worn haori fluttering open with cute accents, " +
+        "a few pastel leaves drifting on the breeze around him. Free-spirited, unattached, hard to pin down.",
       initialLesson: "留まれば失う。だから根を張らず、風のように生きる。",
       // 固定口調: 飄々として軽い、達観したタメ口。とらえどころがない。
       voice:
@@ -137,6 +156,11 @@ export function createInitialCharacters(): Character[] {
       name: "シオリ",
       core: "古い約束に縛られた、社守りの神使。義に厚く、己を許さない。",
       background: "守ると誓った社は朽ち、守るべき主はもういない。",
+      appearance:
+        "A prim, dutiful shrine-guardian spirit (a kami's envoy). " +
+        "Composed earnest expression, neat upright posture, long straight dark hair tied back with a traditional cord, " +
+        "formal old-fashioned shrine-guardian attire in white and deep blue with cute accents, " +
+        "a soft pastel healing light gathered gently at her fingertips. Proper, a little stiff, but quietly kind.",
       initialLesson: "約束だけが己を律する。だから掟を曲げない。",
       // 固定口調: 折り目正しく硬い丁寧語。古風で生真面目。
       voice:

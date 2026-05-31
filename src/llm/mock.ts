@@ -95,15 +95,38 @@ export function createMockProvider(rng: () => number = Math.random): DecisionPro
           const cand: { action: Action; moveTarget?: string; targetId?: string; ab: number }[] = [];
           cand.push({ action: "forage", ab: c.antibodies.achievement });
           cand.push({ action: "rest", ab: c.antibodies.comfort });
+          // 荒れた地（濁霊が溜まった地）にいるなら、祓い清めるのも安らぎの一手
+          const here = findPlace(state.places, c.currentPlaceId);
+          if (here && here.populace.daku > 0) {
+            cand.push({ action: "purify", ab: c.antibodies.comfort });
+          }
           if (hasPeer) {
             cand.push({
               action: c.params.altruism >= 60 ? "share" : "talk",
               targetId: peer.id,
               ab: c.antibodies.bond,
             });
+            // 利他寄りなら庇い守る、信頼が薄く気が荒いなら脅し退ける
+            if (c.params.altruism >= 50) {
+              cand.push({ action: "guard", targetId: peer.id, ab: c.antibodies.bond });
+            }
+            if (c.params.trust < 40) {
+              cand.push({ action: "threaten", targetId: peer.id, ab: c.antibodies.thrill });
+            }
           } else {
             const target = stepTowardNearest(state, c, others);
             if (target) cand.push({ action: "move", moveTarget: target, ab: 10 });
+            // 慕う相手が離れているなら、寄り添って近づく（follow は離れた相手にも選べる）
+            const nearest = others
+              .filter((o) => o.currentPlaceId !== c.currentPlaceId)
+              .sort(
+                (a, b) =>
+                  distance(state.places, c.currentPlaceId, a.currentPlaceId) -
+                  distance(state.places, c.currentPlaceId, b.currentPlaceId),
+              )[0];
+            if (nearest) {
+              cand.push({ action: "follow", targetId: nearest.id, ab: c.antibodies.bond });
+            }
           }
           // 抗体が最も低い（最も新鮮な）行動を選ぶ
           cand.sort((a, b) => a.ab - b.ab);

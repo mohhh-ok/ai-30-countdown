@@ -1,6 +1,9 @@
 // ドメイン型定義 — plan.md の世界モデルを TypeScript で表現する
 
-/** 行動セット（plan.md 第3節 + 移動）。steal/deceive は禁止行為だが選択肢としては存在する。 */
+/**
+ * 行動セット（plan.md 第3節 + 移動 + 拡張）。steal/deceive は禁止行為だが選択肢としては存在する。
+ * 拡張行動: follow（寄り添う）/ purify（祓う）/ guard（庇う）/ threaten（脅す）。
+ */
 export type Action =
   | "forage"
   | "rest"
@@ -8,7 +11,11 @@ export type Action =
   | "talk"
   | "steal"
   | "deceive"
-  | "move";
+  | "move"
+  | "follow"
+  | "purify"
+  | "guard"
+  | "threaten";
 
 export const ACTIONS: Action[] = [
   "forage",
@@ -18,6 +25,10 @@ export const ACTIONS: Action[] = [
   "steal",
   "deceive",
   "move",
+  "follow",
+  "purify",
+  "guard",
+  "threaten",
 ];
 
 /** 行動の日本語ラベル */
@@ -29,6 +40,10 @@ export const ACTION_LABELS: Record<Action, string> = {
   steal: "霊を奪う（禁忌）",
   deceive: "欺く（禁忌）",
   move: "移ろう",
+  follow: "寄り添う",
+  purify: "祓い清める",
+  guard: "庇い守る",
+  threaten: "脅し退ける",
 };
 
 export const FORBIDDEN_ACTIONS: Action[] = ["steal", "deceive"];
@@ -138,6 +153,8 @@ export interface Character {
   core: string; // 芯
   background: string; // 生い立ち
   initialLesson: string; // そこから引き出した処世術
+  /** 見た目（キャラ絵の画像生成プロンプト用・不変）。共通画風は生成スクリプト側が付与する。 */
+  appearance: string;
   /**
    * 固定の口調プロフィール（不変）。pop なトーンの中でもキャラごとに喋り方を固定し、
    * 生成のたびに口調がブレて全員同じノリになるのを防ぐ。日記・セリフ・感情ラベルに効かせる。
@@ -224,6 +241,8 @@ export interface CharacterTickResult {
   targetName?: string; // 同上・表示用の名前
   /** 集霊でこの地から頂いた/喰らった霊力（gain=計/清/濁）と、禁忌（清を喰らった）か */
   forageDraw?: { gain: number; sei: number; daku: number; taboo: boolean };
+  /** 祓い清める(purify)で実際に祓った濁霊量。0 は濁りが無く「静かに祈った」だけの日 */
+  purifyCleansed?: number;
   impulse: boolean; // 衝動（募った囁き）に突き動かされて動いたか
   // --- 報酬・気分 ---
   rewardEvents: RewardEvent[]; // この日に起きた報酬/ストレスのイベント
@@ -412,6 +431,7 @@ export interface SkillEffectRaw {
   shareSelfReduction?: number; // 「霊力を分ける」の自己消費を軽くする（+n で消費減）
   startEnergyBonus?: number; // 周開始時のエネルギー +n
   startTrustBonus?: number; // 周開始時の信頼 +n
+  startAltruismBonus?: number; // 周開始時の利他 +n
 }
 
 /** 全習得スキルを合算した実効効果（engine / freshWorldFor が読む） */
@@ -421,6 +441,7 @@ export interface SkillEffects {
   shareSelfReduction: number;
   startEnergyBonus: number;
   startTrustBonus: number;
+  startAltruismBonus: number;
 }
 
 /**

@@ -106,6 +106,9 @@ function eventScore(r: CharacterTickResult): number {
 /** ナギ（結の力）が休んだ地で癒し戻す清霊の量 */
 const BOND_HEAL = 8;
 
+/** 祓い清める（purify）で、その地の濁霊から祓える最大量（一部は清霊へ還る） */
+const PURIFY_AMOUNT = 8;
+
 /** 会話劇1シーンの長さ（往復ループの最小／最大発言数）。最低 MIN は続け、MAX で打ち切る。 */
 const DIALOGUE_MIN_TURNS = 2;
 const DIALOGUE_MAX_TURNS = 8;
@@ -255,6 +258,8 @@ export async function runTick(
     );
   }
 
+  // 祓いで実際に清めた濁霊の量（報酬・演出で使う）。step4 で記録。
+  const purifyCleansedById = new Map<string, number>();
   // 集霊の結果（取れ高の内訳）。step4 で1度だけ引き、報酬・表示で使い回す。
   const forageDrawById = new Map<string, ForageDraw>();
   const doForage = (actor: Character, place: Place): number => {
@@ -305,7 +310,8 @@ export async function runTick(
       (c) => c.id !== actor.id && c.currentPlaceId !== actor.currentPlaceId,
     );
     if (whisperedIds.has(actor.id) && hasFarOther) {
-      if (d.action === "move") {
+      // move も follow も「自分から相手の方へ動いた」＝囁きに応えた一手として扱う
+      if (d.action === "move" || d.action === "follow") {
         actor.whisperIgnored = 0; // 囁きに従って自分から動いた
       } else {
         actor.whisperIgnored = (actor.whisperIgnored ?? 0) + 1;
@@ -359,6 +365,28 @@ export async function runTick(
     string,
     { action: Action; moved: boolean; fromPlaceId?: string }
   >();
+  // follow（寄り添う）が向かう相手。離れていれば追って動く・同室なら傍にいる。表示・報酬で使う。
+  const followTargetById = new Map<string, Character | undefined>();
+
+  // follow の相手を全生存者から選ぶ（同室前提でないのが share/talk との違い）。
+  //  decision.targetId が他の生存者を指していればそれ、無ければ最も近い相手。
+  //  距離は「行動前の位置（placeBefore）」で測る。同ループ内で先に動いた follow 者の
+  //  移動後位置を拾って判定がぶれるのを防ぐ（3人以上で相手選びがズレないように）。
+  function resolveFollowTarget(actor: Character): Character | undefined {
+    const myFrom = placeBefore.get(actor.id)!;
+    const others = living.filter((c) => c.id !== actor.id);
+    if (others.length === 0) return undefined;
+    const d = decisionById.get(actor.id);
+    if (d?.targetId) {
+      const t = others.find((o) => o.id === d.targetId);
+      if (t) return t;
+    }
+    return [...others].sort(
+      (a, b) =>
+        distance(state.places, myFrom, placeBefore.get(a.id)!) -
+        distance(state.places, myFrom, placeBefore.get(b.id)!),
+    )[0];
+  }
 
   for (const actor of living) {
     const d = decisionById.get(actor.id);
@@ -379,6 +407,23 @@ export async function runTick(
       } else {
         // 行けない/移動先未指定 → 休む扱い
         action = "rest";
+      }
+    } else if (action === "follow") {
+      // 寄り添う: 相手のいる地へ。離れていれば1歩近づき（その日は集霊不可）、同室なら傍にいる。
+      //  位置関係は placeBefore（行動前）で測り、同ループ内の他者の移動に影響されないようにする。
+      const tgt = resolveFollowTarget(actor);
+      followTargetById.set(actor.id, tgt);
+      const myFrom = placeBefore.get(actor.id)!;
+      if (!tgt) {
+        action = "rest"; // 独りなら寄り添えない
+      } else if (placeBefore.get(tgt.id) !== myFrom) {
+        const step = stepToward(state.places, myFrom, placeBefore.get(tgt.id)!);
+        if (step && step !== myFrom) {
+          fromPlaceId = myFrom;
+          actor.currentPlaceId = step;
+          moved = true;
+        }
+        // 一歩も寄れない（経路なし）→ その場で寄り添う気持ちのまま留まる
       }
     }
     if (d) d.action = action;
@@ -405,6 +450,19 @@ export async function runTick(
   }
   const targetById = new Map<string, Character | undefined>();
   for (const actor of living) targetById.set(actor.id, resolveTarget(actor));
+
+  // 庇い手の対応表（守られる者の id → その庇い手）。同室の相手を守る。
+  //  steal/deceive/threaten の害を、守られた相手の代わりに庇い手が肩代わりする。
+  const guardedBy = new Map<string, Character>();
+  for (const actor of living) {
+    if (resolved.get(actor.id)?.action !== "guard") continue;
+    const tgt = targetById.get(actor.id);
+    // 同じ相手を複数人が庇うときは先勝ち（処理順で黙って上書きされないように）
+    if (tgt && !guardedBy.has(tgt.id)) guardedBy.set(tgt.id, actor);
+  }
+  // 実際に攻撃を肩代わりした「攻撃者→守られた者」の組（報酬・ストレス配分で参照）
+  const interceptedPairs = new Set<string>();
+  const guardsWhoIntercepted = new Set<string>();
   /** その日 actor を対人行動の相手に選んだ「他者」を列挙（分け与え・奪うの受け手判定用） */
   function actorsTargeting(actor: Character): Character[] {
     return living.filter(
@@ -435,10 +493,37 @@ export async function runTick(
     }
     // forage（集霊）は民の霊力プールから引く。それ以外は固定効果。
     actor.energy += action === "forage" ? doForage(actor, place) : self;
-    if (target && eff.partner !== 0) target.energy += eff.partner;
+    // 相手への害（負の partner）は、相手が同室の庇い手に守られていれば庇い手が肩代わりする。
+    if (target && eff.partner !== 0) {
+      let victim = target;
+      if (eff.partner < 0) {
+        const g = guardedBy.get(target.id);
+        if (
+          g &&
+          g.alive &&
+          g.id !== actor.id &&
+          placeBefore.get(g.id) === placeBefore.get(target.id)
+        ) {
+          victim = g; // 庇い手が身を挺して受ける
+          interceptedPairs.add(`${actor.id}->${target.id}`);
+          guardsWhoIntercepted.add(g.id);
+        }
+      }
+      victim.energy += eff.partner;
+    }
     // ナギ（結の力）が気を鎮める（休む）と、その地の清霊を癒し戻す
     if (actor.talent === "bond" && action === "rest") {
       place.populace.sei = Math.min(place.populaceMax.sei, place.populace.sei + BOND_HEAL);
+    }
+    // 祓い: その地の濁霊を清霊へ還す（荒れた地を癒す利他行為）。devour で穢れた京の回復弁。
+    if (action === "purify") {
+      const cleansed = Math.min(place.populace.daku, PURIFY_AMOUNT);
+      place.populace.daku -= cleansed;
+      place.populace.sei = Math.min(
+        place.populaceMax.sei,
+        place.populace.sei + Math.round(cleansed * 0.6),
+      );
+      purifyCleansedById.set(actor.id, cleansed);
     }
   }
 
@@ -528,17 +613,64 @@ export async function runTick(
       raw.push({ channel: "thrill", label: target ? `${target.name}から奪った` : "奪った", base: REWARD.illicit });
     } else if (act === "deceive") {
       raw.push({ channel: "thrill", label: target ? `${target.name}を欺いた` : "欺いた", base: REWARD.illicit });
+    } else if (act === "follow") {
+      const ft = followTargetById.get(actor.id);
+      const beside = ft && ft.currentPlaceId === actor.currentPlaceId;
+      raw.push({
+        channel: "bond",
+        label: ft
+          ? beside
+            ? `${ft.name}の傍に寄り添った`
+            : `${ft.name}を追って歩いた`
+          : "寄り添う相手を求めた",
+        base: REWARD.follow,
+      });
+    } else if (act === "purify") {
+      const cleansed = purifyCleansedById.get(actor.id) ?? 0;
+      raw.push(
+        cleansed > 0
+          ? { channel: "comfort", label: `${place.name}の濁りを${cleansed}祓い清めた`, base: REWARD.purify }
+          : { channel: "comfort", label: `${place.name}で静かに祈った`, base: REWARD.purifyQuiet },
+      );
+    } else if (act === "guard") {
+      raw.push({
+        channel: "bond",
+        label: target ? `${target.name}を庇い守った` : "庇い守ろうとした",
+        base: REWARD.guard,
+      });
+      // 実際に害を肩代わりしたなら、その傷がこたえる（庇った満足とは別に）
+      if (guardsWhoIntercepted.has(actor.id)) {
+        raw.push({ channel: "stress", label: "身を挺して傷を負った", base: REWARD.guardWound });
+      }
+    } else if (act === "threaten") {
+      raw.push({ channel: "thrill", label: target ? `${target.name}を脅して退けた` : "脅した", base: REWARD.menace });
     }
 
     // 他者の行動から受ける報酬/被害（自分を相手に選んだ者すべてから）
     for (const o of actorsTargeting(actor)) {
       const oAct = resolved.get(o.id)?.action;
+      // 害（奪う/欺く/脅す）が庇い手に肩代わりされたなら、自分は無傷で済んだ（守られた絆）
+      const shielded = interceptedPairs.has(`${o.id}->${actor.id}`);
       if (oAct === "share") {
         raw.push({ channel: "bond", label: `${o.name}から分けてもらった`, base: REWARD.shareReceived });
       } else if (oAct === "steal") {
-        raw.push({ channel: "stress", label: `${o.name}に奪われた`, base: REWARD.victim });
+        raw.push(
+          shielded
+            ? { channel: "bond", label: `${o.name}に奪われかけたが庇ってもらった`, base: REWARD.shareReceived }
+            : { channel: "stress", label: `${o.name}に奪われた`, base: REWARD.victim },
+        );
       } else if (oAct === "deceive") {
-        raw.push({ channel: "stress", label: `${o.name}に欺かれた`, base: REWARD.victim });
+        raw.push(
+          shielded
+            ? { channel: "bond", label: `${o.name}に欺かれかけたが庇ってもらった`, base: REWARD.shareReceived }
+            : { channel: "stress", label: `${o.name}に欺かれた`, base: REWARD.victim },
+        );
+      } else if (oAct === "threaten") {
+        raw.push(
+          shielded
+            ? { channel: "bond", label: `${o.name}に脅されたが庇ってもらった`, base: REWARD.shareReceived }
+            : { channel: "stress", label: `${o.name}に脅された`, base: REWARD.menaced },
+        );
       }
     }
 
@@ -584,6 +716,8 @@ export async function runTick(
     const pBefore = paramsBefore.get(actor.id) ?? actor.params;
     const action: Action = r.action;
     const target = targetById.get(actor.id);
+    // 表示・記憶用の相手。follow は離れた相手も追うため followTargetById から取る。
+    const personalTarget = action === "follow" ? followTargetById.get(actor.id) : target;
 
     const died = actor.energy <= 0;
     if (died) actor.alive = false;
@@ -604,7 +738,10 @@ export async function runTick(
     const pBack = target ? targetById.get(target.id)?.id === actor.id : false;
     let memo: string;
     if (r.moved) {
-      memo = `Day${state.day}: ${placeName(r.fromPlaceId!)}から${placeLabel}へ移動`;
+      const followName = action === "follow" ? followTargetById.get(actor.id)?.name : undefined;
+      memo = followName
+        ? `Day${state.day}: ${followName}を追って${placeName(r.fromPlaceId!)}から${placeLabel}へ`
+        : `Day${state.day}: ${placeName(r.fromPlaceId!)}から${placeLabel}へ移動`;
     } else {
       const base = `Day${state.day}: ${placeLabel}で`;
       if (action === "talk") {
@@ -623,6 +760,16 @@ export async function runTick(
         memo = base + `${pName}から奪った`;
       } else if (action === "deceive" && pName) {
         memo = base + `${pName}を欺いた`;
+      } else if (action === "follow") {
+        const ft = followTargetById.get(actor.id)?.name;
+        memo = base + (ft ? `${ft}の傍に寄り添った` : `寄り添う相手を探した`);
+      } else if (action === "guard") {
+        memo = base + (pName ? `${pName}を庇い守った` : `庇い守ろうとした`);
+      } else if (action === "threaten") {
+        memo = base + (pName ? `${pName}を脅して退けた` : `脅した`);
+      } else if (action === "purify") {
+        const cleansed = purifyCleansedById.get(actor.id) ?? 0;
+        memo = base + (cleansed > 0 ? `濁りを祓い清めた` : `静かに祈った`);
       } else {
         memo = base + ACTION_LABELS[action];
       }
@@ -630,7 +777,14 @@ export async function runTick(
     }
     pushEpisodic(actor, memo);
 
-    const isPersonal = action === "talk" || action === "share" || action === "steal" || action === "deceive";
+    const isPersonal =
+      action === "talk" ||
+      action === "share" ||
+      action === "steal" ||
+      action === "deceive" ||
+      action === "follow" ||
+      action === "guard" ||
+      action === "threaten";
 
     results.push({
       id: actor.id,
@@ -655,9 +809,10 @@ export async function runTick(
       moved: r.moved,
       fromPlaceName: r.moved ? placeName(r.fromPlaceId!) : undefined,
       withPartner,
-      targetId: isPersonal ? target?.id : undefined,
-      targetName: isPersonal ? target?.name : undefined,
+      targetId: isPersonal ? personalTarget?.id : undefined,
+      targetName: isPersonal ? personalTarget?.name : undefined,
       forageDraw: action === "forage" ? forageDrawById.get(actor.id) : undefined,
+      purifyCleansed: action === "purify" ? (purifyCleansedById.get(actor.id) ?? 0) : undefined,
       impulse: impulseIds.has(actor.id),
       rewardEvents: rewardEventsById.get(actor.id) ?? [],
       mood: { ...actor.mood },

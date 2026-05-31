@@ -62,6 +62,33 @@ export const SKILLS: SkillDef[] = [
     measure: ({ hero }) => (hero.paramsAfter.altruism >= 70 ? 1 : 0),
     effect: { startEnergyBonus: 10 },
   },
+  {
+    id: "share_vessel",
+    name: "わかつ器",
+    description: "通算10度、霊力を分け与えると会得（周をまたいで蓄積）。器が深まり、分けるときの自己消費がさらに軽くなる。",
+    scope: "career",
+    threshold: 10,
+    measure: ({ hero }) => (hero.action === "share" && hero.targetId ? 1 : 0),
+    effect: { shareSelfReduction: 2 },
+  },
+  {
+    id: "pathfinder",
+    name: "道を知る者",
+    description: "通算20度、足で移動すると会得（周をまたいで蓄積）。独りの渓を出て他者へ向かう歩みに体が慣れ、日々の負荷が1軽くなる。",
+    scope: "career",
+    threshold: 20,
+    measure: ({ hero }) => (hero.action === "move" ? 1 : 0),
+    effect: { loadReduction: 1 },
+  },
+  {
+    id: "quiet_awakening",
+    name: "静かな悟り",
+    description: "通算10度、身を鎮めて休むと会得（周をまたいで蓄積）。独りの静けさの中で芯が澄み、次周以降は利他+8で目覚める。",
+    scope: "career",
+    threshold: 10,
+    measure: ({ hero }) => (hero.action === "rest" ? 1 : 0),
+    effect: { startAltruismBonus: 8 },
+  },
 ];
 
 const SKILL_BY_ID = new Map<SkillId, SkillDef>(SKILLS.map((s) => [s.id, s]));
@@ -120,6 +147,7 @@ export function noSkillEffects(): SkillEffects {
     shareSelfReduction: 0,
     startEnergyBonus: 0,
     startTrustBonus: 0,
+    startAltruismBonus: 0,
   };
 }
 
@@ -135,6 +163,7 @@ export function aggregateEffects(acquired: SkillId[]): SkillEffects {
     if (e.shareSelfReduction) eff.shareSelfReduction += e.shareSelfReduction;
     if (e.startEnergyBonus) eff.startEnergyBonus += e.startEnergyBonus;
     if (e.startTrustBonus) eff.startTrustBonus += e.startTrustBonus;
+    if (e.startAltruismBonus) eff.startAltruismBonus += e.startAltruismBonus;
   }
   return eff;
 }

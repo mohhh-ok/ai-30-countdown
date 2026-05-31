@@ -51,7 +51,10 @@ function vigorWord(e: number): string {
 /** その日その人が「何をしたか」を物語の言葉にする */
 function actStory(c: CharacterTickResult): string {
   if (c.died) return `${c.name}は、ここで消え去った…`;
-  if (c.moved) return `${c.name}は${c.fromPlaceName}から${c.placeName}へ移ろった`;
+  if (c.moved)
+    return c.action === "follow" && c.targetName
+      ? `${c.name}は${c.targetName}を慕って${c.placeName}へ近づいた`
+      : `${c.name}は${c.fromPlaceName}から${c.placeName}へ移ろった`;
   switch (c.action) {
     case "forage": {
       const dr = c.forageDraw;
@@ -78,6 +81,22 @@ function actStory(c: CharacterTickResult): string {
       return c.targetName
         ? `${c.name}は${c.targetName}を欺いた`
         : `${c.name}は欺いた`;
+    case "follow":
+      return c.targetName
+        ? `${c.name}は${c.targetName}の傍に寄り添った`
+        : `${c.name}は寄り添う相手を探した`;
+    case "purify":
+      return (c.purifyCleansed ?? 1) > 0
+        ? `${c.name}は${c.placeName}の濁りを祓い清めた`
+        : `${c.name}は${c.placeName}で静かに祈った`;
+    case "guard":
+      return c.targetName
+        ? `${c.name}は${c.targetName}を庇い守った`
+        : `${c.name}は身構えて守ろうとした`;
+    case "threaten":
+      return c.targetName
+        ? `${c.name}は${c.targetName}を脅して退けた`
+        : `${c.name}は気を荒らげた`;
     default:
       return `${c.name}はその日を過ごした`;
   }
@@ -86,7 +105,10 @@ function actStory(c: CharacterTickResult): string {
 /** 早回し用の短い行為ラベル（名前は別に出すので動詞句だけ） */
 function briefAct(c: CharacterTickResult): string {
   if (c.died) return "力尽きた…";
-  if (c.moved) return `${c.placeName}へ`;
+  if (c.moved)
+    return c.action === "follow" && c.targetName
+      ? `${c.targetName}を追って${c.placeName}へ`
+      : `${c.placeName}へ`;
   switch (c.action) {
     case "forage":
       return c.forageDraw?.taboo ? "禁忌の業" : "霊を集めた";
@@ -100,6 +122,14 @@ function briefAct(c: CharacterTickResult): string {
       return c.targetName ? `${c.targetName}から奪った` : "奪った";
     case "deceive":
       return c.targetName ? `${c.targetName}を欺いた` : "欺いた";
+    case "follow":
+      return c.targetName ? `${c.targetName}に寄り添い` : "寄り添う相手を探し";
+    case "purify":
+      return (c.purifyCleansed ?? 1) > 0 ? "濁りを祓い清めた" : "静かに祈った";
+    case "guard":
+      return c.targetName ? `${c.targetName}を庇い` : "守ろうとした";
+    case "threaten":
+      return c.targetName ? `${c.targetName}を脅し退け` : "気を荒らげた";
     default:
       return "日を過ごした";
   }

@@ -32,23 +32,8 @@ const STYLE = TRANSPARENT
   ? `${STYLE_BASE} Plain flat transparent background.`
   : `${STYLE_BASE} Simple bright pastel background with cute decorative motifs.`;
 
-// キャラ id → 見た目プロンプト（characters.ts の設定に対応。ポップ寄りに調整）
-const LOOKS: Record<string, string> = {
-  haru:
-    "A cool but charming spirit (ayakashi) of purification. " +
-    "Calm confident look with a tiny smile, bright perceptive eyes (the 'eye of insight'), " +
-    "fluffy ash-silver hair, stylish dark exorcist outfit with cute accents, " +
-    "a glowing pastel spirit-wisp dancing around the hands. A little aloof but likeable.",
-  nagi:
-    "A cheerful, caring binding-spirit of miko (shrine-maiden) lineage. " +
-    "Big warm smile, sparkling kind eyes, long black hair with a cute red ribbon, " +
-    "white-and-vermilion miko attire, glowing pastel healing light woven between her fingers. " +
-    "Sunny, energetic, lovable.",
-  kai:
-    "A mischievous, scrappy half-spirit with a sly grin. " +
-    "Playful sharp eyes, spiky dark hair, patched traveler's clothes with cute details, " +
-    "little floating spooky-but-cute spirit-flames around the hands. Cheeky, restless, fun.",
-};
+// ※ 各キャラの見た目プロンプトは characters.ts の `appearance` に統合済み。
+//   共通画風（STYLE）だけこのスクリプト側が付与する。
 
 async function generate(id: string, name: string, prompt: string, apiKey: string) {
   const body: Record<string, unknown> = { model: MODEL, prompt, size: SIZE, n: 1 };
@@ -99,7 +84,7 @@ async function main() {
   }
 
   for (const c of chars) {
-    const look = LOOKS[c.id] ?? c.core;
+    const look = c.appearance;
     const prompt = `${look}\n\n${STYLE}`;
     console.log(`… ${c.name} (${c.id}) を ${MODEL} で生成中`);
     await generate(c.id, c.name, prompt, apiKey);
