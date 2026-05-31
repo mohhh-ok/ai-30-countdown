@@ -138,6 +138,11 @@ export interface Character {
   core: string; // 芯
   background: string; // 生い立ち
   initialLesson: string; // そこから引き出した処世術
+  /**
+   * 固定の口調プロフィール（不変）。pop なトーンの中でもキャラごとに喋り方を固定し、
+   * 生成のたびに口調がブレて全員同じノリになるのを防ぐ。日記・セリフ・感情ラベルに効かせる。
+   */
+  voice: string;
   growthAxis: GrowthAxis; // 成長軸
   talent: Talent; // 異能（集霊のしかたに効く突き抜けた才能）
   /**

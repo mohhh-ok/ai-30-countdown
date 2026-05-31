@@ -83,7 +83,7 @@ function fallbackDecision(id: string): CharacterDecision {
   return {
     id,
     action: "forage",
-    diary: "……今日は、ただ生き延びる。",
+    diary: "とりまサバイブ最優先っしょ。",
     relationLabel: "",
     paramDeltas: {},
     deltaReason: "",

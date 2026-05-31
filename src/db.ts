@@ -5,6 +5,7 @@
 import { Database } from "bun:sqlite";
 import type { LlmCallTiming, TickResult, Weather, WorldState } from "./domain/types.ts";
 import type { CampaignSnapshot } from "./domain/campaign.ts";
+import { createInitialCharacters } from "./domain/characters.ts";
 
 const DB_PATH = process.env.DB_PATH ?? "data/world.db";
 
@@ -362,6 +363,19 @@ function normalizeCharacter(c: any): void {
     c.antibodies = { achievement: 0, bond: 0, comfort: 0, thrill: 0 };
   if (!c.mood) c.mood = { elation: 0, calm: 0, warmth: 0, stress: 0 };
   if (typeof c.talent !== "string") c.talent = "none";
+  // 固定口調（後付けフィールド）。旧データには無いので初期定義から id で補完する。
+  if (typeof c.voice !== "string" || !c.voice) {
+    c.voice = initialVoiceById().get(c.id) ?? "";
+  }
+}
+
+/** 初期定義の id→voice マップ（初回だけ生成してキャッシュ）。 */
+let _voiceById: Map<string, string> | null = null;
+function initialVoiceById(): Map<string, string> {
+  if (!_voiceById) {
+    _voiceById = new Map(createInitialCharacters().map((d) => [d.id, d.voice]));
+  }
+  return _voiceById;
 }
 
 /** 旧データに欠けている民の霊力プール（清/濁）を、その地の実りからの推定値で補完する */

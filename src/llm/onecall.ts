@@ -84,7 +84,7 @@ function fallbackDecision(id: string): CharacterDecision {
   return {
     id,
     action: "forage",
-    diary: "……今日は、ただ生き延びる。",
+    diary: "とりまサバイブ最優先っしょ。",
     relationLabel: "",
     paramDeltas: {},
     deltaReason: "",
@@ -168,8 +168,8 @@ function characterSubPrompt(state: WorldState, self: Character, others: Characte
   "action": "次のいずれか1つ: ${Object.keys(ACTION_LABELS).map((k) => `"${k}"`).join(", ")}",
   "moveTarget": "action が \\"move\\" のときだけ移ろう先の場所id。それ以外は空文字",
   "targetId": "action が talk/share/steal/deceive のときだけ相手キャラの id（同じ地にいる相手）。それ以外は空文字",
-  "diary": "一人称・一行の内省（日本語）",
-  "relationLabel": "相手への現在の感情ラベル（短い語）",
+  "diary": "一人称・一行の内省（日本語・pop口調。タメ口で軽快に、記号や絵文字も可）",
+  "relationLabel": "相手への現在の感情ラベル（pop口調の口語ひと言。例: ガチ警戒 / なんか好き / マジ無理 など）",
   "paramDeltas": { "altruism": 整数(-5〜5), "independence": 整数(-5〜5), "trust": 整数(-5〜5) },
   "deltaReason": "パラメータを動かした理由を一行で。動かさないなら空文字"
 }`;

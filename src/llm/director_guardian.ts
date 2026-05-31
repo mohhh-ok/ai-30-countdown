@@ -50,10 +50,11 @@ const SYSTEM_PROMPT = `あなたは、ある小さな世界を見守る「演出
 - 各登場人物には「専属で1体ずつ」守護神が憑く。あなたは演出家として「この者をどう動かしたいか」を directives に書き、
   同時にその守護神として、それを **本人の芯と今の気分に根ざした一人称の内なる声(whisper)** に翻訳する。
 - 命令口調にしない（背中をそっと押す／迷いを言葉にする／欲求を自覚させる）。芯に反する強制はしない（強いても本人は抗う）。
+- whisper は本人の内なる声なので、その者の「固定口調」に合わせて全振りで“pop”に（タメ口・軽快、記号や絵文字も可）。古めかしい言い回しは使わない。
 - directive を与えた各キャラには必ず対応する whisper を作る。囁きが「演出家の見たい絵」を体現するようにする。
 - 介入が要らないキャラには directive も whisper も付けなくてよい。
 
-ナレーションは観客向けの一人称の地の文。短く、情景と次への引きを込めて。芝居がかってよい。
+ナレーションは観客向けの地の文。トーンは全振りで“pop”に：実況・煽り系のノリで軽快に短く、情景と次への引きを込めて（例:「霊力ガス欠寸前!?今日のサバイバルやいかに〜！」）。古めかしい言い回しは使わず、感嘆符や「!?」「〜」も気軽に。
 必ず指定の JSON だけを出力し、説明文を付けないこと。`;
 
 const TENSION_LABEL: Record<Tension, string> = {
@@ -75,7 +76,7 @@ function buildUserPrompt(state: WorldState, tension: Tension, recentLog: TickRes
       const place = findPlace(state.places, c.currentPlaceId)?.name ?? c.currentPlaceId;
       const t = temperamentText(c.params);
       const lastDiary = c.diary.length ? c.diary[c.diary.length - 1] : "（なし）";
-      return `- ${c.name}(id:${c.id}): 霊力${c.energy} @${place} ｜ 気分(高揚${c.mood.elation}/温${c.mood.warmth}/安${c.mood.calm}/ストレス${c.mood.stress}) ｜ 気質 利他=${t.altruism}/自立=${t.independence}/信頼=${t.trust} ｜ 相手への感情:${c.relationLabel} ｜ 胸の内:「${lastDiary}」`;
+      return `- ${c.name}(id:${c.id}): 霊力${c.energy} @${place} ｜ 気分(高揚${c.mood.elation}/温${c.mood.warmth}/安${c.mood.calm}/ストレス${c.mood.stress}) ｜ 気質 利他=${t.altruism}/自立=${t.independence}/信頼=${t.trust} ｜ 相手への感情:${c.relationLabel} ｜ 胸の内:「${lastDiary}」｜ 固定口調(囁きはこの喋り方で): ${c.voice}`;
     })
     .join("\n");
 
