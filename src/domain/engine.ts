@@ -565,6 +565,29 @@ export async function runTick(
     const safeDeltas = sanitizeParamDeltas(d.paramDeltas);
     d.paramDeltas = safeDeltas;
     actor.params = applyDeltas(actor.params, safeDeltas);
+
+    // 利他フィードバック（決定論・LLM 裁量とは別の底上げ）。
+    //  利他の芯にかなう行い「分け与える／祓い清める／庇い守る／寄り添う」を実際に
+    //  成立させた日は、利他をわずかに底上げする。これが無いと利他が LLM 裁量だけでは
+    //  伸び切らず、利他に依る会得スキル（独りを断つ=70 等）やキャラ解放（利他85）が
+    //  実プレイで永遠に届かない（到達可能性アウディットの 🔴 対策）。
+    const myAction = resolved.get(actor.id)?.action;
+    let altruismBonus = 0;
+    if (myAction === "share" && targetById.get(actor.id)) altruismBonus = 2; // 分与の成立
+    else if (myAction === "purify" && (purifyCleansedById.get(actor.id) ?? 0) > 0)
+      altruismBonus = 2; // 荒れ地を実際に清めた
+    else if (myAction === "guard" && targetById.get(actor.id)) altruismBonus = 1; // 庇いに立った
+    else if (myAction === "follow" && followTargetById.get(actor.id)) altruismBonus = 1; // 寄り添いに動いた（離れた相手も含む）
+    if (altruismBonus > 0) {
+      actor.params.altruism = clampParam(actor.params.altruism + altruismBonus);
+      // 楽屋ビュー（TickLog）の表示が実変動とズレないよう、ボーナス分も paramDeltas に反映する。
+      // ※sanitize（±5・最大2項目）は通過済み。これは表示用の事後加算。
+      d.paramDeltas = {
+        ...d.paramDeltas,
+        altruism: (d.paramDeltas.altruism ?? 0) + altruismBonus,
+      };
+    }
+
     if (d.relationLabel) actor.relationLabel = d.relationLabel;
     if (d.diary) actor.diary.push(d.diary);
   }
