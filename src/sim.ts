@@ -232,17 +232,18 @@ if (values.mock) {
     if (!values["no-dialogue"]) dialogueProvider = p.dialogue;
     backendLabel += " (onecall)";
   } else {
+    // 通常パス: 逐次段を削った構成（decide 並列 / 会話一括 / director+guardian 統合）。
     const { createDecisionProvider } = await import("./llm/decide.ts");
     provider = createDecisionProvider();
     if (!values["no-dialogue"]) {
-      const { createDialogueProvider } = await import("./llm/dialogue.ts");
-      dialogueProvider = createDialogueProvider();
+      const { createOneShotDialogueProvider } = await import("./llm/dialogue.ts");
+      dialogueProvider = createOneShotDialogueProvider();
     }
     if (values.director) {
-      const { createDirectorProvider } = await import("./llm/director.ts");
-      directorProvider = createDirectorProvider();
-      const { createGuardianProvider } = await import("./llm/guardian.ts");
-      guardianProvider = createGuardianProvider();
+      const { createDirectorGuardianProviders } = await import("./llm/director_guardian.ts");
+      const dg = createDirectorGuardianProviders();
+      directorProvider = dg.director;
+      guardianProvider = dg.guardian;
     }
   }
 }

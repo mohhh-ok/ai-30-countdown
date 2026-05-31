@@ -4,9 +4,8 @@ import type { TickResult } from "./domain/types.ts";
 import { runTick } from "./domain/engine.ts";
 import { Campaign } from "./domain/campaign.ts";
 import { createDecisionProvider } from "./llm/decide.ts";
-import { createDialogueProvider } from "./llm/dialogue.ts";
-import { createDirectorProvider } from "./llm/director.ts";
-import { createGuardianProvider } from "./llm/guardian.ts";
+import { createOneShotDialogueProvider } from "./llm/dialogue.ts";
+import { createDirectorGuardianProviders } from "./llm/director_guardian.ts";
 import { createOneCallProviders } from "./llm/onecall.ts";
 import { MODEL as OLLAMA_MODEL, BACKEND_NAME, ping } from "./llm/backend.ts";
 import { beginTickTiming, endTickTiming } from "./llm/timing.ts";
@@ -44,10 +43,13 @@ const onecall =
   BACKEND_NAME === "claude-code" &&
   (process.env.LLM_ONECALL === "1" || process.env.LLM_ONECALL === "true");
 const onecallProviders = onecall ? createOneCallProviders() : null;
+// 通常パス（onecall でないとき）は逐次段を削った構成:
+//   director+guardian を1コールに統合 / decide は並列(キャラ増でも wall-clock 一定) / 会話は一括生成。
+const dirGuard = onecallProviders ? null : createDirectorGuardianProviders();
 const provider = onecallProviders?.decision ?? createDecisionProvider();
-const dialogueProvider = onecallProviders?.dialogue ?? createDialogueProvider();
-const directorProvider = onecallProviders?.director ?? createDirectorProvider();
-const guardianProvider = onecallProviders?.guardian ?? createGuardianProvider();
+const dialogueProvider = onecallProviders?.dialogue ?? createOneShotDialogueProvider();
+const directorProvider = onecallProviders?.director ?? dirGuard!.director;
+const guardianProvider = onecallProviders?.guardian ?? dirGuard!.guardian;
 
 // 同時 tick を防ぐ簡易ロック（LLM 呼び出し中の二重押し対策）
 let ticking = false;
