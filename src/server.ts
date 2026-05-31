@@ -15,6 +15,7 @@ import {
   loadLatestCampaign,
   saveCampaign,
   saveLlmTimings,
+  saveSkillAudit,
 } from "./db.ts";
 import index from "./web/index.html";
 
@@ -94,6 +95,21 @@ async function runOneTick(): Promise<TickResult> {
   // 永続化（年代記スナップショット + 表示用ログ + LLM計測の正規化行）
   saveCampaign(campaignId, campaign.snapshot(), tickLog);
   saveLlmTimings("campaign", campaignId, result.loop ?? 1, result.day, result.llmTimings);
+  // 到達可能性の監査ログ（毎 tick のスキル進捗・利他・解放ロスターのスナップ）。
+  // loop スコープのスキルは周頭でリセットされるため、毎日残して時系列で最大到達を追えるようにする。
+  // loop は recordTick が result に付与した「その tick が起きた周」を使う（回帰した tick では
+  // chronicle.loop は既に次周へ加算済みなので、フォールバックは next-loop ではなく 1 にする）。
+  // heroAltruism はその日のハル利他。ハルが result に居ない日は 0（peak 値で誤魔化さない）。
+  const heroResult = result.characters.find((c) => c.id === campaign.protagonistId);
+  saveSkillAudit(campaignId, {
+    loop: result.loop ?? 1,
+    day: result.day,
+    heroAltruism: heroResult?.paramsAfter.altruism ?? 0,
+    peakAltruism: campaign.chronicle.heroPeakAltruism,
+    acquired: [...campaign.chronicle.skills.acquired],
+    progress: { ...campaign.chronicle.skills.progress },
+    roster: [...campaign.chronicle.roster],
+  });
   return result;
 }
 

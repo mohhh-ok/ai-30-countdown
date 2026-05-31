@@ -130,6 +130,30 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_calls_status ON llm_calls(status, id);
+
+  -- スキル会得／キャラ解放の「到達可能性」監査ログ。毎 tick 1 行、その時点の
+  -- スキル進捗・習得・ハル利他・解放ロスターのスナップを残す（campaign の時系列）。
+  -- snapshot_json は「今の値」しか持たないため、loop スコープのスキルは周頭でリセットされ
+  -- 「毎周どこまで届いたか」が追えない。この表に毎 tick 残すことで、
+  --   ・通算何周回っても progress が伸びないスキル（＝実質会得不能）
+  --   ・条件に永久に届かないキャラ
+  -- を scripts/audit-reachability.ts が時系列で炙り出せる。1 行 INSERT は LLM 待ちに対し誤差。
+  -- 主キー (campaign_id, loop, day) ＋ INSERT OR REPLACE なので「同一周・同日」を二度記録すると
+  -- 後者で上書きする（冪等＝tick リトライ等で重複させない）。通常は 1 tick = 1 行。
+  CREATE TABLE IF NOT EXISTS skill_audit (
+    campaign_id   INTEGER NOT NULL,
+    loop          INTEGER NOT NULL,
+    day           INTEGER NOT NULL,
+    ts            TEXT NOT NULL,
+    hero_altruism REAL NOT NULL,        -- その日のハル利他（現在値）
+    peak_altruism REAL NOT NULL,        -- 通算ピーク利他（heroPeakAltruism）
+    acquired_json TEXT NOT NULL,        -- 習得済みスキル id 配列
+    progress_json TEXT NOT NULL,        -- 全スキルの進捗カウンタ（measure の痕跡）
+    roster_json   TEXT NOT NULL,        -- 解放済みキャラ id 配列
+    PRIMARY KEY (campaign_id, loop, day)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_skill_audit_campaign ON skill_audit(campaign_id, loop, day);
 `);
 
 // --- prepared statements ---
@@ -413,6 +437,42 @@ export function saveCampaign(
   log: TickResult[],
 ): void {
   updateCampaign.run(JSON.stringify(snapshot), JSON.stringify(log), id);
+}
+
+const insertSkillAudit = db.query(
+  `INSERT OR REPLACE INTO skill_audit
+   (campaign_id, loop, day, ts, hero_altruism, peak_altruism, acquired_json, progress_json, roster_json)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+);
+
+/**
+ * 到達可能性の監査ログを 1 tick ぶん記録する。
+ * loop/day はその日に起きた tick の値（result.loop / result.day）を渡す。
+ * progress は周頭でリセットされるため、毎 tick 残して時系列で最大到達を追えるようにする。
+ */
+export function saveSkillAudit(
+  campaignId: number,
+  audit: {
+    loop: number;
+    day: number;
+    heroAltruism: number;
+    peakAltruism: number;
+    acquired: string[];
+    progress: Record<string, number>;
+    roster: string[];
+  },
+): void {
+  insertSkillAudit.run(
+    campaignId,
+    audit.loop,
+    audit.day,
+    nowISO(),
+    audit.heroAltruism,
+    audit.peakAltruism,
+    JSON.stringify(audit.acquired),
+    JSON.stringify(audit.progress),
+    JSON.stringify(audit.roster),
+  );
 }
 
 /** 最新キャンペーンを復元。無ければ null。 */
