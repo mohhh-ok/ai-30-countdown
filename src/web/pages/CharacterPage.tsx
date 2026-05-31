@@ -91,11 +91,23 @@ export function CharacterPage({
 
       {def && (
         <div className="char-profile">
-          <p className="char-core">{def.core}</p>
-          <p className="char-traits">
-            <span>異能: {TALENT_LABEL[def.talent]}</span>
-            <span>処世術: {def.initialLesson}</span>
-          </p>
+          <img
+            className="char-portrait"
+            src={`/assets/characters/${def.id}.webp`}
+            alt={def.name}
+            loading="lazy"
+            onError={(e) => {
+              // まだ絵を生成していないキャラでは枠ごと隠す
+              e.currentTarget.style.display = "none";
+            }}
+          />
+          <div className="char-profile-text">
+            <p className="char-core">{def.core}</p>
+            <p className="char-traits">
+              <span>異能: {TALENT_LABEL[def.talent]}</span>
+              <span>処世術: {def.initialLesson}</span>
+            </p>
+          </div>
         </div>
       )}
 

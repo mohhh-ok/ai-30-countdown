@@ -143,6 +143,18 @@ const server = Bun.serve({
       },
     },
 
+    // キャラ絵（assets/characters/<id>.webp）。ファイル名以外の文字は除去（パストラバーサル対策）。
+    "/assets/characters/:file": {
+      GET: async (req) => {
+        const safe = req.params.file.replace(/[^a-z0-9_.-]/gi, "");
+        const f = Bun.file(`assets/characters/${safe}`);
+        if (!(await f.exists())) return new Response("not found", { status: 404 });
+        return new Response(f, {
+          headers: { "Cache-Control": "public, max-age=86400" },
+        });
+      },
+    },
+
     "/api/reset": {
       POST: () => {
         // 新しい年代記を始める（過去キャンペーンは履歴として DB に残す）

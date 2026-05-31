@@ -1,3 +1,8 @@
+# 環境変数（APIキー等）
+.env
+.env.*
+!.env.example
+
 # 依存
 node_modules/
 
@@ -19,3 +24,6 @@ data/
 # 一時ファイル
 *.tmp
 tmp/
+
+# Playwright MCP の生成物
+.playwright-mcp/
