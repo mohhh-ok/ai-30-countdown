@@ -11,9 +11,10 @@ import { MODEL as OLLAMA_MODEL, BACKEND_NAME, ping } from "./llm/backend.ts";
 import { beginTickTiming, endTickTiming } from "./llm/timing.ts";
 import { llog } from "./llm/log.ts";
 import {
-  createCampaign,
-  loadLatestCampaign,
-  saveCampaign,
+  createRun,
+  loadLatestRun,
+  saveRunSnapshot,
+  saveTick,
   saveLlmTimings,
   saveSkillAudit,
 } from "./db.ts";
@@ -22,20 +23,20 @@ import index from "./web/index.html";
 // --- セッション状態（回帰: ハルが力尽きるたび Day1 へ巻き戻る年代記） ---
 let campaign: Campaign;
 let tickLog: TickResult[]; // 全周をまたいだ表示用ログ
-let campaignId: number;
+let runId: number;
 
-const restored = loadLatestCampaign();
+const restored = loadLatestRun();
 if (restored) {
   campaign = Campaign.restore(restored.snapshot);
   tickLog = restored.log;
-  campaignId = restored.id;
+  runId = restored.runId;
   console.log(
-    `   復元: campaign #${campaignId}（Loop ${campaign.chronicle.loop}・Day ${campaign.world.day}・${tickLog.length}日分のログ）`,
+    `   復元: run #${runId}（Loop ${campaign.chronicle.loop}・Day ${campaign.world.day}・${tickLog.length}日分のログ）`,
   );
 } else {
   campaign = new Campaign();
   tickLog = [];
-  campaignId = createCampaign(campaign.snapshot(), OLLAMA_MODEL);
+  runId = createRun(campaign.snapshot(), OLLAMA_MODEL);
 }
 
 // LLM_ONECALL=1 のときは、1プロセスの claude -p が Task で全役を分担し1ティックを1 JSONで返す
@@ -92,16 +93,18 @@ async function runOneTick(): Promise<TickResult> {
   });
   campaign.recordTick(result); // スキル進捗・キャラ解放・回帰判定
   tickLog.push(result);
-  // 永続化（年代記スナップショット + 表示用ログ + LLM計測の正規化行）
-  saveCampaign(campaignId, campaign.snapshot(), tickLog);
-  saveLlmTimings("campaign", campaignId, result.loop ?? 1, result.day, result.llmTimings);
+  // 永続化（復元スナップショット1本 + その日の tick 行 + LLM計測の正規化行）
+  // 表示ログは tickLog を丸ごと書き戻すのではなく、ticks に1日1行だけ足す（肥大しない）。
+  saveTick(runId, result);
+  saveRunSnapshot(runId, campaign.snapshot());
+  saveLlmTimings(runId, result.loop ?? 1, result.day, result.llmTimings);
   // 到達可能性の監査ログ（毎 tick のスキル進捗・利他・解放ロスターのスナップ）。
   // loop スコープのスキルは周頭でリセットされるため、毎日残して時系列で最大到達を追えるようにする。
   // loop は recordTick が result に付与した「その tick が起きた周」を使う（回帰した tick では
   // chronicle.loop は既に次周へ加算済みなので、フォールバックは next-loop ではなく 1 にする）。
   // heroAltruism はその日のハル利他。ハルが result に居ない日は 0（peak 値で誤魔化さない）。
   const heroResult = result.characters.find((c) => c.id === campaign.protagonistId);
-  saveSkillAudit(campaignId, {
+  saveSkillAudit(runId, {
     loop: result.loop ?? 1,
     day: result.day,
     heroAltruism: heroResult?.paramsAfter.altruism ?? 0,

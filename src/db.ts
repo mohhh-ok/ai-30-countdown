@@ -1,7 +1,22 @@
 // SQLite 永続化（bun:sqlite・依存ゼロ）。
-// - runs:         1回のシミュレーション（リセットごとに新 run）。state スナップショットも持つ。
-// - ticks:        各日の TickResult を丸ごと JSON 保存（表示・復元用）。
+//
+// 設計方針（一系統・サロゲートキー）:
+// - runs:         1つの年代記（回帰をまたぐ1セッション）。復元用スナップショット(JSON)を1本持つ。
+//                 CLI(sim.ts) と Web(server.ts) の双方がこの同じスキーマに保存する（テーブルは一系統）。
+//                 開発と本番は DB_PATH でファイルを分けるだけ（スキーマは共通）。
+// - ticks:        各日の TickResult を1日1行で保存（表示・復元用）。表示ログはここから ORDER BY で組む。
 // - char_metrics: 成長曲線・行動分析用に正規化した1日×1人の薄い行。
+// - dialogues:    その日の会話行。
+// - llm_timings:  LLM 呼び出し1回ぶんの所要時間（ボトルネック分析）。
+// - llm_calls:    LLM 呼び出しの発火ログ（進行中でも「今叩いているか」を見るため）。
+// - skill_audit:  スキル会得／キャラ解放の到達可能性監査ログ（毎 tick のスナップ）。
+//
+// 主キーは全テーブル サロゲート id(AUTOINCREMENT)。回帰で day が周ごとに 1 に戻っても、
+// 自然キーを PK にしないので衝突という概念自体が無い。同一 tick の冪等な再保存は
+// UNIQUE(run_id, loop, day, …) ＋ INSERT OR REPLACE で担保する。
+// 注意: INSERT OR REPLACE は UNIQUE 衝突時に「既存行を DELETE→INSERT」するため、再保存のたびに
+//       ticks.id / char_metrics.id などのサロゲート id は変わる。これらは外部から FK 参照しない前提
+//       （復元は (run_id) で引き ORDER BY loop,day するだけ）なので、id が変わっても影響しない。
 import { Database } from "bun:sqlite";
 import type { LlmCallTiming, TickResult, Weather, WorldState } from "./domain/types.ts";
 import type { CampaignSnapshot } from "./domain/campaign.ts";
@@ -23,28 +38,37 @@ db.exec("PRAGMA journal_mode = WAL;");
 db.exec("PRAGMA foreign_keys = ON;");
 
 db.exec(`
+  -- 1つの年代記（回帰をまたぐ1セッション）。復元に必要な現在状態を snapshot_json に1本持つ。
+  -- snapshot は「現在の世界＋年代記＋現周ログ」だけ（現周ログは回帰でリセットされるので肥大しない）。
+  -- 全周の表示ログは ticks 側に1日1行で積むので、ここに巨大ログを持たせない。
   CREATE TABLE IF NOT EXISTS runs (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    started_at      TEXT NOT NULL,
-    model           TEXT NOT NULL,
-    finished        INTEGER NOT NULL DEFAULT 0,
-    last_day        INTEGER NOT NULL DEFAULT 0,
-    state_json      TEXT NOT NULL,
-    weather_history TEXT NOT NULL DEFAULT '[]'
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    started_at    TEXT NOT NULL,
+    model         TEXT NOT NULL,
+    finished      INTEGER NOT NULL DEFAULT 0,
+    last_loop     INTEGER NOT NULL DEFAULT 1,
+    last_day      INTEGER NOT NULL DEFAULT 0,
+    snapshot_json TEXT NOT NULL
   );
 
   CREATE TABLE IF NOT EXISTS ticks (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
     run_id      INTEGER NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+    loop        INTEGER NOT NULL,
     day         INTEGER NOT NULL,
     weather     TEXT NOT NULL,
     notable     TEXT NOT NULL,
     result_json TEXT NOT NULL,
     created_at  TEXT NOT NULL,
-    PRIMARY KEY (run_id, day)
+    UNIQUE (run_id, loop, day)
   );
 
+  CREATE INDEX IF NOT EXISTS idx_ticks_run ON ticks(run_id, loop, day);
+
   CREATE TABLE IF NOT EXISTS char_metrics (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
     run_id        INTEGER NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+    loop          INTEGER NOT NULL,
     day           INTEGER NOT NULL,
     char_id       TEXT NOT NULL,
     name          TEXT NOT NULL,
@@ -63,38 +87,28 @@ db.exec(`
     relation      TEXT NOT NULL,
     delta_reason  TEXT NOT NULL,
     died          INTEGER NOT NULL,
-    PRIMARY KEY (run_id, day, char_id)
+    UNIQUE (run_id, loop, day, char_id)
   );
 
-  CREATE INDEX IF NOT EXISTS idx_metrics_char ON char_metrics(run_id, char_id, day);
+  CREATE INDEX IF NOT EXISTS idx_metrics_char ON char_metrics(run_id, char_id, loop, day);
 
   CREATE TABLE IF NOT EXISTS dialogues (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
     run_id       INTEGER NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+    loop         INTEGER NOT NULL,
     day          INTEGER NOT NULL,
     seq          INTEGER NOT NULL,
     speaker_id   TEXT NOT NULL,
     speaker_name TEXT NOT NULL,
     text         TEXT NOT NULL,
-    PRIMARY KEY (run_id, day, seq)
-  );
-
-  -- 回帰（キャンペーン）の永続化。1 campaign = 回帰をまたぐ1つの年代記。
-  -- 周回ごとに day が 1 に戻るため正規化テーブルでは PK が衝突する。
-  -- そこで年代記まるごと（chronicle/world/天候/現周ログ）と表示用ログを JSON で保存する。
-  CREATE TABLE IF NOT EXISTS campaigns (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    started_at    TEXT NOT NULL,
-    model         TEXT NOT NULL,
-    snapshot_json TEXT NOT NULL,
-    log_json      TEXT NOT NULL DEFAULT '[]'
+    UNIQUE (run_id, loop, day, seq)
   );
 
   -- LLM 呼び出し1回ぶんの所要時間（ボトルネック分析用に正規化）。
-  -- scope/ref_id で run か campaign のどちらに属すかを区別する（PK を共有しない別系統のため）。
-  -- 同一 (scope, ref_id, loop, day) は保存し直しのたびに delete→insert で入れ替える（冪等）。
+  -- 同一 (run_id, loop, day) は保存し直すたびに delete→insert で入れ替える（冪等）。
   CREATE TABLE IF NOT EXISTS llm_timings (
-    scope      TEXT NOT NULL,            -- 'run' | 'campaign'
-    ref_id     INTEGER NOT NULL,         -- run_id か campaign_id
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id     INTEGER NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
     loop       INTEGER NOT NULL DEFAULT 1,
     day        INTEGER NOT NULL,
     seq        INTEGER NOT NULL,         -- その日の呼び出し順（0始まり）
@@ -105,43 +119,43 @@ db.exec(`
     ok         INTEGER NOT NULL,         -- 成功=1 / 失敗（リトライ試行）=0
     chars      INTEGER NOT NULL,         -- 応答文字数
     created_at TEXT NOT NULL,
-    PRIMARY KEY (scope, ref_id, loop, day, seq)
+    UNIQUE (run_id, loop, day, seq)
   );
 
-  CREATE INDEX IF NOT EXISTS idx_timings_ref ON llm_timings(scope, ref_id, day);
+  CREATE INDEX IF NOT EXISTS idx_timings_ref ON llm_timings(run_id, loop, day);
   CREATE INDEX IF NOT EXISTS idx_timings_label ON llm_timings(label);
 
-  -- LLM 呼び出しの「発火ログ」。叩いた瞬間に1行（status='started'）を残し、
-  -- 完了時に status/ms/chars/finished_at を更新する。tick の集計(llm_timings)とは別系統で、
-  -- 「いま実際に叩いているか／どこで詰まっているか」を進行中でも DB から確認できる。
-  -- status='started' のまま残っている行 = 未完了（ハングやプロセス強制終了の痕跡）。
+  -- LLM 呼び出しの「発火ログ」。叩いた瞬間に1行(status='started')を残し、完了時に更新する。
+  -- tick の集計(llm_timings)とは別系統で、「いま実際に叩いているか／どこで詰まっているか」を
+  -- 進行中でも DB から確認できる。status='started' のまま残る行 = 未完了（ハングや強制終了の痕跡）。
   CREATE TABLE IF NOT EXISTS llm_calls (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     started_at  TEXT NOT NULL,
-    label       TEXT NOT NULL,            -- 種別/対象（decide:haru / dialogue / director / onecall ...）
+    label       TEXT NOT NULL,
     backend     TEXT NOT NULL,
     model       TEXT NOT NULL,
-    agentic     INTEGER NOT NULL DEFAULT 0, -- Task サブエージェント解禁で叩いたか（onecall）
+    agentic     INTEGER NOT NULL DEFAULT 0,
     status      TEXT NOT NULL,            -- 'started' | 'ok' | 'error'
-    ms          INTEGER,                  -- 所要ミリ秒（完了時に埋める）
-    chars       INTEGER,                  -- 応答文字数（完了時）
-    finished_at TEXT,                     -- 完了時刻
-    error       TEXT                      -- 失敗時のメッセージ
+    ms          INTEGER,
+    chars       INTEGER,
+    finished_at TEXT,
+    error       TEXT
   );
 
   CREATE INDEX IF NOT EXISTS idx_calls_status ON llm_calls(status, id);
 
   -- スキル会得／キャラ解放の「到達可能性」監査ログ。毎 tick 1 行、その時点の
-  -- スキル進捗・習得・ハル利他・解放ロスターのスナップを残す（campaign の時系列）。
+  -- スキル進捗・習得・ハル利他・解放ロスターのスナップを残す（run の時系列）。
   -- snapshot_json は「今の値」しか持たないため、loop スコープのスキルは周頭でリセットされ
   -- 「毎周どこまで届いたか」が追えない。この表に毎 tick 残すことで、
   --   ・通算何周回っても progress が伸びないスキル（＝実質会得不能）
   --   ・条件に永久に届かないキャラ
   -- を scripts/audit-reachability.ts が時系列で炙り出せる。1 行 INSERT は LLM 待ちに対し誤差。
-  -- 主キー (campaign_id, loop, day) ＋ INSERT OR REPLACE なので「同一周・同日」を二度記録すると
+  -- UNIQUE(run_id, loop, day) ＋ INSERT OR REPLACE なので「同一周・同日」を二度記録すると
   -- 後者で上書きする（冪等＝tick リトライ等で重複させない）。通常は 1 tick = 1 行。
   CREATE TABLE IF NOT EXISTS skill_audit (
-    campaign_id   INTEGER NOT NULL,
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id        INTEGER NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
     loop          INTEGER NOT NULL,
     day           INTEGER NOT NULL,
     ts            TEXT NOT NULL,
@@ -150,49 +164,50 @@ db.exec(`
     acquired_json TEXT NOT NULL,        -- 習得済みスキル id 配列
     progress_json TEXT NOT NULL,        -- 全スキルの進捗カウンタ（measure の痕跡）
     roster_json   TEXT NOT NULL,        -- 解放済みキャラ id 配列
-    PRIMARY KEY (campaign_id, loop, day)
+    UNIQUE (run_id, loop, day)
   );
 
-  CREATE INDEX IF NOT EXISTS idx_skill_audit_campaign ON skill_audit(campaign_id, loop, day);
+  CREATE INDEX IF NOT EXISTS idx_skill_audit_run ON skill_audit(run_id, loop, day);
 `);
 
 // --- prepared statements ---
-const insertRun = db.query<{ id: number }, [string, string, string]>(
-  `INSERT INTO runs (started_at, model, state_json) VALUES (?, ?, ?) RETURNING id`,
+const insertRun = db.query<{ id: number }, [string, string, number, number, string]>(
+  `INSERT INTO runs (started_at, model, last_loop, last_day, snapshot_json)
+   VALUES (?, ?, ?, ?, ?) RETURNING id`,
 );
 const updateRun = db.query(
-  `UPDATE runs SET finished = ?, last_day = ?, state_json = ?, weather_history = ? WHERE id = ?`,
+  `UPDATE runs SET finished = ?, last_loop = ?, last_day = ?, snapshot_json = ? WHERE id = ?`,
 );
 const insertTick = db.query(
-  `INSERT OR REPLACE INTO ticks (run_id, day, weather, notable, result_json, created_at)
-   VALUES (?, ?, ?, ?, ?, ?)`,
+  `INSERT OR REPLACE INTO ticks (run_id, loop, day, weather, notable, result_json, created_at)
+   VALUES (?, ?, ?, ?, ?, ?, ?)`,
 );
 const insertMetric = db.query(
   `INSERT OR REPLACE INTO char_metrics
-   (run_id, day, char_id, name, action, place_id, place_name, moved, with_partner,
+   (run_id, loop, day, char_id, name, action, place_id, place_name, moved, with_partner,
     energy_before, energy_after, altruism, independence, trust, stage, diary, relation, delta_reason, died)
-   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 );
 const deleteDialogue = db.query(
-  `DELETE FROM dialogues WHERE run_id = ? AND day = ?`,
+  `DELETE FROM dialogues WHERE run_id = ? AND loop = ? AND day = ?`,
 );
 const insertDialogue = db.query(
-  `INSERT INTO dialogues (run_id, day, seq, speaker_id, speaker_name, text)
-   VALUES (?, ?, ?, ?, ?, ?)`,
+  `INSERT INTO dialogues (run_id, loop, day, seq, speaker_id, speaker_name, text)
+   VALUES (?, ?, ?, ?, ?, ?, ?)`,
 );
 const latestRun = db.query<RunRow, []>(
   `SELECT * FROM runs ORDER BY id DESC LIMIT 1`,
 );
 const ticksForRun = db.query<{ result_json: string }, [number]>(
-  `SELECT result_json FROM ticks WHERE run_id = ? ORDER BY day ASC`,
+  `SELECT result_json FROM ticks WHERE run_id = ? ORDER BY loop ASC, day ASC, id ASC`,
 );
 const deleteTimings = db.query(
-  `DELETE FROM llm_timings WHERE scope = ? AND ref_id = ? AND loop = ? AND day = ?`,
+  `DELETE FROM llm_timings WHERE run_id = ? AND loop = ? AND day = ?`,
 );
 const insertTiming = db.query(
   `INSERT INTO llm_timings
-   (scope, ref_id, loop, day, seq, label, backend, model, ms, ok, chars, created_at)
-   VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+   (run_id, loop, day, seq, label, backend, model, ms, ok, chars, created_at)
+   VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
 );
 const insertCallStart = db.query<{ id: number }, [string, string, string, string, number]>(
   `INSERT INTO llm_calls (started_at, label, backend, model, agentic, status)
@@ -207,9 +222,9 @@ interface RunRow {
   started_at: string;
   model: string;
   finished: number;
+  last_loop: number;
   last_day: number;
-  state_json: string;
-  weather_history: string;
+  snapshot_json: string;
 }
 
 /** 現在時刻（テスト容易性のため引数で受ける） */
@@ -217,32 +232,36 @@ function nowISO(): string {
   return new Date().toISOString();
 }
 
-/** 新しい run を作成して id を返す */
-export function createRun(state: WorldState, model: string): number {
-  const row = insertRun.get(nowISO(), model, JSON.stringify(state));
+/** 新しい run を作成して id を返す（復元用スナップショットを1本保存） */
+export function createRun(snapshot: CampaignSnapshot, model: string): number {
+  const row = insertRun.get(
+    nowISO(),
+    model,
+    snapshot.chronicle.loop,
+    snapshot.world.day,
+    JSON.stringify(snapshot),
+  );
   return row!.id;
 }
 
-/** run のスナップショット（state・天候履歴・進捗）を更新 */
-export function saveRunSnapshot(
-  runId: number,
-  state: WorldState,
-  weatherHistory: Weather[],
-): void {
+/** run の復元用スナップショット（年代記＋世界＋現周ログ）と進捗を更新 */
+export function saveRunSnapshot(runId: number, snapshot: CampaignSnapshot): void {
   updateRun.run(
-    state.finished ? 1 : 0,
-    state.day,
-    JSON.stringify(state),
-    JSON.stringify(weatherHistory),
+    snapshot.world.finished ? 1 : 0,
+    snapshot.chronicle.loop,
+    snapshot.world.day,
+    JSON.stringify(snapshot),
     runId,
   );
 }
 
-/** 1ティックの結果を ticks と char_metrics に保存 */
+/** 1ティックの結果を ticks と char_metrics・dialogues に保存（loop は result.loop） */
 export function saveTick(runId: number, result: TickResult): void {
+  const loop = result.loop ?? 1;
   const tx = db.transaction(() => {
     insertTick.run(
       runId,
+      loop,
       result.day,
       result.weather,
       result.notable,
@@ -252,6 +271,7 @@ export function saveTick(runId: number, result: TickResult): void {
     for (const c of result.characters) {
       insertMetric.run(
         runId,
+        loop,
         result.day,
         c.id,
         c.name,
@@ -272,11 +292,12 @@ export function saveTick(runId: number, result: TickResult): void {
         c.died ? 1 : 0,
       );
     }
-    // 会話（あれば）
-    deleteDialogue.run(runId, result.day);
+    // 会話（あれば）。同一 (run,loop,day) を消してから入れ直す（再保存で seq の取りこぼしを残さない）
+    deleteDialogue.run(runId, loop, result.day);
     result.dialogue?.forEach((line, i) => {
       insertDialogue.run(
         runId,
+        loop,
         result.day,
         i,
         line.speakerId,
@@ -290,21 +311,19 @@ export function saveTick(runId: number, result: TickResult): void {
 
 /**
  * 1ティック分の LLM 呼び出し時間を llm_timings に保存する。
- * 同一 (scope, ref_id, loop, day) は一度消してから入れ直す（再保存しても重複しない）。
+ * 同一 (run_id, loop, day) は一度消してから入れ直す（再保存しても重複しない）。
  */
 export function saveLlmTimings(
-  scope: "run" | "campaign",
-  refId: number,
+  runId: number,
   loop: number,
   day: number,
   timings: LlmCallTiming[] | undefined,
 ): void {
   const tx = db.transaction(() => {
-    deleteTimings.run(scope, refId, loop, day);
+    deleteTimings.run(runId, loop, day);
     (timings ?? []).forEach((t, i) => {
       insertTiming.run(
-        scope,
-        refId,
+        runId,
         loop,
         day,
         i,
@@ -334,7 +353,9 @@ export function logLlmCallStart(
   try {
     const row = insertCallStart.get(nowISO(), label, backend, model, agentic ? 1 : 0);
     return row?.id ?? null;
-  } catch {
+  } catch (e) {
+    // 握りつぶさず可視化（本処理は止めないが、DB 異常を黙殺しない）
+    console.warn("[db] logLlmCallStart failed:", e instanceof Error ? e.message : e);
     return null;
   }
 }
@@ -350,30 +371,29 @@ export function logLlmCallEnd(
   if (id == null) return;
   try {
     updateCallEnd.run(status, ms, chars, nowISO(), error ?? null, id);
-  } catch {
-    /* ログ失敗は握りつぶす */
+  } catch (e) {
+    // 握りつぶさず可視化（本処理は止めないが、DB 異常を黙殺しない）
+    console.warn("[db] logLlmCallEnd failed:", e instanceof Error ? e.message : e);
   }
 }
 
-/** 最新 run を復元（state・天候履歴・tickログ）。無ければ null。 */
+/** 最新 run を復元（スナップショット＋全周の表示ログ）。無ければ null。 */
 export function loadLatestRun(): {
   runId: number;
-  state: WorldState;
-  weatherHistory: Weather[];
+  snapshot: CampaignSnapshot;
   log: TickResult[];
 } | null {
   const run = latestRun.get();
   if (!run) return null;
-  const state = JSON.parse(run.state_json) as WorldState;
-  const weatherHistory = JSON.parse(run.weather_history) as Weather[];
+  const snapshot = JSON.parse(run.snapshot_json) as CampaignSnapshot;
   const log = ticksForRun
     .all(run.id)
     .map((r) => JSON.parse(r.result_json) as TickResult);
-  // 旧スキーマで保存された state に新フィールドが無い場合を補完（後方互換）
-  for (const c of state.characters) normalizeCharacter(c);
-  for (const p of state.places) normalizePlace(p);
-  if (!state.activeEvents) state.activeEvents = [];
-  return { runId: run.id, state, weatherHistory, log };
+  // 旧スキーマで保存された world に新フィールドが無い場合を補完（後方互換）
+  for (const c of snapshot.world.characters) normalizeCharacter(c);
+  for (const p of snapshot.world.places) normalizePlace(p);
+  if (!snapshot.world.activeEvents) snapshot.world.activeEvents = [];
+  return { runId: run.id, snapshot, log };
 }
 
 /** 旧データに欠けている報酬・気分・執着・異能フィールドをデフォルトで補完する */
@@ -411,37 +431,11 @@ function normalizePlace(p: any): void {
 }
 
 // ============================================================
-// 回帰（キャンペーン）の永続化
+// 到達可能性の監査ログ
 // ============================================================
-const insertCampaign = db.query<{ id: number }, [string, string, string]>(
-  `INSERT INTO campaigns (started_at, model, snapshot_json) VALUES (?, ?, ?) RETURNING id`,
-);
-const updateCampaign = db.query(
-  `UPDATE campaigns SET snapshot_json = ?, log_json = ? WHERE id = ?`,
-);
-const latestCampaign = db.query<
-  { id: number; snapshot_json: string; log_json: string },
-  []
->(`SELECT id, snapshot_json, log_json FROM campaigns ORDER BY id DESC LIMIT 1`);
-
-/** 新しいキャンペーンを作成して id を返す */
-export function createCampaign(snapshot: CampaignSnapshot, model: string): number {
-  const row = insertCampaign.get(nowISO(), model, JSON.stringify(snapshot));
-  return row!.id;
-}
-
-/** キャンペーンのスナップショットと表示用ログを保存 */
-export function saveCampaign(
-  id: number,
-  snapshot: CampaignSnapshot,
-  log: TickResult[],
-): void {
-  updateCampaign.run(JSON.stringify(snapshot), JSON.stringify(log), id);
-}
-
 const insertSkillAudit = db.query(
   `INSERT OR REPLACE INTO skill_audit
-   (campaign_id, loop, day, ts, hero_altruism, peak_altruism, acquired_json, progress_json, roster_json)
+   (run_id, loop, day, ts, hero_altruism, peak_altruism, acquired_json, progress_json, roster_json)
    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 );
 
@@ -451,7 +445,7 @@ const insertSkillAudit = db.query(
  * progress は周頭でリセットされるため、毎 tick 残して時系列で最大到達を追えるようにする。
  */
 export function saveSkillAudit(
-  campaignId: number,
+  runId: number,
   audit: {
     loop: number;
     day: number;
@@ -463,7 +457,7 @@ export function saveSkillAudit(
   },
 ): void {
   insertSkillAudit.run(
-    campaignId,
+    runId,
     audit.loop,
     audit.day,
     nowISO(),
@@ -473,23 +467,6 @@ export function saveSkillAudit(
     JSON.stringify(audit.progress),
     JSON.stringify(audit.roster),
   );
-}
-
-/** 最新キャンペーンを復元。無ければ null。 */
-export function loadLatestCampaign(): {
-  id: number;
-  snapshot: CampaignSnapshot;
-  log: TickResult[];
-} | null {
-  const row = latestCampaign.get();
-  if (!row) return null;
-  const snapshot = JSON.parse(row.snapshot_json) as CampaignSnapshot;
-  const log = JSON.parse(row.log_json) as TickResult[];
-  // 旧スキーマで保存された world に新フィールドが無い場合を補完（後方互換）
-  for (const c of snapshot.world.characters) normalizeCharacter(c);
-  for (const p of snapshot.world.places) normalizePlace(p);
-  if (!snapshot.world.activeEvents) snapshot.world.activeEvents = [];
-  return { id: row.id, snapshot, log };
 }
 
 export { db };

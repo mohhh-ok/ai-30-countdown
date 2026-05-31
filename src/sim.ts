@@ -251,12 +251,10 @@ if (values.mock) {
 }
 
 // --- DB（--save のときだけ） ---
-let saveTickFn: ((runId: number, r: TickResult) => void) | null = null;
 let runId = 0;
 if (values.save) {
   const db = await import("./db.ts");
-  runId = db.createRun(state, process.env.OLLAMA_MODEL ?? "mock");
-  saveTickFn = db.saveTick;
+  runId = db.createRun(campaign.snapshot(), process.env.OLLAMA_MODEL ?? "mock");
 }
 
 // --- 実行（回帰: ハルが力尽きるたび Day1 へ巻き戻り、days ぶん連続で流す） ---
@@ -288,13 +286,25 @@ for (let i = 0; i < days; i++) {
     skillEffects: campaign.effects(),
   });
   result.llmTimings = endTickTiming();
-  if (saveTickFn) {
-    saveTickFn(runId, result);
-    const db = await import("./db.ts");
-    db.saveRunSnapshot(runId, world, [...campaign.weatherHistory, result.weather]);
-    db.saveLlmTimings("run", runId, result.loop ?? 1, result.day, result.llmTimings);
-  }
+  // recordTick を先に：ここで result.loop が付与され、回帰判定・スキル進捗も済む。
   campaign.recordTick(result); // スキル進捗・習得・回帰判定（ハル死で次周を立ち上げる）
+  if (values.save) {
+    const db = await import("./db.ts");
+    db.saveTick(runId, result);
+    db.saveRunSnapshot(runId, campaign.snapshot());
+    db.saveLlmTimings(runId, result.loop ?? 1, result.day, result.llmTimings);
+    // 到達可能性の監査ログも server.ts と対称に残す（sim DB でも audit-reachability が機能するように）
+    const heroResult = result.characters.find((c) => c.id === campaign.protagonistId);
+    db.saveSkillAudit(runId, {
+      loop: result.loop ?? 1,
+      day: result.day,
+      heroAltruism: heroResult?.paramsAfter.altruism ?? 0,
+      peakAltruism: campaign.chronicle.heroPeakAltruism,
+      acquired: [...campaign.chronicle.skills.acquired],
+      progress: { ...campaign.chronicle.skills.progress },
+      roster: [...campaign.chronicle.roster],
+    });
+  }
   results.push(result);
 
   if (!values.json) {
@@ -416,5 +426,8 @@ if (values.json) {
       `  Loop ${h.loop}: ${h.days}日 / ${h.causeOfEnd} / 利他${h.altruismReached}(${h.stageReached})`,
     );
   }
-  if (values.save) console.log(`\n（run #${runId} として data/world.db に保存）`);
+  if (values.save)
+    console.log(
+      `\n（run #${runId} として ${process.env.DB_PATH ?? "data/world.db"} に保存）`,
+    );
 }

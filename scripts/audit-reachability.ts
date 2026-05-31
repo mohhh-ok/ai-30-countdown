@@ -118,7 +118,7 @@ interface RunData {
   // skill_audit（時系列）から
   auditRows: number;
   auditDistinctLoops: number; // 監査ログに実在する distinct な周数（loop スコープ判定の信頼度）
-  campaignId: number | null;
+  runId: number | null;
   // スキル: 通算で観測した最大進捗 / ループ内ピーク / 会得実績
   maxCareerProgress: Record<string, number>; // career: 末尾（通算）の最大
   maxLoopProgress: Record<string, number>; // loop: どこか1周での最大到達
@@ -140,7 +140,7 @@ function loadRunData(): RunData {
     hasDb: false,
     auditRows: 0,
     auditDistinctLoops: 0,
-    campaignId: null,
+    runId: null,
     maxCareerProgress: {},
     maxLoopProgress: {},
     acquiredEver: new Set(),
@@ -163,15 +163,15 @@ function loadRunData(): RunData {
   }
   d.hasDb = true;
 
-  // --- 最新 campaign の snapshot / history（フォールバックの土台）---
+  // --- 最新 run の snapshot / history（フォールバックの土台）---
   try {
     const row = db
       .query<{ id: number; snapshot_json: string }, []>(
-        "SELECT id, snapshot_json FROM campaigns ORDER BY id DESC LIMIT 1",
+        "SELECT id, snapshot_json FROM runs ORDER BY id DESC LIMIT 1",
       )
       .get();
     if (row) {
-      d.campaignId = row.id;
+      d.runId = row.id;
       const snap = JSON.parse(row.snapshot_json);
       const ch = snap.chronicle ?? {};
       d.currentProgress = ch.skills?.progress ?? {};
@@ -190,7 +190,7 @@ function loadRunData(): RunData {
       for (const h of d.history) for (const s of h.acquiredSkills) d.acquiredEver.add(s);
       for (const r of d.currentRoster) d.rosterEver.add(r);
       d.peakAltruismEver = Math.max(d.currentPeakAltruism, ...d.history.map((h) => h.altruismReached), 0);
-      d.source = `campaign #${row.id} の snapshot＋history（${d.history.length}周ぶん）`;
+      d.source = `run #${row.id} の snapshot＋history（${d.history.length}周ぶん）`;
     }
   } catch {
     /* campaigns 表が無い等は無視 */
@@ -212,9 +212,9 @@ function loadRunData(): RunData {
         [number]
       >(
         "SELECT loop, day, hero_altruism, peak_altruism, acquired_json, progress_json, roster_json " +
-          "FROM skill_audit WHERE campaign_id = ? ORDER BY loop, day",
+          "FROM skill_audit WHERE run_id = ? ORDER BY loop, day",
       )
-      .all(d.campaignId ?? -1);
+      .all(d.runId ?? -1);
     d.auditRows = rows.length;
     d.auditDistinctLoops = new Set(rows.map((r) => r.loop)).size;
     if (rows.length > 0) {

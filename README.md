@@ -215,14 +215,14 @@ API キー等の漏洩を防ぐため [gitleaks](https://github.com/gitleaks/git
 | `CLAUDE_CODE_MODEL` | `haiku` | `claude-code` バックエンドのモデル（`haiku` / `sonnet` / `opus` / 完全ID） |
 | `OLLAMA_MODEL` | `qwen2.5:7b-instruct` | `ollama` バックエンドのモデル（例: `qwen2.5:3b-instruct`） |
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama のホスト |
-| `DB_PATH` | `data/world.db` | SQLite データベースのパス |
+| `DB_PATH` | `data/world.db` | SQLite データベースのパス（開発と本番で別ファイルに分けられる。スキーマは共通） |
 
 ## 永続化（SQLite）
 
 `bun:sqlite`（依存ゼロ）で `data/world.db` に保存する。サーバーを再起動すると最新 run の続きから復元される。
 
-- `runs` — 1回のシミュレーション（リセットごとに新 run）。現在の state スナップショットを持つ。
-- `ticks` — 各日の結果（`TickResult`）を丸ごと JSON 保存。表示・復元用。
+- `runs` — 1つの年代記（回帰＝ローグライクをまたぐ1セッション）。復元用スナップショット（年代記＋現在の世界＋現周ログ）を1本だけ持つ。CLI（`sim`）も Web（`server`）も同じこのスキーマに保存する（テーブルは一系統）。
+- `ticks` — 各日の結果（`TickResult`）を1日1行で JSON 保存（`loop`/`day` で識別。回帰で `day` は周ごとに 1 に戻る）。表示ログはここから組む。表示・復元用。
 - `char_metrics` — 1日×1人を正規化した薄い行。成長曲線や行動頻度の SQL 集計用。
 
 集計例:
