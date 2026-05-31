@@ -222,7 +222,7 @@ export function App() {
         {error && <span className="warn">{error}</span>}
       </div>
 
-      <div className="body-cols">
+      <div className={`body-cols${view === "back" ? " body-cols-single" : ""}`}>
         <div className="main-col">
           {view === "front" ? (
             <FrontStage state={state} log={currentLoopLog} chronicle={chronicle} />
@@ -269,9 +269,11 @@ export function App() {
             </>
           )}
         </div>
-        <aside className="side-col">
-          <Highlights log={log} chronicle={chronicle} />
-        </aside>
+        {view === "front" && (
+          <aside className="side-col">
+            <Highlights log={log} chronicle={chronicle} />
+          </aside>
+        )}
       </div>
     </div>
   );

@@ -35,6 +35,10 @@ body {
   gap: 16px;
   align-items: start;
 }
+/* 裏（楽屋）ビューは年代記サイドバーを出さず、メインを全幅の1カラムにする。 */
+.body-cols-single {
+  grid-template-columns: 1fr;
+}
 .main-col {
   min-width: 0;
 }
