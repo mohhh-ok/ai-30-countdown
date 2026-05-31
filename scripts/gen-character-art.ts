@@ -13,12 +13,14 @@ import { mkdir, unlink } from "node:fs/promises";
 import { $ } from "bun";
 import { createInitialCharacters } from "../src/domain/characters.ts";
 
-// モデル / 透過は env で切替可能:
-//   IMAGE_MODEL=gpt-image-1 IMAGE_TRANSPARENT=1 bun scripts/gen-character-art.ts
+// 既定は gpt-image-1 + 背景透過（キャラ絵を任意背景に重ねられるようにする）。
+// env で切替可能:
+//   IMAGE_MODEL=gpt-image-2 IMAGE_TRANSPARENT=0 bun scripts/gen-character-art.ts  # 不透過・gpt-image-2
 // ※ 透過（background:"transparent"）は gpt-image-1 系のみ対応。gpt-image-2 は 400 を返す。
-const MODEL = process.env.IMAGE_MODEL ?? "gpt-image-2";
-const TRANSPARENT =
-  process.env.IMAGE_TRANSPARENT === "1" || process.env.IMAGE_TRANSPARENT === "true";
+const MODEL = process.env.IMAGE_MODEL ?? "gpt-image-1";
+const TRANSPARENT = !(
+  process.env.IMAGE_TRANSPARENT === "0" || process.env.IMAGE_TRANSPARENT === "false"
+);
 const SIZE = "1024x1024";
 const OUT_DIR = new URL("../assets/characters/", import.meta.url).pathname;
 
