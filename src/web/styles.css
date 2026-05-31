@@ -23,9 +23,33 @@ body {
 }
 
 .app {
-  max-width: 960px;
+  max-width: 1320px;
   margin: 0 auto;
   padding: 20px 16px 60px;
+}
+
+/* 本文の2カラム: 左=メイン / 右=ハイライト（年代記サイドバー）。 */
+.body-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+  align-items: start;
+}
+.main-col {
+  min-width: 0;
+}
+.side-col {
+  position: sticky;
+  top: 6px;
+}
+@media (max-width: 900px) {
+  .body-cols {
+    grid-template-columns: 1fr;
+  }
+  .side-col {
+    position: static;
+    order: -1; /* 狭い画面では年代記をメインの上に戻す */
+  }
 }
 
 .loading {
@@ -1124,10 +1148,7 @@ button.auto-on {
 /* 年代記パネル（節目イベントの常設表示）。
    表/裏どちらのビューでも画面上部に貼り付いて流れない。 */
 .highlights {
-  position: sticky;
-  top: 6px;
-  z-index: 20;
-  margin: 0 0 12px;
+  margin: 0;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -1216,6 +1237,50 @@ button.auto-on {
   border-color: rgba(216, 105, 107, 0.32);
   letter-spacing: 0.03em;
 }
+.highlight.mark-stage {
+  color: #cfe3a0;
+  background: rgba(160, 196, 90, 0.1);
+  border-color: rgba(160, 196, 90, 0.3);
+}
+.highlight.mark-worldEvent {
+  color: #b8c8ef;
+  background: rgba(108, 134, 216, 0.12);
+  border-color: rgba(108, 134, 216, 0.3);
+}
+.highlight.mark-taboo {
+  color: #e6b8df;
+  background: rgba(191, 111, 178, 0.12);
+  border-color: rgba(191, 111, 178, 0.32);
+}
+.highlight.mark-peril {
+  color: #f0c9a0;
+  background: rgba(216, 150, 90, 0.1);
+  border-color: rgba(216, 150, 90, 0.3);
+}
+.highlight.mark-dialogue {
+  color: #a0d8e0;
+  background: rgba(90, 190, 210, 0.1);
+  border-color: rgba(90, 190, 210, 0.28);
+}
+.highlight.mark-scene {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--line);
+}
+
+/* 2層（回帰超え / 回帰内）を縦に積む。ブロック境界に仕切り線を引く。 */
+.highlights-block + .highlights-block {
+  border-top: 1px solid var(--line);
+}
+.highlights-block.collapsed .highlights-head {
+  opacity: 0.85;
+}
+.highlights-empty {
+  margin: 0;
+  padding: 6px 14px 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
 
 /* 節目マーク（会得・解放・回帰） */
 .scene-marks,
@@ -1300,4 +1365,221 @@ button.auto-on {
 .timing-count {
   margin-left: 4px;
   opacity: 0.6;
+}
+
+/* ============================================================
+   ページナビ（ホーム / 回帰一覧 / キャラ別）とサブページ
+   ============================================================ */
+.site-nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 0 6px;
+  font-size: 13px;
+}
+.site-nav a {
+  color: var(--muted);
+  text-decoration: none;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.site-nav a:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+.site-nav a.nav-on {
+  color: var(--bg);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.site-nav .nav-sep {
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+/* --- サブページ共通 --- */
+.page {
+  padding-top: 8px;
+}
+.page-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
+  margin-bottom: 16px;
+}
+.page-title {
+  margin: 0;
+  font-size: 19px;
+  letter-spacing: 0.03em;
+}
+.back-link {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13px;
+}
+.back-link:hover {
+  color: var(--accent);
+}
+.page-empty {
+  color: var(--muted);
+  padding: 24px 0;
+}
+
+/* --- 回帰一覧 --- */
+.loop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+.loop-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+  transition: border-color 0.15s, transform 0.1s;
+}
+.loop-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+.loop-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.loop-card-num {
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.loop-badge {
+  font-size: 11px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-left: 8px;
+}
+.loop-badge.live {
+  color: var(--bg);
+  background: var(--up);
+  border-color: var(--up);
+}
+.loop-card-end {
+  margin: 4px 0;
+  font-size: 14px;
+}
+.loop-card-meta {
+  margin: 4px 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.loop-card-skills {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--accent);
+}
+
+/* --- 回帰ページの結末サマリ --- */
+.loop-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+}
+.loop-summary-end {
+  color: var(--down);
+}
+
+/* --- キャラ別ページ --- */
+.char-profile {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 18px;
+}
+.char-core {
+  margin: 0 0 8px;
+}
+.char-traits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.char-loop {
+  margin-bottom: 20px;
+}
+.char-loop-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 8px;
+  font-size: 15px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
+}
+.char-loop-num {
+  color: var(--accent);
+  text-decoration: none;
+}
+.char-loop-num:hover {
+  text-decoration: underline;
+}
+.char-loop-meta {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 400;
+}
+.char-days {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.char-day {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 13px;
+  border-bottom: 1px dotted var(--line);
+}
+.char-day-num {
+  color: var(--muted);
+  flex: 0 0 52px;
+}
+.char-day-place {
+  color: var(--muted);
+  font-size: 12px;
+}
+.char-day-diary {
+  color: var(--text);
+}
+.char-day-end {
+  color: var(--down);
+}
+.char-day-died .char-day-num {
+  color: var(--down);
 }

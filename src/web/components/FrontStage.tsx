@@ -200,7 +200,7 @@ export function FrontStage({
   log,
   chronicle,
 }: {
-  state: WorldState;
+  state?: WorldState | null; // ライブな世界（ホームのみ）。過去回帰ページでは無し＝「京の気」を出さない。
   log: TickResult[];
   chronicle?: Chronicle | null;
 }) {
@@ -226,7 +226,8 @@ export function FrontStage({
       {/* いちばん新しい1日を主役の場面として大きく見せる */}
       <Scene t={latest} primary />
 
-      {/* 京の気 — 各霊地に残る民の霊力（清/濁）。枯れゆく京を体感する。 */}
+      {/* 京の気 — 各霊地に残る民の霊力（清/濁）。枯れゆく京を体感する。ライブな世界のときだけ。 */}
+      {state && (
       <div className="kyo-gauge">
         <span className="kyo-title">⛩ 京の気</span>
         <div className="kyo-places">
@@ -249,6 +250,7 @@ export function FrontStage({
           })}
         </div>
       </div>
+      )}
 
       {/* これまでの物語（新しい順）。早回しの日は1行で流し、見せ場の日だけ場面として開く。 */}
       {past.length > 0 && (

@@ -1,91 +1,117 @@
-// 年代記（重要イベントの常設パネル）。
-// スキル会得・キャラ解放・回帰といった「節目」は TickLog / FrontStage の各日に
-// 埋もれて流れてしまうので、ログ全体から拾い直してここに常時表示する。
-// 表（観客）・裏（楽屋）どちらのビューでも、画面上部に貼り付いて見え続ける。
+// 年代記（ハイライトの常設パネル）。2層で見せる。
+//  ① 回帰を超えた年代記: 全周を貫くメタ進行の糸（スキル・解放・回帰・段階初到達）。
+//  ② この回帰の見せ場: 現在の周回だけを点数化して拾った山場（死・出会い・天変地異・禁忌…）。
+// どちらも全周ログ（log）から domain/highlights.ts がルールベースで抽出する（LLM 不使用）。
 import { useState } from "react";
-import type { TickResult } from "../../domain/types.ts";
+import type { Chronicle, TickResult } from "../../domain/types.ts";
+import {
+  type Highlight,
+  type HighlightKind,
+  crossLoopHighlights,
+  loopHighlights,
+} from "../../domain/highlights.ts";
 
-type MarkKind = "skill" | "unlock" | "regress";
-
-interface Highlight {
-  loop?: number;
-  day: number;
-  kind: MarkKind;
-  text: string;
-}
-
-/** ログ全体を走査して、節目イベントだけを古い順に取り出す。 */
-function collectHighlights(log: TickResult[]): Highlight[] {
-  const out: Highlight[] = [];
-  for (const t of log) {
-    if (t.acquiredSkills?.length) {
-      out.push({
-        loop: t.loop,
-        day: t.day,
-        kind: "skill",
-        text: `ハル、「${t.acquiredSkills.join("」「")}」を会得`,
-      });
-    }
-    if (t.unlockedCharacters?.length) {
-      out.push({
-        loop: t.loop,
-        day: t.day,
-        kind: "unlock",
-        text: `${t.unlockedCharacters.join("・")} 解放（次の回帰から登場）`,
-      });
-    }
-    if (t.regressed) {
-      out.push({
-        loop: t.loop,
-        day: t.day,
-        kind: "regress",
-        text: "ハル力尽き、時は巻き戻る",
-      });
-    }
-  }
-  return out;
-}
-
-const KIND_ICON: Record<MarkKind, string> = {
+const KIND_ICON: Record<HighlightKind, string> = {
   skill: "✨",
   unlock: "🆕",
   regress: "↻",
+  stage: "🌱",
+  worldEvent: "🌀",
+  taboo: "⛩️",
+  peril: "🥀",
+  dialogue: "💬",
+  scene: "🎬",
 };
 
-export function Highlights({ log }: { log: TickResult[] }) {
-  const [open, setOpen] = useState(true);
-  const events = collectHighlights(log);
-  if (events.length === 0) return null;
-
-  // 新しい順（直近の節目を上に）。
-  const items = [...events].reverse();
-
+/** ハイライト1件の行。回帰超えは L＋Day、回帰内は Day のみ表示する。 */
+function HighlightRow({ h, showLoop }: { h: Highlight; showLoop: boolean }) {
   return (
-    <section className={`highlights${open ? "" : " collapsed"}`}>
+    <li className={`highlight mark-${h.kind}`}>
+      <span className="highlight-when">
+        {showLoop && h.loop != null && (
+          <span className="highlight-loop">L{h.loop}</span>
+        )}
+        Day {h.day}
+      </span>
+      <span className="highlight-icon">{KIND_ICON[h.kind]}</span>
+      <span className="highlight-text">{h.text}</span>
+    </li>
+  );
+}
+
+/** 折りたためる1ブロック（見出し＋件数＋リスト）。 */
+function HighlightBlock({
+  title,
+  items,
+  showLoop,
+  empty,
+  defaultOpen,
+}: {
+  title: string;
+  items: Highlight[];
+  showLoop: boolean;
+  empty: string;
+  defaultOpen: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className={`highlights-block${open ? "" : " collapsed"}`}>
       <button
         type="button"
         className="highlights-head"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
       >
-        <span className="highlights-title">📜 年代記</span>
-        <span className="highlights-count">{events.length} 件</span>
+        <span className="highlights-title">{title}</span>
+        <span className="highlights-count">{items.length} 件</span>
         <span className="highlights-toggle">{open ? "▾" : "▸"}</span>
       </button>
-      {open && (
-        <ol className="highlights-list">
-          {items.map((h, i) => (
-            <li key={i} className={`highlight mark-${h.kind}`}>
-              <span className="highlight-when">
-                {h.loop != null && <span className="highlight-loop">L{h.loop}</span>}
-                Day {h.day}
-              </span>
-              <span className="highlight-icon">{KIND_ICON[h.kind]}</span>
-              <span className="highlight-text">{h.text}</span>
-            </li>
-          ))}
-        </ol>
-      )}
+      {open &&
+        (items.length === 0 ? (
+          <p className="highlights-empty">{empty}</p>
+        ) : (
+          <ol className="highlights-list">
+            {items.map((h, i) => (
+              <HighlightRow key={i} h={h} showLoop={showLoop} />
+            ))}
+          </ol>
+        ))}
+    </div>
+  );
+}
+
+export function Highlights({
+  log,
+  chronicle,
+}: {
+  log: TickResult[];
+  chronicle: Chronicle | null;
+}) {
+  const heroId = chronicle?.protagonistId ?? "haru";
+  const currentLoop = chronicle?.loop ?? 1;
+
+  // どちらも新しい順（date desc・直近を上に）。
+  const meta = crossLoopHighlights(log, heroId).reverse();
+  const loopTop = loopHighlights(log, currentLoop, heroId, 5).reverse();
+
+  if (meta.length === 0 && loopTop.length === 0) return null;
+
+  return (
+    <section className="highlights">
+      <HighlightBlock
+        title={`🎬 第 ${currentLoop} 回帰の見せ場`}
+        items={loopTop}
+        showLoop={false}
+        empty="この回帰の見せ場はこれから"
+        defaultOpen
+      />
+      <HighlightBlock
+        title="📜 回帰を超えた年代記"
+        items={meta}
+        showLoop
+        empty="まだ節目はない"
+        defaultOpen
+      />
     </section>
   );
 }

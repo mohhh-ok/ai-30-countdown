@@ -10,15 +10,48 @@ import { TickLog } from "./components/TickLog.tsx";
 import { PlacesMap } from "./components/PlacesMap.tsx";
 import { FrontStage } from "./components/FrontStage.tsx";
 import { Highlights } from "./components/Highlights.tsx";
-import { findSkill } from "../domain/skills.ts";
-import { createInitialCharacters } from "../domain/characters.ts";
+import { LoopsPage } from "./pages/LoopsPage.tsx";
+import { LoopPage } from "./pages/LoopPage.tsx";
+import { CharacterPage } from "./pages/CharacterPage.tsx";
+import { type Route, useHashRoute } from "./router.ts";
+import { loopNumbers, nameOfId, skillName, ticksOfLoop } from "./util.ts";
 
-// 表示用ヘルパ: id → 名前 / スキル id → スキル名
-const CHAR_NAMES = new Map(
-  createInitialCharacters().map((c) => [c.id, c.name] as const),
-);
-const nameOfId = (id: string) => CHAR_NAMES.get(id) ?? id;
-const skillName = (id: string) => findSkill(id)?.name ?? id;
+/** ページ切り替えのナビ。回帰一覧と各キャラへの入口を常設する。 */
+function SiteNav({
+  route,
+  chronicle,
+  log,
+}: {
+  route: Route;
+  chronicle: Chronicle | null;
+  log: TickResult[];
+}) {
+  const loops = loopNumbers(log);
+  const charIds = chronicle?.roster?.length
+    ? chronicle.roster
+    : [...new Set(log.flatMap((t) => t.characters.map((c) => c.id)))];
+  const onLoop = route.name === "loops" || route.name === "loop";
+  return (
+    <nav className="site-nav">
+      <a className={route.name === "home" ? "nav-on" : ""} href="#/">
+        ホーム
+      </a>
+      <a className={onLoop ? "nav-on" : ""} href="#/loops">
+        回帰一覧{loops.length > 0 ? `（${loops.length}）` : ""}
+      </a>
+      <span className="nav-sep">登場人物</span>
+      {charIds.map((id) => (
+        <a
+          key={id}
+          className={route.name === "char" && route.id === id ? "nav-on" : ""}
+          href={`#/char/${id}`}
+        >
+          {nameOfId(id)}
+        </a>
+      ))}
+    </nav>
+  );
+}
 
 interface StatePayload {
   state: WorldState;
@@ -40,6 +73,7 @@ export function App() {
   const [view, setView] = useState<"front" | "back">("front");
   const autoRef = useRef(false);
   autoRef.current = auto;
+  const route = useHashRoute();
 
   async function loadState() {
     const res = await fetch("/api/state");
@@ -141,8 +175,28 @@ export function App() {
     ([, g]) => g.length >= 2,
   );
 
+  const currentLoop = chronicle?.loop ?? 1;
+  const currentLoopLog = ticksOfLoop(log, currentLoop); // ホームは「現在の回帰のみ」
+
+  // ホーム以外（回帰一覧・各回帰・キャラ別）は専用ページを出す。
+  if (route.name !== "home") {
+    return (
+      <div className="app">
+        <SiteNav route={route} chronicle={chronicle} log={log} />
+        {route.name === "loops" && <LoopsPage log={log} chronicle={chronicle} />}
+        {route.name === "loop" && (
+          <LoopPage loop={route.loop} log={log} chronicle={chronicle} />
+        )}
+        {route.name === "char" && (
+          <CharacterPage id={route.id} log={log} chronicle={chronicle} />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="app">
+      <SiteNav route={route} chronicle={chronicle} log={log} />
       <header className="topbar">
         <div className="title">
           <h1>小さなエージェント世界</h1>
@@ -220,52 +274,57 @@ export function App() {
         </div>
       )}
 
-      <Highlights log={log} />
+      <div className="body-cols">
+        <div className="main-col">
+          {view === "front" ? (
+            <FrontStage state={state} log={currentLoopLog} chronicle={chronicle} />
+          ) : (
+            <>
+              <main className="cards cards-multi">
+                {state.characters.map((c) => (
+                  <CharacterCard
+                    key={c.id}
+                    character={c}
+                    last={lastById.get(c.id)}
+                    placeName={placeNameOf(c.currentPlaceId)}
+                    spotlight={lastTick?.spotlightId === c.id}
+                  />
+                ))}
+              </main>
 
-      {view === "front" ? (
-        <FrontStage state={state} log={log} chronicle={chronicle} />
-      ) : (
-        <>
-          <main className="cards cards-multi">
-            {state.characters.map((c) => (
-              <CharacterCard
-                key={c.id}
-                character={c}
-                last={lastById.get(c.id)}
-                placeName={placeNameOf(c.currentPlaceId)}
-                spotlight={lastTick?.spotlightId === c.id}
-              />
-            ))}
-          </main>
-
-          <section className="relations">
-            <div className="rel-lines">
-              {state.characters.map((c) => (
-                <div key={c.id} className="rel-line">
-                  <span className="rel-name">{c.name}</span>
-                  <span className="arrow">→</span>
-                  <strong>{c.relationLabel || "—"}</strong>
+              <section className="relations">
+                <div className="rel-lines">
+                  {state.characters.map((c) => (
+                    <div key={c.id} className="rel-line">
+                      <span className="rel-name">{c.name}</span>
+                      <span className="arrow">→</span>
+                      <strong>{c.relationLabel || "—"}</strong>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            {togetherGroups.map(([placeId, g]) => (
-              <div key={placeId} className="together">
-                {placeNameOf(placeId)}に {g.map((x) => x.name).join("・")} が一緒にいる
-              </div>
-            ))}
-          </section>
+                {togetherGroups.map(([placeId, g]) => (
+                  <div key={placeId} className="together">
+                    {placeNameOf(placeId)}に {g.map((x) => x.name).join("・")} が一緒にいる
+                  </div>
+                ))}
+              </section>
 
-          <section className="map-section">
-            <h3>京都の地図</h3>
-            <PlacesMap places={state.places} characters={state.characters} />
-          </section>
+              <section className="map-section">
+                <h3>京都の地図</h3>
+                <PlacesMap places={state.places} characters={state.characters} />
+              </section>
 
-          <section className="log-section">
-            <h3>ログ</h3>
-            <TickLog log={log} />
-          </section>
-        </>
-      )}
+              <section className="log-section">
+                <h3>ログ</h3>
+                <TickLog log={currentLoopLog} />
+              </section>
+            </>
+          )}
+        </div>
+        <aside className="side-col">
+          <Highlights log={log} chronicle={chronicle} />
+        </aside>
+      </div>
     </div>
   );
 }
