@@ -223,6 +223,13 @@ export function App() {
           <h1 className="title-logo">
             <img src="/assets/title.webp" alt="30日のカウントダウン" />
           </h1>
+          <p className="subtitle">
+            30日で終わる世界。
+            <br />
+            回帰の中で成長するハルは何を成し遂げるのか？
+            <br />
+            AIが紡ぐ物語。
+          </p>
         </div>
         <div className="day-box">
           {chronicle && <span className="loop-num">第 {chronicle.loop} 回帰</span>}
