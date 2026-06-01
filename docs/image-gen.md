@@ -71,4 +71,6 @@ IMAGE_MODEL=gpt-image-1 IMAGE_TRANSPARENT=1 bun scripts/gen-character-art.ts
 - 画風は共通の `STYLE`（キャラ絵と揃えた明るくポップなアニメ調・人物/文字なし）で統一。
 - 出力先: `assets/places/<id>.webp`（PNG→WebP 変換）。
 - 配信: `server.ts` に `/assets/places/:file` ルートあり（キャラ絵と同様にサニタイズ）。
-- 表示: 楽屋ビューの「京都の地図」（`PlacesMap.tsx`）で各場所カードのサムネとして表示（絵が無い場所は `onError` で画像のみ非表示）。
+- 表示:
+  - 楽屋ビューの「京都の地図」（`PlacesMap.tsx`）で各場所カードのサムネとして表示（絵が無い場所は `onError` で画像のみ非表示）。
+  - 観客ビュー（`FrontStage.tsx`）の主役枠 `.hero` の背景として、主役の現在地（`placeId`）の絵を `object-fit: cover` で敷く。上に暗幕（`.hero::after`）を重ねて本文を読めるようにし、絵が無い場所は `onError` で地色に落ちる。

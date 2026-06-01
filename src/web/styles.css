@@ -939,13 +939,43 @@ button.ghost {
 }
 
 .hero {
-  background: #161310;
+  position: relative;
+  overflow: hidden;
+  background-color: #161310; /* 背景絵(.hero-bg)が未生成の場所はこの地色に落ちる */
   border: 1px solid #4a3c2a;
   border-radius: 12px;
   padding: 16px 18px;
   display: flex;
   align-items: flex-start;
   gap: 16px;
+}
+/* 今いる場所の背景絵。枠いっぱいに object-fit: cover でフィットさせ、本文はこの上に重ねる。 */
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  z-index: 0;
+}
+/* 本文・肖像は背景絵より前面へ。下端を少し暗く落として文字の可読性を底上げ。 */
+.hero > .hero-portrait,
+.hero > .hero-body {
+  position: relative;
+  z-index: 1;
+}
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(15, 12, 9, 0.62) 0%,
+    rgba(15, 12, 9, 0.8) 100%
+  );
 }
 .hero-dead {
   opacity: 0.6;
@@ -961,6 +991,7 @@ button.ghost {
   font-size: 22px;
   font-weight: 800;
   color: var(--text);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
 }
 .hero-vigor {
   font-size: 12px;
@@ -972,19 +1003,22 @@ button.ghost {
 }
 .hero-place {
   font-size: 13px;
-  color: var(--muted);
+  color: #e6dac2;
   margin-left: auto;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
 }
 .hero-act {
   font-size: 15px;
   margin: 12px 0 6px;
-  color: #f0e6d6;
+  color: #f5ecdd;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
 }
 .hero-diary {
   font-size: 15px;
-  color: #cdbfa8;
+  color: #e6dac2;
   font-style: italic;
   margin: 0;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
 }
 
 .scene-dialogue {
