@@ -116,6 +116,23 @@ interface StatePayload {
   running?: boolean;
 }
 
+function TitleBlock() {
+  return (
+    <div className="title">
+      <h1 className="title-logo">
+        <img src="/assets/title.webp" alt="30日のカウントダウン" />
+      </h1>
+      <p className="subtitle">
+        30日で終わる世界。
+        <br />
+        回帰の中で成長するハルは何を成し遂げるのか？
+        <br />
+        AIが紡ぐ物語。
+      </p>
+    </div>
+  );
+}
+
 export function App() {
   const [state, setState] = useState<WorldState | null>(null);
   const [log, setLog] = useState<TickResult[]>([]);
@@ -187,6 +204,7 @@ export function App() {
   if (route.name !== "home") {
     return (
       <div className="app">
+        <TitleBlock />
         <SiteNav
           route={route}
           chronicle={chronicle}
@@ -212,18 +230,7 @@ export function App() {
 
   return (
     <div className="app">
-      <div className="title">
-        <h1 className="title-logo">
-          <img src="/assets/title.webp" alt="30日のカウントダウン" />
-        </h1>
-        <p className="subtitle">
-          30日で終わる世界。
-          <br />
-          回帰の中で成長するハルは何を成し遂げるのか？
-          <br />
-          AIが紡ぐ物語。
-        </p>
-      </div>
+      <TitleBlock />
       <SiteNav
         route={route}
         chronicle={chronicle}
