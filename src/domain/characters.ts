@@ -232,15 +232,15 @@ export const CHARACTER_UNLOCKS: CharacterUnlock[] = [
     id: "sora",
     name: "ソラ",
     describe: "幾度もの回帰を越えてなお歩みを止めぬハルの噂が、風来の妖を京へ吹き寄せる。",
-    requirement: "回帰を3周まで重ねる／「観の眼・冴え」を会得（いずれか）",
-    isUnlocked: ({ acquired, loop }) => loop >= 3 || acquired.includes("insight_edge"),
+    requirement: "回帰を5周まで重ね、かつ「観の眼・冴え」を会得する",
+    isUnlocked: ({ acquired, loop }) => loop >= 5 && acquired.includes("insight_edge"),
   },
   {
     id: "shiori",
     name: "シオリ",
     describe: "ハルが他者と心を結ぶ手を覚えた頃、朽ちた社を捨てきれぬ神使が、その背を頼って現れる。",
-    requirement: "「結ぶ手」を会得／スキルを4つ会得／ハルの利他が85以上に届く（いずれか）",
-    isUnlocked: ({ acquired, peakAltruism }) =>
-      acquired.includes("binding_hands") || acquired.length >= 4 || peakAltruism >= 85,
+    requirement: "「結ぶ手」を会得し、かつスキルを5つ会得する",
+    isUnlocked: ({ acquired }) =>
+      acquired.includes("binding_hands") && acquired.length >= 5,
   },
 ];
