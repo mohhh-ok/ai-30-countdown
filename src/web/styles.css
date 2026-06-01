@@ -8,6 +8,10 @@
   --accent: #e8995a;
   --up: #6fbf73;
   --down: #d8696b;
+  /* 本文フォント。明朝風ゴシック（Zen Kaku Gothic New）で固定。 */
+  --app-font: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+  /* タイトル・見出しフォント。毛筆（楷書）で固定。失敗時は本文フォントへ。 */
+  --title-font: "Yuji Syuku", var(--app-font);
 }
 
 * {
@@ -18,8 +22,18 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+  font-family: var(--app-font);
   line-height: 1.6;
+}
+
+/* タイトル・見出し（h1〜h3）は毛筆（楷書）で固定。Yuji Syuku は太さが1種(400)しか
+   無いので、font-weight を上げると合成ボールドで線が潰れる。normal に固定して筆の線を保つ。
+   （.page-title は h2、.story-title は h3 なのでここに並べる必要はない＝下流の個別定義に従う。） */
+h1,
+h2,
+h3 {
+  font-family: var(--title-font);
+  font-weight: normal;
 }
 
 .app {
