@@ -44,8 +44,8 @@ export interface CharSave {
   relationLabel: string;
   episodicMemory: string[];
   diary: string[];
-  /** 恩の負債（恩返しシステム）。creditorId→負債量。無ければ undefined。 */
-  debts?: Record<string, number>;
+  /** ココロ（kind.id→受領回数）。周またぎ持ち越しはハルだけ（freshWorldFor 参照）。 */
+  soulCounters: Record<string, number>;
 }
 
 /** 場所の「可変状態」だけ（地形・隣接・実り上限はコード placesCopy() が持つ）。 */
@@ -80,6 +80,7 @@ export function createChronicle(protagonistId = DEFAULT_PROTAGONIST): Chronicle 
     skills: freshSkillProfile(),
     roster: [protagonistId],
     heroPeakAltruism: hero?.params.altruism ?? 0,
+    heroSoulCounters: {},
     history: [],
   };
 }
@@ -99,6 +100,8 @@ export function freshWorldFor(chronicle: Chronicle): WorldState {
     hero.energy += eff.startEnergyBonus;
     hero.params.trust = clampParam(hero.params.trust + eff.startTrustBonus);
     hero.params.altruism = clampParam(hero.params.altruism + eff.startAltruismBonus);
+    // ココロはハルだけ周をまたいで持ち越す（値コピーで独立させる）。他キャラは空 {} のまま。
+    hero.soulCounters = { ...chronicle.heroSoulCounters };
   }
   return {
     day: 0,
@@ -176,7 +179,7 @@ export class Campaign {
         relationLabel: c.relationLabel,
         episodicMemory: c.episodicMemory,
         diary: c.diary,
-        debts: c.debts,
+        soulCounters: c.soulCounters,
       })),
       places: w.places.map((p) => ({ id: p.id, populace: p.populace })),
     };
@@ -219,7 +222,7 @@ export class Campaign {
       ch.relationLabel = cs.relationLabel;
       ch.episodicMemory = cs.episodicMemory;
       ch.diary = cs.diary;
-      ch.debts = cs.debts; // 恩の負債（旧DBは undefined のまま＝恩なし）
+      ch.soulCounters = cs.soulCounters; // ココロ（kind→受領回数）
     }
     for (const ps of save.places) {
       const p = w.places.find((x) => x.id === ps.id);
@@ -275,6 +278,10 @@ export class Campaign {
         this.chronicle.heroPeakAltruism,
         heroResult.paramsAfter.altruism,
       );
+      // ココロの通算受領をハルだけ持ち越す。runTick が world を更新済みなので world のハルが
+      // 今周の最新値を持つ（各 kind 単調増加）。値コピーで chronicle に書き戻す。
+      const heroSoul = this.hero()?.soulCounters;
+      if (heroSoul) this.chronicle.heroSoulCounters = { ...heroSoul };
       const newly = advanceSkills(this.chronicle, {
         hero: heroResult,
         result,

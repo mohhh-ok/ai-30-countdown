@@ -132,6 +132,7 @@ function newCharacterTemplate(id: string, state: WorldState, patch: object): Cha
     currentPlaceId: state.places[0]?.id ?? "kamogawa",
     episodicMemory: [],
     diary: [],
+    soulCounters: {},
     relationLabel: "",
   };
   return deepMerge(base, patch);

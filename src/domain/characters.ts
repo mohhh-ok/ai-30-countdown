@@ -46,6 +46,7 @@ export function createInitialCharacters(): Character[] {
       // 生い立ちは最初のエピソード記憶として積まれている（plan.md 第8節）
       episodicMemory: ["かつて資源の独占争いで家族を失った。"],
       diary: [],
+      soulCounters: {},
       relationLabel: "警戒",
     },
     {
@@ -82,6 +83,7 @@ export function createInitialCharacters(): Character[] {
       currentPlaceId: "kamogawa",
       episodicMemory: ["かつて所属していた集団から追放された。"],
       diary: [],
+      soulCounters: {},
       relationLabel: "慕う",
     },
     {
@@ -117,6 +119,7 @@ export function createInitialCharacters(): Character[] {
       currentPlaceId: "kamogawa",
       episodicMemory: ["略奪と飢餓の世界を、奪うことで生き抜いてきた。"],
       diary: [],
+      soulCounters: {},
       relationLabel: "値踏み",
     },
     {
@@ -153,6 +156,7 @@ export function createInitialCharacters(): Character[] {
       currentPlaceId: "kibune",
       episodicMemory: ["焼けた里をただ一人、風に乗って逃げた。"],
       diary: [],
+      soulCounters: {},
       relationLabel: "気まぐれ",
     },
     {
@@ -189,6 +193,7 @@ export function createInitialCharacters(): Character[] {
       currentPlaceId: "ohara",
       episodicMemory: ["守ると誓った社が朽ち、主は去った。"],
       diary: [],
+      soulCounters: {},
       relationLabel: "礼節",
     },
   ];

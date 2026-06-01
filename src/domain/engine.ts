@@ -28,6 +28,7 @@ import type {
 import { ACTION_LABELS } from "./types.ts";
 import { distance, findPlace, isNeighbor, stepToward } from "./places.ts";
 import { noSkillEffects } from "./skills.ts";
+import { bumpSoul } from "./soul.ts";
 import {
   CLIMAX_MENACE,
   DEADLINE_DAY,
@@ -176,33 +177,6 @@ function pushEpisodic(c: Character, entry: string): void {
   c.episodicMemory.push(entry);
   if (c.episodicMemory.length > EPISODIC_LIMIT) {
     c.episodicMemory = c.episodicMemory.slice(-EPISODIC_LIMIT);
-  }
-}
-
-/**
- * 恩の負債（恩返しシステム）。creditorId→負債量 で「分けてもらった恩」を持つ。
- *  - 受けたら incurDebt で積もる（DEBT_ON_RECEIVE、上限 DEBT_CAP）
- *  - その相手へ分け与え返したら dischargeDebt で果たされる（消す）
- *  - 毎日 decayDebts で DEBT_DECAY ずつ薄れる（恩はやがて記憶の底に沈む）
- * 利他フィードバック（利他値の底上げ）とは別経路。「借りは返す／負い目のままでいたくない」
- * という動機をプロンプトに与え、利他に薄く自立心の強い主人公でも share に傾けるための仕掛け。
- */
-const DEBT_ON_RECEIVE = 10; // 一度分けてもらうと刻まれる恩の重み
-const DEBT_CAP = 30; // 恩の上限（何度受けても際限なく膨らませない）
-const DEBT_DECAY = 2; // 1日に薄れる恩（時とともに負い目が和らぐ）
-function incurDebt(c: Character, fromId: string): void {
-  if (!c.debts) c.debts = {};
-  c.debts[fromId] = Math.min(DEBT_CAP, (c.debts[fromId] ?? 0) + DEBT_ON_RECEIVE);
-}
-function dischargeDebt(c: Character, toId: string): void {
-  if (c.debts && c.debts[toId]) delete c.debts[toId];
-}
-function decayDebts(c: Character): void {
-  if (!c.debts) return;
-  for (const k of Object.keys(c.debts)) {
-    const v = c.debts[k] - DEBT_DECAY;
-    if (v > 0) c.debts[k] = v;
-    else delete c.debts[k];
   }
 }
 
@@ -413,9 +387,9 @@ export async function runTick(
     }
   }
 
-  // 2.6 利他の贈与（恩返しの起点づくり）。利他が成熟し霊力に余裕のある者が、同室に弱った相手
+  // 2.6 利他の贈与（ココロの起点づくり）。利他が成熟し霊力に余裕のある者が、同室に弱った相手
   //  （特にハル）を見ているのに rest/forage で済ませようとしているなら、その一手を「分け与え」へ向ける。
-  //  これが無いと誰も最初の贈与をせず、恩（debts）が生まれず恩返しが永久に発火しない
+  //  これが無いと誰も最初の贈与をせず、受け手にココロ（利他の心）が芽生える種が生まれない
   //  （実測: 全周で share がほぼ 0。利他87のナギすら余裕を rest/follow に流して share を選ばなかった）。
   //  衝動と同じく決定論の一手であり、上書きしたぶんは日記にも理由を滲ませて可視化する（握りつぶさない）。
   const GIFT_ALTRUISM = 60; // 利他が「成熟」域（弱者を見過ごせなくなる閾値）
@@ -627,13 +601,6 @@ export async function runTick(
     }
   }
 
-  // 4.5 恩返し: 恩のある相手へ実際に分け与えたら、その恩は果たされる（負債を消す）。
-  for (const actor of living) {
-    if (resolved.get(actor.id)?.action !== "share") continue;
-    const tgt = targetById.get(actor.id);
-    if (tgt) dischargeDebt(actor, tgt.id);
-  }
-
   // 5. パラメータ変動を適用（±5・最大2項目に安全化）
   for (const actor of living) {
     const d = decisionById.get(actor.id);
@@ -695,8 +662,6 @@ export async function runTick(
   //  行動の結果＝イベントに報酬を出し、抗体で実効報酬を鈍らせ、気分を更新する。
   //  まず昨日からの減衰（立ち直り・耐性の回復）→ 今日のイベントを適用、の順。
   for (const actor of living) decayRewardState(actor);
-  // 恩の負債も日ごとに薄れる（前日までに刻まれた恩を減衰。今日新たに受ける恩は下の受領ループで刻む）。
-  for (const actor of living) decayDebts(actor);
   const rewardEventsById = new Map<string, RewardEvent[]>();
   for (const actor of living) {
     const act = resolved.get(actor.id)!.action;
@@ -785,7 +750,7 @@ export async function runTick(
       const shielded = interceptedPairs.has(`${o.id}->${actor.id}`);
       if (oAct === "share") {
         raw.push({ channel: "bond", label: `${o.name}から分けてもらった`, base: REWARD.shareReceived });
-        incurDebt(actor, o.id); // 恩返しシステム: 分けてもらった恩を負債として刻む（後日この相手へ返したくなる）
+        bumpSoul(actor, "altruism"); // 利他の心: 分けてもらった経験を刻む（積もると芽生え、プロンプトへ注入される）
       } else if (oAct === "steal") {
         raw.push(
           shielded

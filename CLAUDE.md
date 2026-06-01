@@ -23,7 +23,7 @@
   コード・実データ・一次情報（公式ドキュメント等）で**裏を取ってから**言う。確実なことと不確実なことは分けて書く。
 
 ### 永続すべき状態は DB に入れる。「メモリ常駐で済ます」を勝手に選ばない
-- **キャラ等の可変状態（例: 恩の負債 `Character.debts`）は、原則 `run_char` 等のDBに永続化する。**
+- **キャラ等の可変状態（例: ココロの受領 `Character.soulCounters`）は、原則 `run_char` 等のDBに永続化する。**
   「短命だから」「周ごとにリセットされるから」「マイグレーション機構が無いから」を口実に、
   **黙ってメモリ常駐だけにして再起動で消える設計を勝手に選ばない**（実際にやって叱られた）。
 - **永続化は Drizzle ORM（`drizzle-orm` / bun-sqlite）＋ drizzle-kit push 運用。** スキーマの正は `src/schema.ts`（Drizzle テーブル定義）。`src/db.ts` は全て drizzle 経由で読み書きする（生SQL/prepared statement・手書き `CREATE TABLE`/`ALTER` は廃止）。

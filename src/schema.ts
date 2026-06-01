@@ -16,6 +16,7 @@ export const runs = sqliteTable("runs", {
   weather: text("weather").notNull().default("normal"),
   protagonistId: text("protagonist_id").notNull().default("haru"),
   heroPeakAltruism: real("hero_peak_altruism").notNull().default(0),
+  heroSoulCountersJson: text("hero_soul_counters_json"), // ハルのココロ通算受領（kind→回数のJSON・周またぎ持ち越し）
 });
 
 /** スキル進捗（年代記）。1スキル1行。acquired=会得済み / progress=進捗カウンタ。 */
@@ -73,7 +74,7 @@ export const runChar = sqliteTable(
     relation: text("relation").notNull(),
     episodicJson: text("episodic_json").notNull(), // string[]（直近5件ほど）
     diaryJson: text("diary_json").notNull(), // string[]（現周の一行日記）
-    debtsJson: text("debts_json"), // Record<creditorId, 負債量>（恩返し。null可）
+    soulCountersJson: text("soul_counters_json"), // ココロ（kind→受領回数のJSON）
   },
   (t) => [primaryKey({ columns: [t.runId, t.charId] })],
 );

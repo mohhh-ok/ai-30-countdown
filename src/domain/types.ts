@@ -209,13 +209,14 @@ export interface Character {
   diary: string[]; // 毎ティックの一行日記
   relationLabel: string; // 相手への現在の感情ラベル
   /**
-   * 恩の負債（恩返しシステム）。「誰に霊力を分けてもらったか」を creditorId→負債量 で持つ。
-   * 受けると積もり、その相手へ分け与え返すと果たされ（消える）、日が経つほど自然に薄れる。
-   * 利他フィードバックとは別経路で分与（share）を後押しする「借りは返す」動機の源。
-   * DB（run_char.debts_json）に永続化する＝プロセス再起動でも消えない。
-   * 周（回帰）をまたぐと freshWorldFor で作り直されるため自然にリセットされる（恩は一代限り）。
+   * ココロ。他者から「された経験」が積もって芽生える内面の傾き（soul.ts の SOUL_KINDS）。
+   * kind.id（"altruism"/"wariness"/"bond" 等）→ 累計受領回数 の疎な Record。
+   * 多段で深まり（soulStageOf）、段階に応じてプロンプトへ注入されて行動傾向を動かす（soulBlock）。
+   * パラメータは直接いじらない。DB（run_char.soul_counters_json）に永続化する。
+   * 周（回帰）をまたぐ持ち越しは主人公ハルだけ（freshWorldFor が chronicle.heroSoulCounters から
+   * 再開）。他キャラは freshWorldFor で空 {} から始まる（その周限りの芽生え）。
    */
-  debts?: Record<string, number>;
+  soulCounters: Record<string, number>;
 }
 
 /** 世界の状態 */
@@ -546,5 +547,10 @@ export interface Chronicle {
   roster: string[];
   /** ハルがこれまでの全周で到達した利他の最大値（キャラ解放条件の判定に使う） */
   heroPeakAltruism: number;
+  /**
+   * ハルのココロの通算受領（kind.id → 回数）。回帰をまたいで持ち越す（ハルだけ）。
+   * 次周の freshWorldFor でハルの soulCounters の初期値に注入される。
+   */
+  heroSoulCounters: Record<string, number>;
   history: LoopSummary[]; // 過去の周回の結末
 }

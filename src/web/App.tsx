@@ -15,6 +15,7 @@ import { LoopsPage } from "./pages/LoopsPage.tsx";
 import { LoopPage } from "./pages/LoopPage.tsx";
 import { CharacterPage } from "./pages/CharacterPage.tsx";
 import { SkillsPage } from "./pages/SkillsPage.tsx";
+import { SoulsPage } from "./pages/SoulsPage.tsx";
 import { CharAvatar } from "./components/CharAvatar.tsx";
 import { type Route, useHashRoute } from "./router.ts";
 import { allCharIds, nameOfId, ticksOfLoop, unlockOf } from "./util.ts";
@@ -46,6 +47,9 @@ function SiteNav({
       </a>
       <a className={route.name === "skills" ? "nav-on" : ""} href="#/skills">
         スキル一覧
+      </a>
+      <a className={route.name === "souls" ? "nav-on" : ""} href="#/souls">
+        ココロ一覧
       </a>
       <span className="nav-sep">登場人物</span>
       {charIds.map((id) =>
@@ -167,6 +171,9 @@ export function App() {
           <CharacterPage id={route.id} chronicle={chronicle} />
         )}
         {route.name === "skills" && <SkillsPage chronicle={chronicle} />}
+        {route.name === "souls" && (
+          <SoulsPage characters={state?.characters ?? []} chronicle={chronicle} />
+        )}
       </div>
     );
   }

@@ -190,7 +190,7 @@ function charSaveToRow(runId: number, c: CharSave) {
     relation: c.relationLabel,
     episodicJson: JSON.stringify(c.episodicMemory),
     diaryJson: JSON.stringify(c.diary),
-    debtsJson: c.debts ? JSON.stringify(c.debts) : null, // 恩の負債（無ければ null）
+    soulCountersJson: JSON.stringify(c.soulCounters), // ココロ（kind→受領回数）
   };
 }
 
@@ -206,6 +206,7 @@ export function createRun(save: CampaignSave, model: string): number {
       weather: save.weather,
       protagonistId: save.chronicle.protagonistId,
       heroPeakAltruism: save.chronicle.heroPeakAltruism,
+      heroSoulCountersJson: JSON.stringify(save.chronicle.heroSoulCounters),
     })
     .returning({ id: runs.id })
     .get();
@@ -223,6 +224,7 @@ export function saveRunState(runId: number, save: CampaignSave): void {
       lastDay: save.day,
       weather: save.weather,
       heroPeakAltruism: save.chronicle.heroPeakAltruism,
+      heroSoulCountersJson: JSON.stringify(save.chronicle.heroSoulCounters),
     })
     .where(eq(runs.id, runId))
     .run();
@@ -438,6 +440,7 @@ export function loadLatestRun(): {
       .all()
       .map((r) => r.charId),
     heroPeakAltruism: run.heroPeakAltruism,
+    heroSoulCounters: run.heroSoulCountersJson ? JSON.parse(run.heroSoulCountersJson) : {},
     history,
   };
 
@@ -471,7 +474,7 @@ export function loadLatestRun(): {
       relationLabel: c.relation,
       episodicMemory: JSON.parse(c.episodicJson),
       diary: JSON.parse(c.diaryJson),
-      debts: c.debtsJson ? JSON.parse(c.debtsJson) : undefined, // 旧DBは null → undefined
+      soulCounters: c.soulCountersJson ? JSON.parse(c.soulCountersJson) : {}, // ココロ（kind→受領回数）
     }));
 
   // 場所の枯れ具合 → PlaceSave[]

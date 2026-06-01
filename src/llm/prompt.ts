@@ -5,6 +5,7 @@ import type { Character, Place, WorldState, Weather } from "../domain/types.ts";
 import { ACTION_LABELS, FORBIDDEN_ACTIONS } from "../domain/types.ts";
 import { temperamentText } from "../domain/rules.ts";
 import { findPlace } from "../domain/places.ts";
+import { soulBlock } from "../domain/soul.ts";
 
 export const SYSTEM_PROMPT = `あなたは「妖の京（あやかしのみやこ）」の進行を司るエンジン兼ナレーターです。
 神と妖の棲む、もうひとつの京都。世を巡る霊力が痩せ細り、人ならぬ者たちが、わずかな民の霊力を巡って生きている。
@@ -47,28 +48,6 @@ function memoryBlock(c: Character, places: Place[]): string {
     ? recent.map((e) => e.replace(/^Day\d+:\s*/, "")).join(" → ")
     : "（まだない）";
   return `エピソード記憶（直近）:\n${eps}\n直近の流れ: ${recentLine}\n直近の日記: 「${lastDiary}」\n相手への感情: ${c.relationLabel}`;
-}
-
-/**
- * 恩義（恩返しシステム）。まだ返せていない「分けてもらった恩」を本人向けに突きつける。
- * これは利他とは別の動機——「借りは作りたくない／受けた恩は返す」——なので、
- * 自立心が強く利他に薄い者でも、余裕が出たときに分け与え返す一手に傾きうる。
- */
-function debtBlock(c: Character, others: Character[]): string {
-  if (!c.debts) return "";
-  const lines: string[] = [];
-  for (const o of others) {
-    const owed = c.debts[o.id];
-    if (!owed || owed <= 0) continue;
-    const here = o.currentPlaceId === c.currentPlaceId;
-    lines.push(
-      here
-        ? `  - ${o.name}（id:${o.id}）に霊力を分けてもらった恩を、まだ返せていない。いまここに ${o.name} がいる——余裕があれば、分け与え返して借りを返す好機だ。`
-        : `  - ${o.name}（id:${o.id}）に霊力を分けてもらった恩を、まだ返せていない（いまは離れている。会えたら返したい）。`,
-    );
-  }
-  if (lines.length === 0) return "";
-  return `恩義（まだ返せていない恩）— 受けた恩を借りのままにはしておけない。返せるときに返したい:\n${lines.join("\n")}`;
 }
 
 function placeBlock(c: Character, places: Place[], others: Character[]): string {
@@ -182,8 +161,8 @@ ${moodText(c)}${(() => {
   - 信頼について: ${t.trust}
 ${placeBlock(c, places, others)}
 ${memoryBlock(c, places)}${(() => {
-    const d = debtBlock(c, others);
-    return d ? "\n" + d : "";
+    const s = soulBlock(c);
+    return s ? "\n" + s : "";
   })()}${
     c.currentWhisper
       ? `\nふと心に浮かんだ声（守護神の囁き。従っても、抗ってもよい）: 「${c.currentWhisper}」`
