@@ -93,7 +93,7 @@ export function App() {
   const [error, setError] = useState<string>("");
   const [ollamaOk, setOllamaOk] = useState<boolean | null>(null);
   const [backend, setBackend] = useState<string>("");
-  const [view, setView] = useState<"front" | "back">("front");
+  const [view, setView] = useState<"main" | "status" | "debug">("main");
   const route = useHashRoute();
 
   async function loadState() {
@@ -193,16 +193,22 @@ export function App() {
         </div>
         <div className="view-toggle">
           <button
-            className={view === "front" ? "view-on" : "ghost"}
-            onClick={() => setView("front")}
+            className={view === "main" ? "view-on" : "ghost"}
+            onClick={() => setView("main")}
           >
-            表（観客）
+            表
           </button>
           <button
-            className={view === "back" ? "view-on" : "ghost"}
-            onClick={() => setView("back")}
+            className={view === "status" ? "view-on" : "ghost"}
+            onClick={() => setView("status")}
           >
-            裏（楽屋）
+            裏
+          </button>
+          <button
+            className={view === "debug" ? "view-on" : "ghost"}
+            onClick={() => setView("debug")}
+          >
+            デバッグ
           </button>
         </div>
       </header>
@@ -219,11 +225,12 @@ export function App() {
         {error && <span className="warn">{error}</span>}
       </div>
 
-      <div className={`body-cols${view === "back" ? " body-cols-single" : ""}`}>
+      <div className={`body-cols${view !== "main" ? " body-cols-single" : ""}`}>
         <div className="main-col">
-          {view === "front" ? (
+          {view === "main" && (
             <FrontStage state={state} log={currentLoopLog} chronicle={chronicle} />
-          ) : (
+          )}
+          {view === "status" && (
             <>
               <main className="cards cards-multi">
                 {state.characters.map((c) => (
@@ -258,15 +265,16 @@ export function App() {
                 <h3>京都の地図</h3>
                 <PlacesMap places={state.places} characters={state.characters} />
               </section>
-
-              <section className="log-section">
-                <h3>ログ</h3>
-                <TickLog log={currentLoopLog} />
-              </section>
             </>
           )}
+          {view === "debug" && (
+            <section className="log-section">
+              <h3>ログ</h3>
+              <TickLog log={currentLoopLog} />
+            </section>
+          )}
         </div>
-        {view === "front" && (
+        {view === "main" && (
           <aside className="side-col">
             <Highlights log={log} chronicle={chronicle} />
           </aside>
