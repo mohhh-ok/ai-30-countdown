@@ -15,7 +15,7 @@ import {
   loadLatestRun,
   loadLoopTicks,
   loadCharacterTrace,
-  saveRunSnapshot,
+  saveRunState,
   saveTick,
   saveLlmTimings,
   saveSkillAudit,
@@ -30,14 +30,14 @@ let runId: number;
 
 const restored = loadLatestRun();
 if (restored) {
-  campaign = Campaign.restore(restored.snapshot);
+  campaign = Campaign.restore(restored.save, restored.loopTicks);
   runId = restored.runId;
   console.log(
     `   復元: run #${runId}（Loop ${campaign.chronicle.loop}・Day ${campaign.world.day}・現周 ${campaign.loopLog.length}日）`,
   );
 } else {
   campaign = new Campaign();
-  runId = createRun(campaign.snapshot(), OLLAMA_MODEL);
+  runId = createRun(campaign.save(), OLLAMA_MODEL);
 }
 
 // LLM_ONECALL=1 のときは、1プロセスの claude -p が Task で全役を分担し1ティックを1 JSONで返す
@@ -96,7 +96,7 @@ async function runOneTick(): Promise<TickResult> {
   // 永続化（復元スナップショット1本 + その日の tick 行 + LLM計測の正規化行）
   // 表示ログは campaign.loopLog（現周ぶん）。DB には ticks に1日1行だけ足す（肥大しない）。
   saveTick(runId, result);
-  saveRunSnapshot(runId, campaign.snapshot());
+  saveRunState(runId, campaign.save());
   saveLlmTimings(runId, result.loop ?? 1, result.day, result.llmTimings);
   // 到達可能性の監査ログ（毎 tick のスキル進捗・利他・解放ロスターのスナップ）。
   // loop スコープのスキルは周頭でリセットされるため、毎日残して時系列で最大到達を追えるようにする。
@@ -211,6 +211,18 @@ const server = Bun.serve({
         if (!(await f.exists())) return new Response("not found", { status: 404 });
         return new Response(f, {
           // dev は再生成した絵がすぐ見えるようキャッシュ無効。本番のみ長期キャッシュ。
+          headers: { "Cache-Control": DEV ? "no-store" : "public, max-age=86400" },
+        });
+      },
+    },
+
+    // 場所の背景絵（assets/places/<id>.webp）。キャラ絵と同様にサニタイズして配信。
+    "/assets/places/:file": {
+      GET: async (req) => {
+        const safe = req.params.file.replace(/[^a-z0-9_.-]/gi, "");
+        const f = Bun.file(`assets/places/${safe}`);
+        if (!(await f.exists())) return new Response("not found", { status: 404 });
+        return new Response(f, {
           headers: { "Cache-Control": DEV ? "no-store" : "public, max-age=86400" },
         });
       },

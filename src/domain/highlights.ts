@@ -11,7 +11,7 @@
 //     死の場面・出会い（会話劇）・天変地異・禁忌・餓えの淵・段階変化など。
 //
 // どちらも client（Highlights.tsx）が描画に使う。
-import type { Stage, TickResult } from "./types.ts";
+import type { LoopSummary, MetaEvent, TickResult } from "./types.ts";
 
 export type HighlightKind =
   // 回帰を超えた節目
@@ -38,28 +38,23 @@ export interface Highlight {
 }
 
 /**
- * 回帰を超えた年代記。
- * 全周ログを古い順に走査し、メタ進行の節目だけを取り出す。
+ * ある一周回のログから、回帰を超えた年代記に焼き付けるメタ節目を日付付きで取り出す。
  * - スキル会得 / キャラ解放: 周回をまたいで持ち越される2つ（plan.md 第13節）。
- * - 段階の初到達: ハルが「揺らぎ」「成熟」へ全周で初めて至った瞬間（1度だけ）。
- * - 最長生存の更新: 生存日数が過去最長を超えた周回だけ拾う。
- * 力尽き（回帰そのもの）は出さない。前向きな節目＝最長更新だけを残す。
+ * - 段階到達: ハルがその周で段階を上げた瞬間（「初到達」の判定は周をまたぐ chronicleHighlights 側で行う）。
+ * 力尽き（回帰そのもの）・最長更新はここには出さない（最長更新は記録ベースで chronicleHighlights が拾う）。
+ * closeLoop がこの結果を LoopSummary.metaHighlights に保存し、過去周の全周ログ無しでも年代記を描けるようにする。
  */
-export function crossLoopHighlights(
-  log: TickResult[],
+export function loopMetaHighlights(
+  loopLog: TickResult[],
   heroId?: string,
-): Highlight[] {
-  const out: Highlight[] = [];
-  const stageSeen = new Set<Stage>();
-  let maxDays = 0;
-  for (const t of log) {
+): MetaEvent[] {
+  const out: MetaEvent[] = [];
+  for (const t of loopLog) {
     const hero = heroId
       ? t.characters.find((c) => c.id === heroId)
       : undefined;
-
     if (t.acquiredSkills?.length) {
       out.push({
-        loop: t.loop,
         day: t.day,
         kind: "skill",
         text: `ハル、「${t.acquiredSkills.join("」「")}」を会得`,
@@ -67,36 +62,62 @@ export function crossLoopHighlights(
     }
     if (t.unlockedCharacters?.length) {
       out.push({
-        loop: t.loop,
         day: t.day,
         kind: "unlock",
         text: `${t.unlockedCharacters.join("・")} 解放（次の回帰から登場）`,
       });
     }
-    if (hero?.stageChanged && !stageSeen.has(hero.stageAfter)) {
-      stageSeen.add(hero.stageAfter);
+    if (hero?.stageChanged) {
       out.push({
-        loop: t.loop,
         day: t.day,
         kind: "stage",
         text: `ハル、初めて「${hero.stageAfter}」に至る`,
       });
     }
-    if (t.regressed) {
-      // 力尽き（回帰）自体はこの年代記には出さない。
-      // 生存日数が過去最長を更新した周回だけ、前向きな節目として拾う。
-      const life = t.day; // 周回内の day はその一生の長さ（周ごとに1から数え直す）
-      if (life > maxDays) {
-        maxDays = life;
-        out.push({
-          loop: t.loop,
-          day: t.day,
-          kind: "record",
-          text: `最長生存を更新（${life}日）`,
-        });
+  }
+  return out;
+}
+
+/**
+ * 回帰を超えた年代記。
+ * 閉じた各周の LoopSummary（メタ節目＋生存日数）と進行中の周のメタ節目を、古い順に貫いて並べる。
+ * - スキル会得 / キャラ解放: 各周の metaHighlights をそのまま採る。
+ * - 段階の初到達: 同一段階の到達は全周で最初の1度だけ残す（文言が段階を一意に表すので文言で重複排除）。
+ * - 最長生存の更新: 閉じた周の生存日数が過去最長を超えた周だけ、前向きな節目として拾う。
+ * 力尽き（回帰そのもの）は出さない。進行中の周はまだ閉じていないので最長更新の対象にしない。
+ */
+export function chronicleHighlights(
+  closed: LoopSummary[],
+  current?: { loop: number; events: MetaEvent[] },
+): Highlight[] {
+  const out: Highlight[] = [];
+  const stageTextSeen = new Set<string>();
+  let maxDays = 0;
+
+  const pushEvents = (loop: number, events: MetaEvent[]) => {
+    for (const e of events) {
+      // 段階到達は周をまたいで初回だけ（文言が段階を一意に表す）。
+      if (e.kind === "stage") {
+        if (stageTextSeen.has(e.text)) continue;
+        stageTextSeen.add(e.text);
       }
+      out.push({ loop, day: e.day, kind: e.kind, text: e.text });
+    }
+  };
+
+  for (const s of closed) {
+    pushEvents(s.loop, s.metaHighlights ?? []);
+    if (s.days > maxDays) {
+      maxDays = s.days;
+      out.push({
+        loop: s.loop,
+        day: s.days,
+        kind: "record",
+        text: `最長生存を更新（${s.days}日）`,
+      });
     }
   }
+  if (current) pushEvents(current.loop, current.events);
   return out;
 }
 

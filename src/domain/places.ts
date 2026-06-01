@@ -9,6 +9,10 @@ export const PLACES: Place[] = [
     name: "鴨川の河原",
     description:
       "人と妖の交わる岸。市井の人がもっとも多く行き交い、清も濁もまじり合う。どこへ向かうにも通り道になる要の地。",
+    appearance:
+      "A lively riverbank of the Kamo River in an old-Kyoto spirit world. " +
+      "Wide stone-strewn shore beside flowing water, traditional machiya townhouses and a wooden bridge in the distance, " +
+      "warm bustling crossroads atmosphere where humans and spirits mingle, lanterns and market stalls.",
     forage: { normal: 12, lean: 5 }, // 1日に頂ける上限
     populace: { sei: 42, daku: 30 },
     populaceMax: { sei: 42, daku: 30 },
@@ -20,6 +24,10 @@ export const PLACES: Place[] = [
     name: "大原の隠れ里",
     description:
       "洛北の山あいに開けた里。祈りと暮らしの澄んだ気に満ち、清霊が豊か。穏やかだが人は多くない。",
+    appearance:
+      "A secluded mountain village in the northern hills of an old-Kyoto spirit world. " +
+      "Terraced rice fields and thatched-roof farmhouses nestled among forested slopes, " +
+      "a small wayside shrine, serene prayerful atmosphere, clear pure air with drifting morning mist.",
     forage: { normal: 16, lean: 7 },
     populace: { sei: 56, daku: 6 },
     populaceMax: { sei: 56, daku: 6 },
@@ -31,6 +39,10 @@ export const PLACES: Place[] = [
     name: "貴船の渓",
     description:
       "鞍馬の奥、水神の宿る清流の谷。澄んだ霊力は安定するが、人里離れて細い。静寂の地。",
+    appearance:
+      "A deep secluded ravine of the Kibune valley in an old-Kyoto spirit world. " +
+      "A crystal-clear mountain stream tumbling over rocks through dense green forest, " +
+      "vermilion lanterns and a water-god shrine, hushed sacred stillness, cool dappled light, faint glowing spirit-wisps.",
     forage: { normal: 9, lean: 7 },
     populace: { sei: 34, daku: 4 },
     populaceMax: { sei: 34, daku: 4 },
@@ -42,6 +54,10 @@ export const PLACES: Place[] = [
     name: "嵐山の竹林",
     description:
       "西郊、保津川と竹の精の地。旅人が行き交い、清と濁が中ほどにまじる。",
+    appearance:
+      "A misty bamboo grove in the western outskirts of an old-Kyoto spirit world (Arashiyama). " +
+      "Towering green bamboo stalks lining a winding path, the Hozu River and a wooden bridge nearby, " +
+      "travelers and bamboo spirits passing through, soft filtered green light and drifting haze.",
     forage: { normal: 14, lean: 5 },
     populace: { sei: 38, daku: 18 },
     populaceMax: { sei: 38, daku: 18 },
@@ -53,6 +69,10 @@ export const PLACES: Place[] = [
     name: "伏見の稲荷",
     description:
       "南の狐の地。欲と願いが渦巻き、濁霊が濃い。霊力は大きいが澄んだ気は乏しく、博打のような土地。",
+    appearance:
+      "The fox shrine of Fushimi Inari in an old-Kyoto spirit world. " +
+      "Endless tunnels of vermilion torii gates climbing a forested hillside, stone fox statues with red bibs, " +
+      "dense restless air thick with desire and prayer, smoldering lantern light and lingering shadows.",
     forage: { normal: 18, lean: 2 },
     populace: { sei: 18, daku: 46 },
     populaceMax: { sei: 18, daku: 46 },

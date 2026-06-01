@@ -10,9 +10,13 @@
 //        - 無ければ最新 campaign の snapshot（現在値）＋ history（周ごと要約）でフォールバック
 //
 // 使い方:
-//   bun run scripts/audit-reachability.ts            人が読むレポート
-//   bun run scripts/audit-reachability.ts --json      機械可読 JSON
+//   bun run scripts/audit-reachability.ts             人が読むレポート（全キャラ）
+//   bun run scripts/audit-reachability.ts kai shiori   キャラ解放セクションを指定 id に絞る
+//   bun run scripts/audit-reachability.ts --json kai   絞り込み＋機械可読 JSON
 //   DB_PATH=data/world.db bun run scripts/audit-reachability.ts
+//
+// 位置引数（"--" で始まらない引数）はキャラ id とみなし、キャラ解放の判定をそれだけに絞る。
+// 指定が無ければ全キャラ。未知の id は黙って捨てず警告する（握りつぶし禁止）。
 //
 // 注意: 本スクリプトは read-only。世界は一切進めない。
 import { Database } from "bun:sqlite";
@@ -24,6 +28,21 @@ import type { Action, CharacterTickResult, SkillDef } from "../src/domain/types.
 const asJson = process.argv.includes("--json");
 const DB_PATH = process.env.DB_PATH ?? "data/world.db";
 const ALL_SKILL_IDS = SKILLS.map((s) => s.id);
+
+// 位置引数でキャラ解放の判定を絞り込む（"--xxx" はフラグ扱いで除外）。指定なし＝全キャラ。
+const VALID_CHAR_IDS = CHARACTER_UNLOCKS.map((u) => u.id);
+const charArgs = process.argv.slice(2).filter((a) => !a.startsWith("--"));
+const unknownChars = charArgs.filter((a) => !VALID_CHAR_IDS.includes(a));
+if (unknownChars.length > 0) {
+  console.error(
+    `⚠ 未知のキャラ id: ${unknownChars.join("、")}（解放対象キャラ: ${VALID_CHAR_IDS.join("、")}）。これらは無視します。`,
+  );
+}
+const charFilter = new Set(charArgs.filter((a) => VALID_CHAR_IDS.includes(a)));
+if (charArgs.length > 0 && charFilter.size === 0) {
+  console.error("指定されたキャラ id が一つも有効でないため、終了します。");
+  process.exit(1);
+}
 
 // ============================================================
 // 1. 静的チェック（コード論理）
@@ -163,37 +182,59 @@ function loadRunData(): RunData {
   }
   d.hasDb = true;
 
-  // --- 最新 run の snapshot / history（フォールバックの土台）---
+  // --- 最新 run の正規化状態 / history（フォールバックの土台）---
   try {
     const row = db
-      .query<{ id: number; snapshot_json: string }, []>(
-        "SELECT id, snapshot_json FROM runs ORDER BY id DESC LIMIT 1",
+      .query<
+        { id: number; last_loop: number; hero_peak_altruism: number },
+        []
+      >(
+        "SELECT id, last_loop, hero_peak_altruism FROM runs ORDER BY id DESC LIMIT 1",
       )
       .get();
     if (row) {
       d.runId = row.id;
-      const snap = JSON.parse(row.snapshot_json);
-      const ch = snap.chronicle ?? {};
-      d.currentProgress = ch.skills?.progress ?? {};
-      d.currentAcquired = ch.skills?.acquired ?? [];
-      d.currentRoster = ch.roster ?? [];
-      d.currentPeakAltruism = ch.heroPeakAltruism ?? 0;
-      d.loopsElapsed = ch.loop ?? 0;
-      d.history = (ch.history ?? []).map((h: any) => ({
-        loop: h.loop,
-        days: h.days,
-        altruismReached: h.altruismReached ?? 0,
-        acquiredSkills: h.acquiredSkills ?? [],
-      }));
+      // スキル進捗（run_skill）
+      const skillRows = db
+        .query<{ skill_id: string; acquired: number; progress: number }, [number]>(
+          "SELECT skill_id, acquired, progress FROM run_skill WHERE run_id = ?",
+        )
+        .all(row.id);
+      d.currentProgress = Object.fromEntries(skillRows.map((r) => [r.skill_id, r.progress]));
+      d.currentAcquired = skillRows.filter((r) => r.acquired).map((r) => r.skill_id);
+      // ロスター（run_roster）
+      d.currentRoster = db
+        .query<{ char_id: string }, [number]>(
+          "SELECT char_id FROM run_roster WHERE run_id = ?",
+        )
+        .all(row.id)
+        .map((r) => r.char_id);
+      d.currentPeakAltruism = row.hero_peak_altruism ?? 0;
+      d.loopsElapsed = row.last_loop ?? 0;
+      // 履歴（run_loop_summary）
+      d.history = db
+        .query<
+          { loop: number; days: number; altruism_reached: number; acquired_skills_json: string },
+          [number]
+        >(
+          "SELECT loop, days, altruism_reached, acquired_skills_json FROM run_loop_summary WHERE run_id = ? ORDER BY loop",
+        )
+        .all(row.id)
+        .map((h) => ({
+          loop: h.loop,
+          days: h.days,
+          altruismReached: h.altruism_reached ?? 0,
+          acquiredSkills: JSON.parse(h.acquired_skills_json ?? "[]"),
+        }));
       // history と現在値からの「これまで」を集約
       for (const s of d.currentAcquired) d.acquiredEver.add(s);
       for (const h of d.history) for (const s of h.acquiredSkills) d.acquiredEver.add(s);
       for (const r of d.currentRoster) d.rosterEver.add(r);
       d.peakAltruismEver = Math.max(d.currentPeakAltruism, ...d.history.map((h) => h.altruismReached), 0);
-      d.source = `run #${row.id} の snapshot＋history（${d.history.length}周ぶん）`;
+      d.source = `run #${row.id} の現在状態＋history（${d.history.length}周ぶん）`;
     }
   } catch {
-    /* campaigns 表が無い等は無視 */
+    /* 表が無い等は無視 */
   }
 
   // --- 専用監査ログ skill_audit（あれば時系列で上書き・最優先）---
@@ -403,7 +444,9 @@ function judgeCharacters(run: RunData, skillFindings: SkillFinding[]): CharFindi
 function main() {
   const run = loadRunData();
   const skills = judgeSkills(run);
-  const chars = judgeCharacters(run, skills);
+  const chars = judgeCharacters(run, skills).filter(
+    (f) => charFilter.size === 0 || charFilter.has(f.id),
+  );
 
   if (asJson) {
     console.log(JSON.stringify({ source: run.source, run: { hasDb: run.hasDb, auditRows: run.auditRows, loopsElapsed: run.loopsElapsed, peakAltruismEver: run.peakAltruismEver }, skills, characters: chars }, null, 2));
@@ -415,6 +458,7 @@ function main() {
   console.log("到達可能性アウディット（絶対に会得/解放できなさそうなものを探す）");
   console.log(line);
   console.log(`データ元: ${run.source}`);
+  if (charFilter.size > 0) console.log(`対象キャラ（解放）: ${[...charFilter].join("、")}`);
   if (!run.hasDb) console.log("⚠ data/world.db が見つからない。静的チェックのみ実施。");
   if (run.hasDb && run.auditRows === 0)
     console.log("ⓘ 専用ログ skill_audit はまだ空（監査ログ導入後に世界を進めると次回から時系列が貯まる）。\n  当面は snapshot＋history で判定。loop スコープのスキルは精度が落ちる点に注意。");

@@ -141,6 +141,7 @@ function newPlaceTemplate(id: string, patch: object): Place {
     id,
     name: id,
     description: "",
+    appearance: "",
     forage: { normal: 12, lean: 4 },
     populace: { sei: 40, daku: 20 },
     populaceMax: { sei: 40, daku: 20 },
@@ -254,7 +255,7 @@ if (values.mock) {
 let runId = 0;
 if (values.save) {
   const db = await import("./db.ts");
-  runId = db.createRun(campaign.snapshot(), process.env.OLLAMA_MODEL ?? "mock");
+  runId = db.createRun(campaign.save(), process.env.OLLAMA_MODEL ?? "mock");
 }
 
 // --- 実行（回帰: ハルが力尽きるたび Day1 へ巻き戻り、days ぶん連続で流す） ---
@@ -291,7 +292,7 @@ for (let i = 0; i < days; i++) {
   if (values.save) {
     const db = await import("./db.ts");
     db.saveTick(runId, result);
-    db.saveRunSnapshot(runId, campaign.snapshot());
+    db.saveRunState(runId, campaign.save());
     db.saveLlmTimings(runId, result.loop ?? 1, result.day, result.llmTimings);
     // 到達可能性の監査ログも server.ts と対称に残す（sim DB でも audit-reachability が機能するように）
     const heroResult = result.characters.find((c) => c.id === campaign.protagonistId);

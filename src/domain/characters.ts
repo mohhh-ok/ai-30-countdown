@@ -110,8 +110,8 @@ export function createInitialCharacters(): Character[] {
       energy: 60,
       params: { altruism: 10, independence: 75, trust: 8 },
       alive: true,
-      // 不作に弱い博打の地・伏見の稲荷から始める（実りを巡る緊張の火種）
-      currentPlaceId: "fushimi",
+      // 人と妖が交わり濁霊も濃い鴨川の河原から始める（喰らう者の狩り場＝実りを巡る緊張の火種）
+      currentPlaceId: "kamogawa",
       episodicMemory: ["略奪と飢餓の世界を、奪うことで生き抜いてきた。"],
       diary: [],
       relationLabel: "値踏み",
@@ -145,8 +145,8 @@ export function createInitialCharacters(): Character[] {
       energy: 60,
       params: { altruism: 40, independence: 90, trust: 20 },
       alive: true,
-      // 旅人の行き交う西郊の竹林から始める
-      currentPlaceId: "arashiyama",
+      // 風来の旅人が、人里離れた静寂の渓（貴船）をふらりと通り過ぎる図から始める
+      currentPlaceId: "kibune",
       episodicMemory: ["焼けた里をただ一人、風に乗って逃げた。"],
       diary: [],
       relationLabel: "気まぐれ",

@@ -60,3 +60,15 @@ IMAGE_MODEL=gpt-image-1 IMAGE_TRANSPARENT=1 bun scripts/gen-character-art.ts
 | haru | ハル | 霊脈の独占を憎む、冷静な祓いの妖（観の眼） |
 | nagi | ナギ | 見捨てられを恐れる、明るい結びの妖・巫女筋（結の力） |
 | kai | カイ | 霊を喰らう餓えた半妖、誰も信じない（奪命） |
+
+## 場所（背景）絵
+- スクリプト: `scripts/gen-place-art.ts`。場所定義（`src/domain/places.ts` の各 `appearance`）をもとに背景画を生成する。
+  ```sh
+  bun scripts/gen-place-art.ts                 # 全ての場所
+  bun scripts/gen-place-art.ts kamogawa ohara  # 指定の場所だけ
+  ```
+- キャラ絵と違い **背景込み・人物なし・横長**で作る。既定は `gpt-image-2`・`1536x1024`（透過不要なので gpt-image-1 は使わない）。env で `IMAGE_MODEL` / `IMAGE_SIZE` を切替可能。
+- 画風は共通の `STYLE`（キャラ絵と揃えた明るくポップなアニメ調・人物/文字なし）で統一。
+- 出力先: `assets/places/<id>.webp`（PNG→WebP 変換）。
+- 配信: `server.ts` に `/assets/places/:file` ルートあり（キャラ絵と同様にサニタイズ）。
+- 表示: 楽屋ビューの「京都の地図」（`PlacesMap.tsx`）で各場所カードのサムネとして表示（絵が無い場所は `onError` で画像のみ非表示）。

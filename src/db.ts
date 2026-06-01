@@ -1,9 +1,11 @@
 // SQLite 永続化（bun:sqlite・依存ゼロ）。
 //
 // 設計方針（一系統・サロゲートキー）:
-// - runs:         1つの年代記（回帰をまたぐ1セッション）。復元用スナップショット(JSON)を1本持つ。
+// - runs:         1つの年代記（回帰をまたぐ1セッション）の現在状態。年代記スカラー（周回/日/天候/
+//                 主人公/利他ピーク）を列に持つ。可変状態は run_char/run_place/run_skill/run_roster/
+//                 run_event/run_loop_summary に正規化して持つ（巨大 JSON スナップショットは廃止）。
+//                 設定（地形・キャラ定義）はコードを正とし保存しない。ログは ticks から再構成する。
 //                 CLI(sim.ts) と Web(server.ts) の双方がこの同じスキーマに保存する（テーブルは一系統）。
-//                 開発と本番は DB_PATH でファイルを分けるだけ（スキーマは共通）。
 // - ticks:        各日の TickResult を1日1行で保存（表示・復元用）。表示ログはここから ORDER BY で組む。
 // - char_metrics: 成長曲線・行動分析用に正規化した1日×1人の薄い行。
 // - dialogues:    その日の会話行。
@@ -18,9 +20,16 @@
 //       ticks.id / char_metrics.id などのサロゲート id は変わる。これらは外部から FK 参照しない前提
 //       （復元は (run_id) で引き ORDER BY loop,day するだけ）なので、id が変わっても影響しない。
 import { Database } from "bun:sqlite";
-import type { LlmCallTiming, TickResult, Weather, WorldState } from "./domain/types.ts";
-import type { CampaignSnapshot } from "./domain/campaign.ts";
-import { createInitialCharacters } from "./domain/characters.ts";
+import type {
+  Chronicle,
+  LlmCallTiming,
+  LoopSummary,
+  SkillProfile,
+  TickResult,
+  Weather,
+  WorldEvent,
+} from "./domain/types.ts";
+import type { CampaignSave, CharSave, PlaceSave } from "./domain/campaign.ts";
 
 const DB_PATH = process.env.DB_PATH ?? "data/world.db";
 
@@ -38,17 +47,97 @@ db.exec("PRAGMA journal_mode = WAL;");
 db.exec("PRAGMA foreign_keys = ON;");
 
 db.exec(`
-  -- 1つの年代記（回帰をまたぐ1セッション）。復元に必要な現在状態を snapshot_json に1本持つ。
-  -- snapshot は「現在の世界＋年代記＋現周ログ」だけ（現周ログは回帰でリセットされるので肥大しない）。
-  -- 全周の表示ログは ticks 側に1日1行で積むので、ここに巨大ログを持たせない。
+  -- 1つの年代記（回帰をまたぐ1セッション）の現在状態。年代記スカラーを列に持つ。
+  -- 可変状態は run_char/run_place/run_skill/run_roster/run_event/run_loop_summary に正規化。
+  -- 設定（地形・キャラ定義）はコードを正とし保存しない。表示ログは ticks に1日1行で積む。
   CREATE TABLE IF NOT EXISTS runs (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    started_at    TEXT NOT NULL,
-    model         TEXT NOT NULL,
-    finished      INTEGER NOT NULL DEFAULT 0,
-    last_loop     INTEGER NOT NULL DEFAULT 1,
-    last_day      INTEGER NOT NULL DEFAULT 0,
-    snapshot_json TEXT NOT NULL
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    started_at         TEXT NOT NULL,
+    model              TEXT NOT NULL,
+    finished           INTEGER NOT NULL DEFAULT 0,
+    last_loop          INTEGER NOT NULL DEFAULT 1,  -- 現在の周回
+    last_day           INTEGER NOT NULL DEFAULT 0,  -- 現在の日
+    weather            TEXT NOT NULL DEFAULT 'normal',
+    protagonist_id     TEXT NOT NULL DEFAULT 'haru',
+    hero_peak_altruism REAL NOT NULL DEFAULT 0
+  );
+
+  -- スキル進捗（年代記）。1スキル1行。acquired=会得済み / progress=進捗カウンタ。
+  CREATE TABLE IF NOT EXISTS run_skill (
+    run_id   INTEGER NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+    skill_id TEXT NOT NULL,
+    acquired INTEGER NOT NULL DEFAULT 0,
+    progress INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (run_id, skill_id)
+  );
+
+  -- 恒久ロスター（解放済みキャラ）。1キャラ1行。
+  CREATE TABLE IF NOT EXISTS run_roster (
+    run_id  INTEGER NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+    char_id TEXT NOT NULL,
+    PRIMARY KEY (run_id, char_id)
+  );
+
+  -- キャラの可変状態（周の途中から再開するためのもの。不変設定はコードが正）。1キャラ1行で上書き。
+  CREATE TABLE IF NOT EXISTS run_char (
+    run_id          INTEGER NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+    char_id         TEXT NOT NULL,
+    energy          INTEGER NOT NULL,
+    altruism        INTEGER NOT NULL,
+    independence    INTEGER NOT NULL,
+    trust           INTEGER NOT NULL,
+    alive           INTEGER NOT NULL,
+    place_id        TEXT NOT NULL,
+    mood_elation    REAL NOT NULL,
+    mood_calm       REAL NOT NULL,
+    mood_warmth     REAL NOT NULL,
+    mood_stress     REAL NOT NULL,
+    anti_achievement REAL NOT NULL,
+    anti_bond       REAL NOT NULL,
+    anti_comfort    REAL NOT NULL,
+    anti_thrill     REAL NOT NULL,
+    whisper         TEXT,
+    whisper_ignored INTEGER,
+    relation        TEXT NOT NULL,
+    episodic_json   TEXT NOT NULL,  -- string[]（直近5件ほど）
+    diary_json      TEXT NOT NULL,  -- string[]（現周の一行日記）
+    debts_json      TEXT,           -- Record<creditorId, 負債量>（恩返しシステム。旧DB互換でnull可）
+    PRIMARY KEY (run_id, char_id)
+  );
+
+  -- 場所の可変状態（民の霊力の枯れ具合だけ。地形・隣接・上限はコードが正）。1場所1行で上書き。
+  CREATE TABLE IF NOT EXISTS run_place (
+    run_id   INTEGER NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+    place_id TEXT NOT NULL,
+    sei      INTEGER NOT NULL,
+    daku     INTEGER NOT NULL,
+    PRIMARY KEY (run_id, place_id)
+  );
+
+  -- いま京に起きている災い/恵み（回帰でリセット）。保存のたびに全消し→入れ直し。
+  CREATE TABLE IF NOT EXISTS run_event (
+    run_id         INTEGER NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+    seq            INTEGER NOT NULL,
+    kind           TEXT NOT NULL,
+    name           TEXT NOT NULL,
+    icon           TEXT NOT NULL,
+    remaining_days INTEGER NOT NULL,
+    total_days     INTEGER NOT NULL,
+    PRIMARY KEY (run_id, seq)
+  );
+
+  -- 過去の周回の結末（年代記 history）。1周1行で上書き。
+  CREATE TABLE IF NOT EXISTS run_loop_summary (
+    run_id               INTEGER NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+    loop                 INTEGER NOT NULL,
+    days                 INTEGER NOT NULL,
+    cause_of_end         TEXT NOT NULL,
+    altruism_reached     REAL NOT NULL,
+    stage_reached        TEXT NOT NULL,
+    cleared              INTEGER NOT NULL DEFAULT 0,
+    acquired_skills_json TEXT NOT NULL,  -- SkillId[]
+    meta_highlights_json TEXT,           -- MetaEvent[]（無ければ null）
+    PRIMARY KEY (run_id, loop)
   );
 
   CREATE TABLE IF NOT EXISTS ticks (
@@ -146,7 +235,7 @@ db.exec(`
 
   -- スキル会得／キャラ解放の「到達可能性」監査ログ。毎 tick 1 行、その時点の
   -- スキル進捗・習得・ハル利他・解放ロスターのスナップを残す（run の時系列）。
-  -- snapshot_json は「今の値」しか持たないため、loop スコープのスキルは周頭でリセットされ
+  -- run_skill 等の現在状態は「今の値」しか持たないため、loop スコープのスキルは周頭でリセットされ
   -- 「毎周どこまで届いたか」が追えない。この表に毎 tick 残すことで、
   --   ・通算何周回っても progress が伸びないスキル（＝実質会得不能）
   --   ・条件に永久に届かないキャラ
@@ -170,13 +259,81 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_skill_audit_run ON skill_audit(run_id, loop, day);
 `);
 
+// --- マイグレーション（既存DB向け。CREATE TABLE IF NOT EXISTS は列追加を反映しないので、
+//     列を足したら必ずここで ALTER も通す。PRAGMA でガードして冪等にする）---
+{
+  const cols = db
+    .query<{ name: string }, []>("PRAGMA table_info(run_char)")
+    .all()
+    .map((r) => r.name);
+  if (!cols.includes("debts_json")) {
+    db.exec("ALTER TABLE run_char ADD COLUMN debts_json TEXT"); // 恩の負債（恩返しシステム）
+  }
+}
+
 // --- prepared statements ---
-const insertRun = db.query<{ id: number }, [string, string, number, number, string]>(
-  `INSERT INTO runs (started_at, model, last_loop, last_day, snapshot_json)
-   VALUES (?, ?, ?, ?, ?) RETURNING id`,
+const insertRun = db.query<
+  { id: number },
+  [string, string, number, number, string, string, number]
+>(
+  `INSERT INTO runs (started_at, model, last_loop, last_day, weather, protagonist_id, hero_peak_altruism)
+   VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`,
 );
 const updateRun = db.query(
-  `UPDATE runs SET finished = ?, last_loop = ?, last_day = ?, snapshot_json = ? WHERE id = ?`,
+  `UPDATE runs SET finished = ?, last_loop = ?, last_day = ?, weather = ?, hero_peak_altruism = ? WHERE id = ?`,
+);
+// 年代記＝正規化状態（保存のたびに upsert / 該当 run を全消し→入れ直し）
+const clearSkills = db.query(`DELETE FROM run_skill WHERE run_id = ?`);
+const upsertSkill = db.query(
+  `INSERT OR REPLACE INTO run_skill (run_id, skill_id, acquired, progress) VALUES (?, ?, ?, ?)`,
+);
+const clearRoster = db.query(`DELETE FROM run_roster WHERE run_id = ?`);
+const insertRosterRow = db.query(
+  `INSERT OR REPLACE INTO run_roster (run_id, char_id) VALUES (?, ?)`,
+);
+const upsertChar = db.query(
+  `INSERT OR REPLACE INTO run_char
+   (run_id, char_id, energy, altruism, independence, trust, alive, place_id,
+    mood_elation, mood_calm, mood_warmth, mood_stress,
+    anti_achievement, anti_bond, anti_comfort, anti_thrill,
+    whisper, whisper_ignored, relation, episodic_json, diary_json, debts_json)
+   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+);
+const upsertPlace = db.query(
+  `INSERT OR REPLACE INTO run_place (run_id, place_id, sei, daku) VALUES (?, ?, ?, ?)`,
+);
+const clearEvents = db.query(`DELETE FROM run_event WHERE run_id = ?`);
+const insertEvent = db.query(
+  `INSERT INTO run_event (run_id, seq, kind, name, icon, remaining_days, total_days)
+   VALUES (?, ?, ?, ?, ?, ?, ?)`,
+);
+const upsertLoopSummary = db.query(
+  `INSERT OR REPLACE INTO run_loop_summary
+   (run_id, loop, days, cause_of_end, altruism_reached, stage_reached, cleared,
+    acquired_skills_json, meta_highlights_json)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+);
+// 復元用 SELECT
+const selectSkills = db.query<
+  { skill_id: string; acquired: number; progress: number },
+  [number]
+>(`SELECT skill_id, acquired, progress FROM run_skill WHERE run_id = ?`);
+const selectRoster = db.query<{ char_id: string }, [number]>(
+  `SELECT char_id FROM run_roster WHERE run_id = ?`,
+);
+const selectChars = db.query<RunCharRow, [number]>(
+  `SELECT * FROM run_char WHERE run_id = ?`,
+);
+const selectPlaces = db.query<{ place_id: string; sei: number; daku: number }, [number]>(
+  `SELECT place_id, sei, daku FROM run_place WHERE run_id = ?`,
+);
+const selectEvents = db.query<RunEventRow, [number]>(
+  `SELECT kind, name, icon, remaining_days, total_days FROM run_event WHERE run_id = ? ORDER BY seq ASC`,
+);
+const selectLoopSummaries = db.query<RunLoopSummaryRow, [number]>(
+  `SELECT loop, days, cause_of_end, altruism_reached, stage_reached, cleared,
+          acquired_skills_json, meta_highlights_json
+   FROM run_loop_summary WHERE run_id = ? ORDER BY loop ASC`,
 );
 const insertTick = db.query(
   `INSERT OR REPLACE INTO ticks (run_id, loop, day, weather, notable, result_json, created_at)
@@ -230,7 +387,53 @@ interface RunRow {
   finished: number;
   last_loop: number;
   last_day: number;
-  snapshot_json: string;
+  weather: string;
+  protagonist_id: string;
+  hero_peak_altruism: number;
+}
+
+interface RunCharRow {
+  run_id: number;
+  char_id: string;
+  energy: number;
+  altruism: number;
+  independence: number;
+  trust: number;
+  alive: number;
+  place_id: string;
+  mood_elation: number;
+  mood_calm: number;
+  mood_warmth: number;
+  mood_stress: number;
+  anti_achievement: number;
+  anti_bond: number;
+  anti_comfort: number;
+  anti_thrill: number;
+  whisper: string | null;
+  whisper_ignored: number | null;
+  relation: string;
+  episodic_json: string;
+  diary_json: string;
+  debts_json: string | null;
+}
+
+interface RunEventRow {
+  kind: string;
+  name: string;
+  icon: string;
+  remaining_days: number;
+  total_days: number;
+}
+
+interface RunLoopSummaryRow {
+  loop: number;
+  days: number;
+  cause_of_end: string;
+  altruism_reached: number;
+  stage_reached: string;
+  cleared: number;
+  acquired_skills_json: string;
+  meta_highlights_json: string | null;
 }
 
 /** 現在時刻（テスト容易性のため引数で受ける） */
@@ -238,27 +441,106 @@ function nowISO(): string {
   return new Date().toISOString();
 }
 
-/** 新しい run を作成して id を返す（復元用スナップショットを1本保存） */
-export function createRun(snapshot: CampaignSnapshot, model: string): number {
+/** セーブ状態を正規化テーブルへ書き込む（run 行は別途。ここは状態テーブルのみ）。1トランザクション。 */
+function writeState(runId: number, save: CampaignSave): void {
+  const tx = db.transaction(() => {
+    // スキル進捗（全消し→入れ直し。会得フラグ＋進捗カウンタ）
+    clearSkills.run(runId);
+    const skillIds = new Set<string>([
+      ...Object.keys(save.chronicle.skills.progress),
+      ...save.chronicle.skills.acquired,
+    ]);
+    const acquiredSet = new Set(save.chronicle.skills.acquired);
+    for (const id of skillIds) {
+      upsertSkill.run(
+        runId,
+        id,
+        acquiredSet.has(id) ? 1 : 0,
+        save.chronicle.skills.progress[id] ?? 0,
+      );
+    }
+    // ロスター
+    clearRoster.run(runId);
+    for (const cid of save.chronicle.roster) insertRosterRow.run(runId, cid);
+    // キャラ可変状態
+    for (const c of save.characters) {
+      upsertChar.run(
+        runId,
+        c.id,
+        c.energy,
+        c.params.altruism,
+        c.params.independence,
+        c.params.trust,
+        c.alive ? 1 : 0,
+        c.currentPlaceId,
+        c.mood.elation,
+        c.mood.calm,
+        c.mood.warmth,
+        c.mood.stress,
+        c.antibodies.achievement,
+        c.antibodies.bond,
+        c.antibodies.comfort,
+        c.antibodies.thrill,
+        c.currentWhisper ?? null,
+        c.whisperIgnored ?? null,
+        c.relationLabel,
+        JSON.stringify(c.episodicMemory),
+        JSON.stringify(c.diary),
+        c.debts ? JSON.stringify(c.debts) : null, // 恩の負債（無ければ null）
+      );
+    }
+    // 場所の枯れ具合
+    for (const p of save.places) upsertPlace.run(runId, p.id, p.populace.sei, p.populace.daku);
+    // 進行中イベント（全消し→入れ直し）
+    clearEvents.run(runId);
+    save.activeEvents.forEach((e, i) =>
+      insertEvent.run(runId, i, e.kind, e.name, e.icon, e.remainingDays, e.totalDays),
+    );
+    // 周回履歴（1周1行 upsert）
+    for (const h of save.chronicle.history) {
+      upsertLoopSummary.run(
+        runId,
+        h.loop,
+        h.days,
+        h.causeOfEnd,
+        h.altruismReached,
+        h.stageReached,
+        h.cleared ? 1 : 0,
+        JSON.stringify(h.acquiredSkills),
+        h.metaHighlights ? JSON.stringify(h.metaHighlights) : null,
+      );
+    }
+  });
+  tx();
+}
+
+/** 新しい run を作成して id を返す（年代記スカラーを runs に、可変状態を各テーブルに保存）。 */
+export function createRun(save: CampaignSave, model: string): number {
   const row = insertRun.get(
     nowISO(),
     model,
-    snapshot.chronicle.loop,
-    snapshot.world.day,
-    JSON.stringify(snapshot),
+    save.chronicle.loop,
+    save.day,
+    save.weather,
+    save.chronicle.protagonistId,
+    save.chronicle.heroPeakAltruism,
   );
-  return row!.id;
+  const runId = row!.id;
+  writeState(runId, save);
+  return runId;
 }
 
-/** run の復元用スナップショット（年代記＋世界＋現周ログ）と進捗を更新 */
-export function saveRunSnapshot(runId: number, snapshot: CampaignSnapshot): void {
+/** run の現在状態を更新（年代記スカラー＋正規化された可変状態）。 */
+export function saveRunState(runId: number, save: CampaignSave): void {
   updateRun.run(
-    snapshot.world.finished ? 1 : 0,
-    snapshot.chronicle.loop,
-    snapshot.world.day,
-    JSON.stringify(snapshot),
+    save.finished ? 1 : 0,
+    save.chronicle.loop,
+    save.day,
+    save.weather,
+    save.chronicle.heroPeakAltruism,
     runId,
   );
+  writeState(runId, save);
 }
 
 /** 1ティックの結果を ticks と char_metrics・dialogues に保存（loop は result.loop） */
@@ -384,22 +666,96 @@ export function logLlmCallEnd(
 }
 
 /**
- * 最新 run を復元する。全周ログは読まない（snapshot に現周ログ loopLog が入っているので、
- * 現在の回帰はそれだけで復元できる）。過去の回帰は loadLoopTicks でオンデマンドに引く。
- * 無ければ null。
+ * 最新 run を復元する。正規化テーブルから「セーブ状態」を組み立てて返す（設定はコードが正なので
+ * 含めない）。現周のログ（loopTicks）は ticks から引いて一緒に返す（Campaign.restore が
+ * weatherHistory 等を再構成する）。過去の回帰は loadLoopTicks でオンデマンドに引く。無ければ null。
  */
 export function loadLatestRun(): {
   runId: number;
-  snapshot: CampaignSnapshot;
+  save: CampaignSave;
+  loopTicks: TickResult[];
 } | null {
   const run = latestRun.get();
   if (!run) return null;
-  const snapshot = JSON.parse(run.snapshot_json) as CampaignSnapshot;
-  // 旧スキーマで保存された world に新フィールドが無い場合を補完（後方互換）
-  for (const c of snapshot.world.characters) normalizeCharacter(c);
-  for (const p of snapshot.world.places) normalizePlace(p);
-  if (!snapshot.world.activeEvents) snapshot.world.activeEvents = [];
-  return { runId: run.id, snapshot };
+  const runId = run.id;
+
+  // スキル進捗 → SkillProfile
+  const skillRows = selectSkills.all(runId);
+  const skills: SkillProfile = {
+    acquired: skillRows.filter((r) => r.acquired).map((r) => r.skill_id),
+    progress: Object.fromEntries(skillRows.map((r) => [r.skill_id, r.progress])),
+  };
+  // 履歴 → LoopSummary[]
+  const history: LoopSummary[] = selectLoopSummaries.all(runId).map((h) => ({
+    loop: h.loop,
+    days: h.days,
+    causeOfEnd: h.cause_of_end,
+    altruismReached: h.altruism_reached,
+    stageReached: h.stage_reached as LoopSummary["stageReached"],
+    acquiredSkills: JSON.parse(h.acquired_skills_json),
+    cleared: h.cleared ? true : undefined,
+    metaHighlights: h.meta_highlights_json ? JSON.parse(h.meta_highlights_json) : undefined,
+  }));
+  const chronicle: Chronicle = {
+    loop: run.last_loop,
+    protagonistId: run.protagonist_id,
+    skills,
+    roster: selectRoster.all(runId).map((r) => r.char_id),
+    heroPeakAltruism: run.hero_peak_altruism,
+    history,
+  };
+
+  // キャラ可変状態 → CharSave[]
+  const characters: CharSave[] = selectChars.all(runId).map((c) => ({
+    id: c.char_id,
+    energy: c.energy,
+    params: { altruism: c.altruism, independence: c.independence, trust: c.trust },
+    alive: !!c.alive,
+    currentPlaceId: c.place_id,
+    mood: {
+      elation: c.mood_elation,
+      calm: c.mood_calm,
+      warmth: c.mood_warmth,
+      stress: c.mood_stress,
+    },
+    antibodies: {
+      achievement: c.anti_achievement,
+      bond: c.anti_bond,
+      comfort: c.anti_comfort,
+      thrill: c.anti_thrill,
+    },
+    currentWhisper: c.whisper ?? undefined,
+    whisperIgnored: c.whisper_ignored ?? undefined,
+    relationLabel: c.relation,
+    episodicMemory: JSON.parse(c.episodic_json),
+    diary: JSON.parse(c.diary_json),
+    debts: c.debts_json ? JSON.parse(c.debts_json) : undefined, // 旧DBは null → undefined
+  }));
+  // 場所の枯れ具合 → PlaceSave[]
+  const places: PlaceSave[] = selectPlaces.all(runId).map((p) => ({
+    id: p.place_id,
+    populace: { sei: p.sei, daku: p.daku },
+  }));
+  // 進行中イベント → WorldEvent[]
+  const activeEvents: WorldEvent[] = selectEvents.all(runId).map((e) => ({
+    kind: e.kind as WorldEvent["kind"],
+    name: e.name,
+    icon: e.icon,
+    remainingDays: e.remaining_days,
+    totalDays: e.total_days,
+  }));
+
+  const save: CampaignSave = {
+    chronicle,
+    day: run.last_day,
+    weather: run.weather as Weather,
+    finished: !!run.finished,
+    activeEvents,
+    characters,
+    places,
+  };
+  const loopTicks = loadLoopTicks(runId, run.last_loop);
+  return { runId, save, loopTicks };
 }
 
 /** 指定した回帰（loop）の完全 ticks を日付順に引く（LoopPage の1周再生用）。 */
@@ -423,40 +779,6 @@ export interface CharTraceRow {
 /** 指定キャラの全周横断の軌跡を char_metrics から引く（重い TickResult は読まない）。 */
 export function loadCharacterTrace(runId: number, charId: string): CharTraceRow[] {
   return charTrace.all(runId, charId);
-}
-
-/** 旧データに欠けている報酬・気分・執着・異能フィールドをデフォルトで補完する */
-function normalizeCharacter(c: any): void {
-  if (typeof c.satiety !== "number") c.satiety = 40;
-  if (!c.sensitization)
-    c.sensitization = { achievement: 0.3, bond: 0.3, comfort: 0.3, thrill: 0.4 };
-  if (typeof c.clearance !== "number") c.clearance = 0.15;
-  if (typeof c.lonelinessSensitivity !== "number") c.lonelinessSensitivity = 5;
-  if (!c.antibodies)
-    c.antibodies = { achievement: 0, bond: 0, comfort: 0, thrill: 0 };
-  if (!c.mood) c.mood = { elation: 0, calm: 0, warmth: 0, stress: 0 };
-  if (typeof c.talent !== "string") c.talent = "none";
-  // 固定口調（後付けフィールド）。旧データには無いので初期定義から id で補完する。
-  if (typeof c.voice !== "string" || !c.voice) {
-    c.voice = initialVoiceById().get(c.id) ?? "";
-  }
-}
-
-/** 初期定義の id→voice マップ（初回だけ生成してキャッシュ）。 */
-let _voiceById: Map<string, string> | null = null;
-function initialVoiceById(): Map<string, string> {
-  if (!_voiceById) {
-    _voiceById = new Map(createInitialCharacters().map((d) => [d.id, d.voice]));
-  }
-  return _voiceById;
-}
-
-/** 旧データに欠けている民の霊力プール（清/濁）を、その地の実りからの推定値で補完する */
-function normalizePlace(p: any): void {
-  const cap = p.forage?.normal ?? 12;
-  if (!p.populace) p.populace = { sei: cap * 3, daku: Math.round(cap * 1.5) };
-  if (!p.populaceMax) p.populaceMax = { sei: p.populace.sei, daku: p.populace.daku };
-  if (!p.regen) p.regen = { sei: Math.max(2, Math.round(cap / 2)), daku: 3 };
 }
 
 // ============================================================

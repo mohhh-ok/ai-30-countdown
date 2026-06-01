@@ -7,8 +7,9 @@ import type { Chronicle, TickResult } from "../../domain/types.ts";
 import {
   type Highlight,
   type HighlightKind,
-  crossLoopHighlights,
+  chronicleHighlights,
   loopHighlights,
+  loopMetaHighlights,
 } from "../../domain/highlights.ts";
 
 const KIND_ICON: Record<HighlightKind, string> = {
@@ -92,8 +93,13 @@ export function Highlights({
   const heroId = chronicle?.protagonistId ?? "haru";
   const currentLoop = chronicle?.loop ?? 1;
 
-  // どちらも新しい順（date desc・直近を上に）。
-  const meta = crossLoopHighlights(log, heroId).reverse();
+  // 回帰を超えた年代記は chronicle から組む。過去周は LoopSummary.metaHighlights（closeLoop で焼き付け済み）、
+  // 進行中の周は手元の現周ログ（log）から live に拾う。全周ログは持たない設計なので log には現周しか無い。
+  const meta = chronicleHighlights(chronicle?.history ?? [], {
+    loop: currentLoop,
+    events: loopMetaHighlights(log, heroId),
+  }).reverse();
+  // 新しい順（date desc・直近を上に）。
   const loopTop = loopHighlights(log, currentLoop, heroId, 5).reverse();
 
   if (meta.length === 0 && loopTop.length === 0) return null;

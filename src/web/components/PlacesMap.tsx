@@ -20,6 +20,16 @@ export function PlacesMap({
             className={`map-place${here.length ? " occupied" : ""}`}
             title={p.description}
           >
+            <img
+              className="map-thumb"
+              src={`/assets/places/${p.id}.webp`}
+              alt={p.name}
+              loading="lazy"
+              onError={(e) => {
+                // 絵が無い場所は画像だけ隠す（キャラ絵と同じ流儀）
+                (e.currentTarget as HTMLImageElement).style.display = "none";
+              }}
+            />
             <div className="map-name">{p.name}</div>
             <div className="map-forage">
               実り 通常{p.forage.normal}/不作{p.forage.lean}

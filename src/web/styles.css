@@ -486,6 +486,14 @@ button.ghost {
   border-radius: 10px;
   padding: 10px 12px;
 }
+.map-thumb {
+  display: block;
+  width: calc(100% + 24px);
+  margin: -10px -12px 8px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 10px 10px 0 0;
+}
 .map-place.occupied {
   border-color: var(--accent);
   background: var(--panel2);

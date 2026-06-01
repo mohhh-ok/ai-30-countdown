@@ -2,11 +2,15 @@
 // 周回番号を進める。記憶・成長値・異能はリセットされ、唯一スキルだけが持ち越される。
 // CLI（sim.ts）と Web（server.ts）の双方がこのランナーを使い、回帰ロジックを二重化しない。
 import type {
+  ChannelMap,
   Chronicle,
   LoopSummary,
+  Params,
+  Populace,
   SkillEffects,
   TickResult,
   Weather,
+  WorldEvent,
   WorldState,
 } from "./types.ts";
 import { CHARACTER_UNLOCKS, createInitialCharacters } from "./characters.ts";
@@ -18,15 +22,52 @@ import {
   freshSkillProfile,
   resetLoopScopedProgress,
 } from "./skills.ts";
+import { loopMetaHighlights } from "./highlights.ts";
 
 const DEFAULT_PROTAGONIST = "haru";
 
-/** 回帰ランナーの永続化スナップショット（DB へ JSON で保存・復元する） */
-export interface CampaignSnapshot {
+/**
+ * キャラの「可変状態」だけ（不変の設定＝core/voice/talent/sensitization 等はコード
+ * createInitialCharacters() が持つので保存しない）。復元時に id で世界へ上書きする。
+ */
+export interface CharSave {
+  id: string;
+  energy: number;
+  params: Params;
+  alive: boolean;
+  currentPlaceId: string;
+  mood: { elation: number; calm: number; warmth: number; stress: number };
+  antibodies: ChannelMap;
+  currentWhisper?: string;
+  whisperIgnored?: number;
+  relationLabel: string;
+  episodicMemory: string[];
+  diary: string[];
+  /** 恩の負債（恩返しシステム）。creditorId→負債量。無ければ undefined。 */
+  debts?: Record<string, number>;
+}
+
+/** 場所の「可変状態」だけ（地形・隣接・実り上限はコード placesCopy() が持つ）。 */
+export interface PlaceSave {
+  id: string;
+  populace: Populace;
+}
+
+/**
+ * 回帰ランナーのセーブ状態。DB へ正規化テーブルで保存・復元する（巨大 JSON スナップショットは廃止）。
+ * ここに含めないもの:
+ *  - 不変の設定（places の地形・キャラ定義）→ コードを正とし、復元時に再構成する。
+ *  - ログ（loopLog / weatherHistory）→ 現周の ticks 行から再構成する。
+ * 含めるのは「コードにもログにも無い・派生不能な状態」だけ。
+ */
+export interface CampaignSave {
   chronicle: Chronicle;
-  world: WorldState;
-  weatherHistory: Weather[];
-  loopLog: TickResult[];
+  day: number;
+  weather: Weather;
+  finished: boolean;
+  activeEvents: WorldEvent[];
+  characters: CharSave[];
+  places: PlaceSave[];
 }
 
 /** まっさらな年代記（1周目の開始。京にはハルだけがいる） */
@@ -111,25 +152,81 @@ export class Campaign {
     this.loopDays = 0;
   }
 
-  /** 永続化用スナップショットを取り出す（DB へ JSON 保存） */
-  snapshot(): CampaignSnapshot {
+  /** 永続化用のセーブ状態を取り出す（DB へ正規化保存。設定とログは含めない）。 */
+  save(): CampaignSave {
+    const w = this.world;
     return {
       chronicle: this.chronicle,
-      world: this.world,
-      weatherHistory: this.weatherHistory,
-      loopLog: this.loopLog,
+      day: w.day,
+      weather: w.weather,
+      finished: w.finished,
+      activeEvents: w.activeEvents,
+      characters: w.characters.map((c) => ({
+        id: c.id,
+        energy: c.energy,
+        params: c.params,
+        alive: c.alive,
+        currentPlaceId: c.currentPlaceId,
+        mood: c.mood,
+        antibodies: c.antibodies,
+        currentWhisper: c.currentWhisper,
+        whisperIgnored: c.whisperIgnored,
+        relationLabel: c.relationLabel,
+        episodicMemory: c.episodicMemory,
+        diary: c.diary,
+        debts: c.debts,
+      })),
+      places: w.places.map((p) => ({ id: p.id, populace: p.populace })),
     };
   }
 
-  /** スナップショットから復元する（DB からの復帰） */
-  static restore(snap: CampaignSnapshot): Campaign {
-    const c = new Campaign(snap.chronicle);
-    c.world = snap.world;
-    c.weatherHistory = snap.weatherHistory;
-    c.loopLog = snap.loopLog;
-    c.loopDays = snap.loopLog.length;
-    const heroId = snap.chronicle.protagonistId;
-    c.loopMaxAltruism = snap.loopLog.reduce((mx, t) => {
+  /**
+   * セーブ状態から復元する。世界の「設定」はコード（freshWorldFor＝placesCopy/
+   * createInitialCharacters）を正として組み直し、その上に保存済みの可変状態を id で上書きする。
+   * ログ（loopLog/weatherHistory）は現周の ticks 行（loopTicks）から再構成する。
+   */
+  static restore(save: CampaignSave, loopTicks: TickResult[] = []): Campaign {
+    const c = new Campaign(save.chronicle); // world = 設定＋ロスターをコードから構築
+    const w = c.world;
+    w.day = save.day;
+    w.weather = save.weather;
+    w.finished = save.finished;
+    w.activeEvents = save.activeEvents;
+
+    const placeIds = new Set(w.places.map((p) => p.id));
+    for (const cs of save.characters) {
+      const ch = w.characters.find((x) => x.id === cs.id);
+      if (!ch) continue; // ロスター外（未解放）なら無視
+      ch.energy = cs.energy;
+      ch.params = cs.params;
+      ch.alive = cs.alive;
+      // 居場所が（マップ縮小などで）消えていたら、黙って壊さずコード既定の初期地へ戻して警告する
+      if (placeIds.has(cs.currentPlaceId)) {
+        ch.currentPlaceId = cs.currentPlaceId;
+      } else {
+        console.warn(
+          `[restore] ${cs.id} の居場所「${cs.currentPlaceId}」は現マップに存在しない。初期地「${ch.currentPlaceId}」へ戻す。`,
+        );
+      }
+      ch.mood = cs.mood;
+      ch.antibodies = cs.antibodies;
+      ch.currentWhisper = cs.currentWhisper;
+      ch.whisperIgnored = cs.whisperIgnored;
+      ch.relationLabel = cs.relationLabel;
+      ch.episodicMemory = cs.episodicMemory;
+      ch.diary = cs.diary;
+      ch.debts = cs.debts; // 恩の負債（旧DBは undefined のまま＝恩なし）
+    }
+    for (const ps of save.places) {
+      const p = w.places.find((x) => x.id === ps.id);
+      if (p) p.populace = ps.populace; // 消えた地は捨てる
+    }
+
+    c.loopLog = loopTicks;
+    c.weatherHistory = loopTicks.map((t) => t.weather);
+    c.loopDays = loopTicks.length;
+    const heroId = save.chronicle.protagonistId;
+    c.loopMaxAltruism = loopTicks.reduce((mx, t) => {
       const h = t.characters.find((r) => r.id === heroId);
       return h ? Math.max(mx, h.paramsAfter.altruism) : mx;
     }, c.heroAltruism());
@@ -207,6 +304,9 @@ export class Campaign {
       stageReached: stageOf(this.loopMaxAltruism),
       acquiredSkills: [...this.chronicle.skills.acquired],
       cleared: cleared || undefined,
+      // 全周ログを常駐させない設計のため、回帰を超えた年代記用の節目（会得・解放・段階到達）を
+      // この周のログから日付付きで焼き付けておく（次周以降は loopLog がリセットされるので今ここで）。
+      metaHighlights: loopMetaHighlights(this.loopLog, this.protagonistId),
     };
     this.chronicle.history.push(summary);
 

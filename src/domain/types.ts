@@ -90,6 +90,7 @@ export interface Place {
   id: string;
   name: string; // 京の霊地名
   description: string; // 雰囲気・地理・霊性
+  appearance: string; // 背景絵生成用の見た目プロンプト（英語・画風指定は gen-place-art.ts 側が付与）
   /** その地で1日に頂ける霊力の上限（通常日 / 不作日）。実際の取れ高はプール残量で頭打ち。 */
   forage: { normal: number; lean: number };
   /** いま民に残る霊力（清/濁）。集霊で減り、毎日 regen ぶん回復（max が上限）。 */
@@ -201,6 +202,14 @@ export interface Character {
   episodicMemory: string[]; // エピソード記憶（直近5件ほど）
   diary: string[]; // 毎ティックの一行日記
   relationLabel: string; // 相手への現在の感情ラベル
+  /**
+   * 恩の負債（恩返しシステム）。「誰に霊力を分けてもらったか」を creditorId→負債量 で持つ。
+   * 受けると積もり、その相手へ分け与え返すと果たされ（消える）、日が経つほど自然に薄れる。
+   * 利他フィードバックとは別経路で分与（share）を後押しする「借りは返す」動機の源。
+   * DB（run_char.debts_json）に永続化する＝プロセス再起動でも消えない。
+   * 周（回帰）をまたぐと freshWorldFor で作り直されるため自然にリセットされる（恩は一代限り）。
+   */
+  debts?: Record<string, number>;
 }
 
 /** 世界の状態 */
@@ -488,6 +497,17 @@ export interface SkillProfile {
   progress: Record<SkillId, number>; // 各スキルの進捗カウンタ
 }
 
+/**
+ * 「回帰を超えた年代記」用に、その周で起きたメタ進行イベントを日付付きで残す最小形。
+ * 全周ログを常駐させない設計（/api/state は現周ぶんのみ）でも過去周の節目を描けるよう、
+ * closeLoop 時に loopLog から抽出して LoopSummary に焼き付ける。
+ */
+export interface MetaEvent {
+  day: number;
+  kind: "skill" | "unlock" | "stage";
+  text: string;
+}
+
 /** 1周回の結末の記録（履歴・あらすじ素材） */
 export interface LoopSummary {
   loop: number; // 何周目か
@@ -497,6 +517,11 @@ export interface LoopSummary {
   stageReached: Stage; // その周で届いた最高段階（成長軸）
   acquiredSkills: SkillId[]; // その周で会得したスキル
   cleared?: boolean; // 30日目の大禍を祓い退けて京を救った（クリア）周か
+  /**
+   * 「回帰を超えた年代記」用のメタ節目（会得・解放・段階初到達）を日付付きで保持する。
+   * 旧 run の履歴には無い（undefined）こともある。その場合は記録に基づく節目（最長更新）だけ描く。
+   */
+  metaHighlights?: MetaEvent[];
 }
 
 /**
