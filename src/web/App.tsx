@@ -23,13 +23,20 @@ import { allCharIds, nameOfId, ticksOfLoop, unlockOf } from "./util.ts";
 // サーバ側ワーカーが自走で世界を進める。UI は進行操作を持たず、一定間隔で最新状態を取りに行くだけ。
 const POLL_INTERVAL_MS = 3000;
 
+// ホーム配下のビュー切替（表＝main / 裏＝status / デバッグ＝debug）。
+type View = "main" | "status" | "debug";
+
 /** ページ切り替えのナビ。回帰一覧と各キャラへの入口を常設する。 */
 function SiteNav({
   route,
   chronicle,
+  view,
+  setView,
 }: {
   route: Route;
   chronicle: Chronicle | null;
+  view: View;
+  setView: (v: View) => void;
 }) {
   // 周の総数は現在の回帰番号（chronicle.loop）そのもの。全周ログは持たない。
   const loopCount = chronicle?.loop ?? 1;
@@ -39,8 +46,28 @@ function SiteNav({
   const onLoop = route.name === "loops" || route.name === "loop";
   return (
     <nav className="site-nav">
-      <a className={route.name === "home" ? "nav-on" : ""} href="#/">
+      {/* ホーム配下のビュー切替（表/裏/デバッグ）をナビ行に統合。ホーム以外のページから
+          押された場合も href="#/" でホームへ戻りつつ、対象ビューに切り替える。 */}
+      <a
+        className={route.name === "home" && view === "main" ? "nav-on" : ""}
+        href="#/"
+        onClick={() => setView("main")}
+      >
         ホーム
+      </a>
+      <a
+        className={route.name === "home" && view === "status" ? "nav-on" : ""}
+        href="#/"
+        onClick={() => setView("status")}
+      >
+        ステータス
+      </a>
+      <a
+        className={route.name === "home" && view === "debug" ? "nav-on" : ""}
+        href="#/"
+        onClick={() => setView("debug")}
+      >
+        デバッグ
       </a>
       <a className={onLoop ? "nav-on" : ""} href="#/loops">
         回帰一覧{loopCount > 0 ? `（${loopCount}）` : ""}
@@ -97,7 +124,7 @@ export function App() {
   const [error, setError] = useState<string>("");
   const [ollamaOk, setOllamaOk] = useState<boolean | null>(null);
   const [backend, setBackend] = useState<string>("");
-  const [view, setView] = useState<"main" | "status" | "debug">("main");
+  const [view, setView] = useState<View>("main");
   const route = useHashRoute();
 
   async function loadState() {
@@ -160,7 +187,12 @@ export function App() {
   if (route.name !== "home") {
     return (
       <div className="app">
-        <SiteNav route={route} chronicle={chronicle} />
+        <SiteNav
+          route={route}
+          chronicle={chronicle}
+          view={view}
+          setView={setView}
+        />
         {route.name === "loops" && (
           <LoopsPage chronicle={chronicle} currentDays={log.length} />
         )}
@@ -180,7 +212,12 @@ export function App() {
 
   return (
     <div className="app">
-      <SiteNav route={route} chronicle={chronicle} />
+      <SiteNav
+        route={route}
+        chronicle={chronicle}
+        view={view}
+        setView={setView}
+      />
       <header className="topbar">
         <div className="title">
           <h1 className="title-logo">
@@ -199,29 +236,6 @@ export function App() {
               {state.weather === "normal" ? "通常日" : "不作日"}
             </span>
           )}
-        </div>
-        {/* ビュー切替（表/裏/デバッグ）。Tailwind ハイブリッドのデモとしてユーティリティで記述。
-            テーマ色は既存の CSS 変数を arbitrary value で参照する。基底 button スタイルは styles.css 側。 */}
-        <div className="flex overflow-hidden rounded-lg border border-[var(--line)]">
-          {(
-            [
-              ["main", "表"],
-              ["status", "裏"],
-              ["debug", "デバッグ"],
-            ] as const
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setView(key)}
-              className={`rounded-none border-0 px-[14px] py-[7px] text-[13px] font-bold ${
-                view === key
-                  ? "bg-[var(--accent)] text-[#1a140d]"
-                  : "bg-transparent text-[var(--muted)]"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
         </div>
       </header>
 
