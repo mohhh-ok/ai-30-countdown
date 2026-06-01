@@ -1951,6 +1951,15 @@ button.ghost {
     width: 100%;
     height: 200px;
   }
+  /* スマホでは主役カードの肖像＋本文の2列が窮屈なので、縦スタックに切り替える。
+     肖像は120px角のまま上部中央へ、本文は下に全幅で回す。 */
+  .hero {
+    flex-direction: column;
+    align-items: center;
+  }
+  .hero-body {
+    width: 100%;
+  }
 }
 .char-core {
   margin: 0 0 8px;
