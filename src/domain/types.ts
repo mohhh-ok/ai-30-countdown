@@ -184,6 +184,12 @@ export interface Character {
   lonelinessSensitivity: number;
   // --- 可変状態 ---
   energy: number;
+  /**
+   * 禁忌「奪う(steal)」を犯すたびに積もる、本人だけの恒久的な日次負荷の上乗せ。
+   * 毎ティックすり減る energy（日次負荷）にこの値が加算される＝奪うほど以後ずっと消耗が重くなる。
+   * 周（回帰）をまたぐと createInitialCharacters で 0 に戻る（一代限りの業）。
+   */
+  stealBurden: number;
   params: Params;
   alive: boolean;
   currentPlaceId: string; // 現在地（Place.id）

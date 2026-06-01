@@ -4,19 +4,24 @@
   "description": "小さなエージェント世界 — 2人・テキスト版 (TS + bun + Ollama)",
   "type": "module",
   "scripts": {
-    "dev": "PORT=5566 bun --hot src/server.ts",
-    "start": "PORT=5566 bun src/server.ts",
-    "sim": "bun src/sim.ts",
+    "dev": "bun run db:push && PORT=5566 bun --hot src/server.ts",
+    "start": "bun run db:push && PORT=5566 bun src/server.ts",
+    "sim": "bun run db:push && bun src/sim.ts",
+    "db:push": "drizzle-kit push --force",
+    "db:generate": "drizzle-kit generate",
+    "db:studio": "drizzle-kit studio",
     "secrets": "gitleaks git --no-banner --redact --exit-code 1",
     "secrets:staged": "gitleaks git --staged --no-banner --redact --exit-code 1"
   },
   "dependencies": {
+    "drizzle-orm": "1.0.0-rc.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14",
     "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0"
+    "@types/react-dom": "^19.0.0",
+    "drizzle-kit": "1.0.0-rc.3"
   }
 }

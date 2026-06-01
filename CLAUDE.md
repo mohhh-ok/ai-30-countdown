@@ -26,8 +26,10 @@
 - **キャラ等の可変状態（例: 恩の負債 `Character.debts`）は、原則 `run_char` 等のDBに永続化する。**
   「短命だから」「周ごとにリセットされるから」「マイグレーション機構が無いから」を口実に、
   **黙ってメモリ常駐だけにして再起動で消える設計を勝手に選ばない**（実際にやって叱られた）。
-- DB は `CREATE TABLE IF NOT EXISTS` なので、列を足すなら **既存DB向けに `ALTER TABLE ... ADD COLUMN`（PRAGMA table_info でガードした冪等マイグレーション）**も併せて入れること。新規DBだけ通って既存DBで落ちる、を避ける。
-- 永続化の配線は1か所では済まない。**忘れず全部通す**: `run_char` スキーマ列追加 → `upsertChar`（INSERT列＋VALUES） → `RunCharRow`/復元SELECTのパース → `CharSave`（campaign.ts）→ save/restore マッピング。どれか欠けると silently 保存漏れ。
+- **永続化は Drizzle ORM（`drizzle-orm` / bun-sqlite）＋ drizzle-kit push 運用。** スキーマの正は `src/schema.ts`（Drizzle テーブル定義）。`src/db.ts` は全て drizzle 経由で読み書きする（生SQL/prepared statement・手書き `CREATE TABLE`/`ALTER` は廃止）。
+- 列を足すときは **`src/schema.ts` に列を追加 → `bun run db:push`（= `drizzle-kit push --force`）で DB に反映**する。`db:push` は `dev`/`start`/`sim` の冒頭でも自動で走るので、起動すればスキーマは同期される。手書きの `ALTER`/`PRAGMA table_info` ガードはもう書かない。
+- 永続化の配線は1か所では済まない。**忘れず全部通す**: `src/schema.ts` に列追加 → `src/db.ts` の `charSaveToRow`（insert 値）→ `loadLatestRun` の select マッピング → `CharSave`（campaign.ts）→ save/restore マッピング。どれか欠けると silently 保存漏れ。
+- 本番（Railway ボリューム上の `data/world.db`）は **壊れて良い前提**（合意済み）。だから `db:push` は `--force`（データロス自動承認）でよい。安定運用でバージョン管理されたマイグレーションが要るようになったら `bun run db:generate` ＋ migrator へ切替できる。
 - どうしても永続化しない（メモリのみで良い）と判断する場合は、**先にユーザーへ理由を明示して合意を取る**。黙って既定化しない。
 
 ### 観客ビューと楽屋ビューは別物。混同しない

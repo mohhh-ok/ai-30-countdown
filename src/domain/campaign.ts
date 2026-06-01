@@ -33,6 +33,7 @@ const DEFAULT_PROTAGONIST = "haru";
 export interface CharSave {
   id: string;
   energy: number;
+  stealBurden: number;
   params: Params;
   alive: boolean;
   currentPlaceId: string;
@@ -164,6 +165,7 @@ export class Campaign {
       characters: w.characters.map((c) => ({
         id: c.id,
         energy: c.energy,
+        stealBurden: c.stealBurden,
         params: c.params,
         alive: c.alive,
         currentPlaceId: c.currentPlaceId,
@@ -198,6 +200,8 @@ export class Campaign {
       const ch = w.characters.find((x) => x.id === cs.id);
       if (!ch) continue; // ロスター外（未解放）なら無視
       ch.energy = cs.energy;
+      // 旧DB（steal_burden 列が無い周）は移行で 0 に backfill 済み → そのまま採用
+      ch.stealBurden = cs.stealBurden;
       ch.params = cs.params;
       ch.alive = cs.alive;
       // 居場所が（マップ縮小などで）消えていたら、黙って壊さずコード既定の初期地へ戻して警告する

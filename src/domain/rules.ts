@@ -15,6 +15,12 @@ import { REWARD_CHANNELS } from "./types.ts";
 /** 毎ティックの負荷（plan.md 第1節）。両者のエネルギーが −8 される。 */
 export const DAILY_LOAD = 8;
 
+/**
+ * 禁忌「奪う(steal)」を 1 回犯すごとに、奪った側自身の日次負荷へ恒久的に上乗せされる量。
+ * 短期的には energy +12 を得るが、その代償に以後ずっと毎ティックの消耗が重くなる（回帰内では戻らない）。
+ */
+export const STEAL_DRAIN_INCREASE = 1;
+
 /** 不作日の確率（plan.md 第2節・約1/3） */
 export const LEAN_PROBABILITY = 1 / 3;
 

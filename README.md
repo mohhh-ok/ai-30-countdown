@@ -218,9 +218,17 @@ API キー等の漏洩を防ぐため [gitleaks](https://github.com/gitleaks/git
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama のホスト |
 | `DB_PATH` | `data/world.db` | SQLite データベースのパス（開発と本番で別ファイルに分けられる。スキーマは共通） |
 
-## 永続化（SQLite）
+## 永続化（SQLite / Drizzle ORM）
 
-`bun:sqlite`（依存ゼロ）で `data/world.db` に保存する。サーバーを再起動すると最新 run の続きから復元される。
+**Drizzle ORM**（`drizzle-orm` の bun-sqlite ドライバ）で `data/world.db` に保存する。サーバーを再起動すると最新 run の続きから復元される。スキーマの正は `src/schema.ts`（Drizzle テーブル定義）、読み書きは `src/db.ts` が全て drizzle 経由で行う。
+
+スキーマ管理は **drizzle-kit push** 運用。テーブルの実体化は `bun run db:push`（= `drizzle-kit push --force`）で行い、`dev`/`start`/`sim` の起動時にも自動で走る（先頭で push してから本体を起動）。列を足すときは `src/schema.ts` を編集して `bun run db:push` するだけ（手書きの `CREATE TABLE`/`ALTER` は不要）。
+
+| スクリプト | 役割 |
+|---|---|
+| `bun run db:push` | `src/schema.ts` を DB に反映（`--force`＝データロス自動承認） |
+| `bun run db:generate` | 将来バージョン管理されたマイグレーションが要るとき用（現状は push 運用） |
+| `bun run db:studio` | Drizzle Studio で DB を閲覧 |
 
 - `runs` — 1つの年代記（回帰＝ローグライクをまたぐ1セッション）。復元用スナップショット（年代記＋現在の世界＋現周ログ）を1本だけ持つ。CLI（`sim`）も Web（`server`）も同じこのスキーマに保存する（テーブルは一系統）。
 - `ticks` — 各日の結果（`TickResult`）を1日1行で JSON 保存（`loop`/`day` で識別。回帰で `day` は周ごとに 1 に戻る）。表示ログはここから組む。表示・復元用。

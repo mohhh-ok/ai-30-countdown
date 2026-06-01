@@ -44,6 +44,7 @@ import {
   LEAN_PROBABILITY,
   NEEDS_PARTNER,
   REWARD,
+  STEAL_DRAIN_INCREASE,
   type RawRewardEvent,
   actionEffect,
   applyDeltas,
@@ -343,8 +344,11 @@ export async function runTick(
     const baseLoad = isHero(c.id)
       ? Math.max(1, DAILY_LOAD - skillEffects.loadReduction)
       : DAILY_LOAD;
-    // 疫病など環境イベントの追加消耗・地脈の乱れ・大禍は災いなので主人公にも等しくのしかかる
-    c.energy -= baseLoad + eventEffects.extraLoad + creepLoad + climaxBlow;
+    // 疫病など環境イベントの追加消耗・地脈の乱れ・大禍は災いなので主人公にも等しくのしかかる。
+    // stealBurden: 禁忌「奪う」を犯すたび積もった、本人だけの恒久的な日次負荷の上乗せ（奪うほど重い）。
+    //   ※ loadReduction（飢えを和らげるスキル）は baseLoad にのみ効かせ、stealBurden には意図的に効かせない。
+    //     これは「業＝禁忌の代償」であり、飢え対策スキルで帳消しにできない別軸のペナルティとして残す。
+    c.energy -= baseLoad + eventEffects.extraLoad + creepLoad + climaxBlow + c.stealBurden;
   }
 
   // 2. LLM に行動・移動先・対人相手・日記・関係・パラメータ変動を決めさせる（囁きはプロンプトに乗る）
@@ -601,6 +605,11 @@ export async function runTick(
         }
       }
       victim.energy += eff.partner;
+    }
+    // 禁忌「奪う」を犯すと、奪った側自身の日次負荷が恒久的に増す（旨味 energy +12 の代償）。
+    // 以後ずっと毎ティックの消耗が重くなり、回帰内では戻らない。奪い続ければ自滅へ向かう。
+    if (action === "steal") {
+      actor.stealBurden += STEAL_DRAIN_INCREASE;
     }
     // ナギ（結の力）が気を鎮める（休む）と、その地の清霊を癒し戻す
     if (actor.talent === "bond" && action === "rest") {
