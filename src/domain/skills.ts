@@ -99,7 +99,7 @@ export const SKILLS: SkillDef[] = [
   },
   // --- 結界スキル（30日目の大禍を祓い退けるための「結界力 wardPower」を積む）---
   // 単独（ハルひとり）の周でも、祓い×8 と 休む×10 だけで wardPower 18+14=32 ≥ 猛威度30 に届く設計。
-  // 仲間が解放されれば、分与・庇いの道でも結界を編める。
+  // 仲間が解放されれば、分与・寄り添いの道でも結界を編める。
   {
     id: "ward_basics",
     icon: "🛡️",
@@ -134,10 +134,10 @@ export const SKILLS: SkillDef[] = [
     id: "ward_resolve",
     icon: "🦸",
     name: "捨て身の守り",
-    description: "通算6度、誰かを庇い守ると会得（周をまたいで蓄積）。身を挺して守る覚悟が力に変わり、大禍への結界力+14。",
+    description: "通算6度、誰かに寄り添うと会得（周をまたいで蓄積）。傍に在り支える覚悟が力に変わり、大禍への結界力+14。",
     scope: "career",
     threshold: 6,
-    measure: ({ hero }) => (hero.action === "guard" ? 1 : 0),
+    measure: ({ hero }) => (hero.action === "follow" ? 1 : 0),
     effect: { wardPower: 14 },
   },
 ];

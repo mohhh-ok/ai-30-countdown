@@ -106,13 +106,6 @@ export function createMockProvider(rng: () => number = Math.random): DecisionPro
               targetId: peer.id,
               ab: c.antibodies.bond,
             });
-            // 利他寄りなら庇い守る、信頼が薄く気が荒いなら脅し退ける
-            if (c.params.altruism >= 50) {
-              cand.push({ action: "guard", targetId: peer.id, ab: c.antibodies.bond });
-            }
-            if (c.params.trust < 40) {
-              cand.push({ action: "threaten", targetId: peer.id, ab: c.antibodies.thrill });
-            }
           } else {
             const target = stepTowardNearest(state, c, others);
             if (target) cand.push({ action: "move", moveTarget: target, ab: 10 });

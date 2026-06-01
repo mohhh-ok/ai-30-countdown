@@ -106,10 +106,6 @@ function actStory(c: CharacterTickResult): string {
       return c.targetName
         ? `${c.name}は${c.targetName}から霊を奪った`
         : `${c.name}は霊を奪った`;
-    case "deceive":
-      return c.targetName
-        ? `${c.name}は${c.targetName}を欺いた`
-        : `${c.name}は欺いた`;
     case "follow":
       return c.targetName
         ? `${c.name}は${c.targetName}の傍に寄り添った`
@@ -118,14 +114,6 @@ function actStory(c: CharacterTickResult): string {
       return (c.purifyCleansed ?? 1) > 0
         ? `${c.name}は${c.placeName}の濁りを祓い清めた`
         : `${c.name}は${c.placeName}で静かに祈った`;
-    case "guard":
-      return c.targetName
-        ? `${c.name}は${c.targetName}を庇い守った`
-        : `${c.name}は身構えて守ろうとした`;
-    case "threaten":
-      return c.targetName
-        ? `${c.name}は${c.targetName}を脅して退けた`
-        : `${c.name}は気を荒らげた`;
     default:
       return `${c.name}はその日を過ごした`;
   }
@@ -149,16 +137,10 @@ function briefAct(c: CharacterTickResult): string {
       return c.targetName ? `${c.targetName}に分けた` : "分けようとした";
     case "steal":
       return c.targetName ? `${c.targetName}から奪った` : "奪った";
-    case "deceive":
-      return c.targetName ? `${c.targetName}を欺いた` : "欺いた";
     case "follow":
       return c.targetName ? `${c.targetName}に寄り添い` : "寄り添う相手を探し";
     case "purify":
       return (c.purifyCleansed ?? 1) > 0 ? "濁りを祓い清めた" : "静かに祈った";
-    case "guard":
-      return c.targetName ? `${c.targetName}を庇い` : "守ろうとした";
-    case "threaten":
-      return c.targetName ? `${c.targetName}を脅し退け` : "気を荒らげた";
     default:
       return "日を過ごした";
   }

@@ -1,8 +1,8 @@
 // ドメイン型定義 — plan.md の世界モデルを TypeScript で表現する
 
 /**
- * 行動セット（plan.md 第3節 + 移動 + 拡張）。steal/deceive は禁止行為だが選択肢としては存在する。
- * 拡張行動: follow（寄り添う）/ purify（祓う）/ guard（庇う）/ threaten（脅す）。
+ * 行動セット（plan.md 第3節 + 移動 + 拡張）。steal は禁止行為だが選択肢としては存在する。
+ * 拡張行動: follow（寄り添う）/ purify（祓う）。
  */
 export type Action =
   | "forage"
@@ -10,12 +10,9 @@ export type Action =
   | "share"
   | "talk"
   | "steal"
-  | "deceive"
   | "move"
   | "follow"
-  | "purify"
-  | "guard"
-  | "threaten";
+  | "purify";
 
 export const ACTIONS: Action[] = [
   "forage",
@@ -23,12 +20,9 @@ export const ACTIONS: Action[] = [
   "share",
   "talk",
   "steal",
-  "deceive",
   "move",
   "follow",
   "purify",
-  "guard",
-  "threaten",
 ];
 
 /** 行動の日本語ラベル */
@@ -38,15 +32,12 @@ export const ACTION_LABELS: Record<Action, string> = {
   share: "霊力を分ける",
   talk: "語りかける",
   steal: "霊を奪う（禁忌）",
-  deceive: "欺く（禁忌）",
   move: "移ろう",
   follow: "寄り添う",
   purify: "祓い清める",
-  guard: "庇い守る",
-  threaten: "脅し退ける",
 };
 
-export const FORBIDDEN_ACTIONS: Action[] = ["steal", "deceive"];
+export const FORBIDDEN_ACTIONS: Action[] = ["steal"];
 
 /** 天候（plan.md 第2節）。通常 約2/3 / 不作 約1/3。 */
 export type Weather = "normal" | "lean";
@@ -255,7 +246,7 @@ export interface CharacterTickResult {
   moved: boolean; // この日に移動したか
   fromPlaceName?: string; // 移動した場合の出発地名
   withPartner: boolean; // 日の終わりに誰か（生存者）と同じ場所にいるか
-  targetId?: string; // 対人行動を向けた相手の id（talk/share/steal/deceive 時）
+  targetId?: string; // 対人行動を向けた相手の id（talk/share/steal 時）
   targetName?: string; // 同上・表示用の名前
   /** 集霊でこの地から頂いた/喰らった霊力（gain=計/清/濁）と、禁忌（清を喰らった）か */
   forageDraw?: { gain: number; sei: number; daku: number; taboo: boolean };
@@ -393,7 +384,7 @@ export interface CharacterDecision {
   id: string;
   action: Action;
   moveTarget?: string; // action が "move" のときの移動先 Place.id
-  targetId?: string; // 対人行動(talk/share/steal/deceive)の相手キャラ id（同室に複数いるとき誰に向けるか）
+  targetId?: string; // 対人行動(talk/share/steal)の相手キャラ id（同室に複数いるとき誰に向けるか）
   diary: string;
   relationLabel: string;
   paramDeltas: Partial<Params>;

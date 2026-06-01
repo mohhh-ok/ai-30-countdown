@@ -520,18 +520,6 @@ export async function runTick(
   const targetById = new Map<string, Character | undefined>();
   for (const actor of living) targetById.set(actor.id, resolveTarget(actor));
 
-  // 庇い手の対応表（守られる者の id → その庇い手）。同室の相手を守る。
-  //  steal/deceive/threaten の害を、守られた相手の代わりに庇い手が肩代わりする。
-  const guardedBy = new Map<string, Character>();
-  for (const actor of living) {
-    if (resolved.get(actor.id)?.action !== "guard") continue;
-    const tgt = targetById.get(actor.id);
-    // 同じ相手を複数人が庇うときは先勝ち（処理順で黙って上書きされないように）
-    if (tgt && !guardedBy.has(tgt.id)) guardedBy.set(tgt.id, actor);
-  }
-  // 実際に攻撃を肩代わりした「攻撃者→守られた者」の組（報酬・ストレス配分で参照）
-  const interceptedPairs = new Set<string>();
-  const guardsWhoIntercepted = new Set<string>();
   /** その日 actor を対人行動の相手に選んだ「他者」を列挙（分け与え・奪うの受け手判定用） */
   function actorsTargeting(actor: Character): Character[] {
     return living.filter(
@@ -562,23 +550,9 @@ export async function runTick(
     }
     // forage（集霊）は民の霊力プールから引く。それ以外は固定効果。
     actor.energy += action === "forage" ? doForage(actor, place) : self;
-    // 相手への害（負の partner）は、相手が同室の庇い手に守られていれば庇い手が肩代わりする。
+    // 相手への害/恵み（partner 増減）を相手に適用する。
     if (target && eff.partner !== 0) {
-      let victim = target;
-      if (eff.partner < 0) {
-        const g = guardedBy.get(target.id);
-        if (
-          g &&
-          g.alive &&
-          g.id !== actor.id &&
-          placeBefore.get(g.id) === placeBefore.get(target.id)
-        ) {
-          victim = g; // 庇い手が身を挺して受ける
-          interceptedPairs.add(`${actor.id}->${target.id}`);
-          guardsWhoIntercepted.add(g.id);
-        }
-      }
-      victim.energy += eff.partner;
+      target.energy += eff.partner;
     }
     // 禁忌「奪う」を犯すと、奪った側自身の日次負荷が恒久的に増す（旨味 energy +12 の代償）。
     // 以後ずっと毎ティックの消耗が重くなり、回帰内では戻らない。奪い続ければ自滅へ向かう。
@@ -610,7 +584,7 @@ export async function runTick(
     actor.params = applyDeltas(actor.params, safeDeltas);
 
     // 利他フィードバック（決定論・LLM 裁量とは別の底上げ）。
-    //  利他の芯にかなう行い「分け与える／祓い清める／庇い守る／寄り添う」を実際に
+    //  利他の芯にかなう行い「分け与える／祓い清める／寄り添う」を実際に
     //  成立させた日は、利他をわずかに底上げする。これが無いと利他が LLM 裁量だけでは
     //  伸び切らず、利他に依る会得スキル（独りを断つ=70 等）やキャラ解放（利他85）が
     //  実プレイで永遠に届かない（到達可能性アウディットの 🔴 対策）。
@@ -619,7 +593,6 @@ export async function runTick(
     if (myAction === "share" && targetById.get(actor.id)) altruismBonus = 2; // 分与の成立
     else if (myAction === "purify" && (purifyCleansedById.get(actor.id) ?? 0) > 0)
       altruismBonus = 2; // 荒れ地を実際に清めた
-    else if (myAction === "guard" && targetById.get(actor.id)) altruismBonus = 1; // 庇いに立った
     else if (myAction === "follow" && followTargetById.get(actor.id)) altruismBonus = 1; // 寄り添いに動いた（離れた相手も含む）
     if (altruismBonus > 0) {
       actor.params.altruism = clampParam(actor.params.altruism + altruismBonus);
@@ -708,8 +681,6 @@ export async function runTick(
       raw.push({ channel: "bond", label: `${target.name}に分け与えた`, base: REWARD.shareGiven });
     } else if (act === "steal") {
       raw.push({ channel: "thrill", label: target ? `${target.name}から奪った` : "奪った", base: REWARD.illicit });
-    } else if (act === "deceive") {
-      raw.push({ channel: "thrill", label: target ? `${target.name}を欺いた` : "欺いた", base: REWARD.illicit });
     } else if (act === "follow") {
       const ft = followTargetById.get(actor.id);
       const beside = ft && ft.currentPlaceId === actor.currentPlaceId;
@@ -729,46 +700,16 @@ export async function runTick(
           ? { channel: "comfort", label: `${place.name}の濁りを${cleansed}祓い清めた`, base: REWARD.purify }
           : { channel: "comfort", label: `${place.name}で静かに祈った`, base: REWARD.purifyQuiet },
       );
-    } else if (act === "guard") {
-      raw.push({
-        channel: "bond",
-        label: target ? `${target.name}を庇い守った` : "庇い守ろうとした",
-        base: REWARD.guard,
-      });
-      // 実際に害を肩代わりしたなら、その傷がこたえる（庇った満足とは別に）
-      if (guardsWhoIntercepted.has(actor.id)) {
-        raw.push({ channel: "stress", label: "身を挺して傷を負った", base: REWARD.guardWound });
-      }
-    } else if (act === "threaten") {
-      raw.push({ channel: "thrill", label: target ? `${target.name}を脅して退けた` : "脅した", base: REWARD.menace });
     }
 
     // 他者の行動から受ける報酬/被害（自分を相手に選んだ者すべてから）
     for (const o of actorsTargeting(actor)) {
       const oAct = resolved.get(o.id)?.action;
-      // 害（奪う/欺く/脅す）が庇い手に肩代わりされたなら、自分は無傷で済んだ（守られた絆）
-      const shielded = interceptedPairs.has(`${o.id}->${actor.id}`);
       if (oAct === "share") {
         raw.push({ channel: "bond", label: `${o.name}から分けてもらった`, base: REWARD.shareReceived });
         bumpSoul(actor, "altruism"); // 利他の心: 分けてもらった経験を刻む（積もると芽生え、プロンプトへ注入される）
       } else if (oAct === "steal") {
-        raw.push(
-          shielded
-            ? { channel: "bond", label: `${o.name}に奪われかけたが庇ってもらった`, base: REWARD.shareReceived }
-            : { channel: "stress", label: `${o.name}に奪われた`, base: REWARD.victim },
-        );
-      } else if (oAct === "deceive") {
-        raw.push(
-          shielded
-            ? { channel: "bond", label: `${o.name}に欺かれかけたが庇ってもらった`, base: REWARD.shareReceived }
-            : { channel: "stress", label: `${o.name}に欺かれた`, base: REWARD.victim },
-        );
-      } else if (oAct === "threaten") {
-        raw.push(
-          shielded
-            ? { channel: "bond", label: `${o.name}に脅されたが庇ってもらった`, base: REWARD.shareReceived }
-            : { channel: "stress", label: `${o.name}に脅された`, base: REWARD.menaced },
-        );
+        raw.push({ channel: "stress", label: `${o.name}に奪われた`, base: REWARD.victim });
       }
     }
 
@@ -858,15 +799,9 @@ export async function runTick(
         memo = base + `採取した`;
       } else if (action === "steal" && pName) {
         memo = base + `${pName}から奪った`;
-      } else if (action === "deceive" && pName) {
-        memo = base + `${pName}を欺いた`;
       } else if (action === "follow") {
         const ft = followTargetById.get(actor.id)?.name;
         memo = base + (ft ? `${ft}の傍に寄り添った` : `寄り添う相手を探した`);
-      } else if (action === "guard") {
-        memo = base + (pName ? `${pName}を庇い守った` : `庇い守ろうとした`);
-      } else if (action === "threaten") {
-        memo = base + (pName ? `${pName}を脅して退けた` : `脅した`);
       } else if (action === "purify") {
         const cleansed = purifyCleansedById.get(actor.id) ?? 0;
         memo = base + (cleansed > 0 ? `濁りを祓い清めた` : `静かに祈った`);
@@ -881,10 +816,7 @@ export async function runTick(
       action === "talk" ||
       action === "share" ||
       action === "steal" ||
-      action === "deceive" ||
-      action === "follow" ||
-      action === "guard" ||
-      action === "threaten";
+      action === "follow";
 
     results.push({
       id: actor.id,
