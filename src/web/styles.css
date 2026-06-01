@@ -1,3 +1,16 @@
+/* Tailwind v4 をこのバンドルに取り込む（bunfig.toml の bun-plugin-tailwind が処理）。
+   既存の手書きCSSはこの下にそのまま温存し、新規・小物パーツだけ Tailwind ユーティリティで書く。
+
+   ★レイヤー順を先に宣言する。既存の手書きCSSを legacy レイヤーに入れ、それを utilities より
+   「前」に置くのが肝。こうすると Tailwind ユーティリティ（@layer utilities）が既存CSSを上書きできる。
+   これをやらないと、素の `button{}` 等は unlayered となり、CSS の規則上どんなレイヤーよりも優先され、
+   Tailwind の `bg-*` / `border-0` などが一切効かずデザインが崩れる（実際に踏んだ）。 */
+@layer theme, base, components, legacy, utilities;
+@import "tailwindcss";
+
+/* ここから下の既存CSSはすべて legacy レイヤーに入れる（ファイル末尾で閉じる）。 */
+@layer legacy {
+
 :root {
   --bg: #14110e;
   --panel: #201c17;
@@ -89,6 +102,16 @@ h3 {
   margin: 0;
   font-size: 20px;
   letter-spacing: 0.04em;
+}
+/* タイトルロゴ画像（assets/title.webp）。topbar 内に収まる高さで表示する。 */
+.title-logo {
+  line-height: 0;
+}
+.title-logo img {
+  display: block;
+  height: 64px;
+  width: auto;
+  border-radius: 8px;
 }
 .subtitle {
   font-size: 12px;
@@ -883,27 +906,8 @@ button.ghost {
 /* =========================================================
    表/裏/デバッグトグル
    ========================================================= */
-.view-toggle {
-  display: flex;
-  gap: 0;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  overflow: hidden;
-}
-.view-toggle button {
-  border-radius: 0;
-  border: none;
-  padding: 7px 14px;
-  font-size: 13px;
-}
-.view-toggle button.view-on {
-  background: var(--accent);
-  color: #1a140d;
-}
-.view-toggle button.ghost {
-  background: transparent;
-  color: var(--muted);
-}
+/* ビュー切替（表/裏/デバッグ）の旧 .view-toggle 一式は App.tsx 側で Tailwind ユーティリティに
+   移行したため撤去（ハイブリッド導入のデモ）。基底 button スタイルは上の button{} を引き続き使う。 */
 
 /* =========================================================
    表（観客）ビュー — 物語の舞台
@@ -2013,3 +2017,5 @@ button.ghost {
 .char-day-died .char-day-num {
   color: var(--down);
 }
+
+} /* @layer legacy 終わり（既存手書きCSSをここまで legacy レイヤーに収める） */

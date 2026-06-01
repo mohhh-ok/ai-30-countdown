@@ -266,3 +266,16 @@ src/
   server.ts   Bun.serve（API + フロント配信）
   web/        React UI
 ```
+
+### スタイリング（CSS / Tailwind ハイブリッド）
+
+CSS は `src/web/styles.css` の手書きが主体。これに加えて **Tailwind v4 をハイブリッドで併用**する。
+
+- `src/web/styles.css` 先頭の `@import "tailwindcss";` と、`bunfig.toml` の
+  `[serve.static] plugins = ["bun-plugin-tailwind"]` で、bun の HTML import バンドラ
+  （`server.ts` の `import index from "./web/index.html"`）にそのまま乗る。**別ビルドステップは不要**で、`bun dev` の HMR も効く。
+- 使い分け: **新規・小物パーツは JSX に Tailwind ユーティリティ**で書き、**既存の凝った演出
+  （暗幕・背景絵・毛筆・回帰アニメ等）は `styles.css` に温存**する。テーマ色は CSS 変数を
+  arbitrary value（例: `bg-[var(--accent)]`）で参照する。
+- 注意: `Bun.build` 直叩き＋ `bun-plugin-tailwind` は bun 1.3.11 で segfault する（Bun 側のバグ）。
+  ビルドは `Bun.serve` / `bun dev` 経路で行う（本アプリは serve 経路なので影響なし）。

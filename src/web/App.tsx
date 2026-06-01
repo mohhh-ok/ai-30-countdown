@@ -176,7 +176,9 @@ export function App() {
       <SiteNav route={route} chronicle={chronicle} />
       <header className="topbar">
         <div className="title">
-          <h1>30日のカウントダウン</h1>
+          <h1 className="title-logo">
+            <img src="/assets/title.webp" alt="30日のカウントダウン" />
+          </h1>
         </div>
         <div className="day-box">
           {chronicle && <span className="loop-num">第 {chronicle.loop} 回帰</span>}
@@ -191,25 +193,28 @@ export function App() {
             </span>
           )}
         </div>
-        <div className="view-toggle">
-          <button
-            className={view === "main" ? "view-on" : "ghost"}
-            onClick={() => setView("main")}
-          >
-            表
-          </button>
-          <button
-            className={view === "status" ? "view-on" : "ghost"}
-            onClick={() => setView("status")}
-          >
-            裏
-          </button>
-          <button
-            className={view === "debug" ? "view-on" : "ghost"}
-            onClick={() => setView("debug")}
-          >
-            デバッグ
-          </button>
+        {/* ビュー切替（表/裏/デバッグ）。Tailwind ハイブリッドのデモとしてユーティリティで記述。
+            テーマ色は既存の CSS 変数を arbitrary value で参照する。基底 button スタイルは styles.css 側。 */}
+        <div className="flex overflow-hidden rounded-lg border border-[var(--line)]">
+          {(
+            [
+              ["main", "表"],
+              ["status", "裏"],
+              ["debug", "デバッグ"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setView(key)}
+              className={`rounded-none border-0 px-[14px] py-[7px] text-[13px] font-bold ${
+                view === key
+                  ? "bg-[var(--accent)] text-[#1a140d]"
+                  : "bg-transparent text-[var(--muted)]"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </header>
 

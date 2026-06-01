@@ -1,0 +1,5 @@
+# bun の HTML import バンドラ（server.ts の `import index from "./web/index.html"`）に
+# Tailwind を差し込む。これで別ビルドステップなしで（HMR も効いたまま）Tailwind が使える。
+# Tailwind の入口は src/web/styles.css 先頭の `@import "tailwindcss";`。
+[serve.static]
+plugins = ["bun-plugin-tailwind"]
