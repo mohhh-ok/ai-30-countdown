@@ -484,6 +484,7 @@ export interface SkillTickContext {
 export interface SkillDef {
   id: SkillId;
   name: string; // 表示名
+  icon: string; // 一覧で名前の前に出すアイコン（絵文字1つ）
   description: string; // 習得条件と効果の説明
   /**
    * 進捗のスコープ。

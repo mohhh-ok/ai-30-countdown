@@ -1820,6 +1820,17 @@ button.ghost {
   gap: 8px;
   margin-bottom: 8px;
 }
+.skill-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.skill-card-icon {
+  flex-shrink: 0;
+  font-size: 20px;
+  line-height: 1;
+}
 .skill-card-name {
   font-weight: 700;
   letter-spacing: 0.02em;

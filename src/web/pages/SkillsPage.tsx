@@ -22,9 +22,14 @@ function SkillCard({
   return (
     <section className={`skill-card${acquired ? " skill-acquired" : ""}`}>
       <div className="skill-card-head">
-        <span className="skill-card-name">
-          {acquired ? "✨ " : ""}
-          {skill.name}
+        <span className="skill-card-title">
+          <span className="skill-card-icon" aria-hidden="true">
+            {skill.icon}
+          </span>
+          <span className="skill-card-name">
+            {acquired ? "✨ " : ""}
+            {skill.name}
+          </span>
         </span>
         <span className={`skill-scope skill-scope-${skill.scope}`}>
           {SCOPE_LABEL[skill.scope]}

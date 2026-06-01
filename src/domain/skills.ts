@@ -18,6 +18,7 @@ import type {
 export const SKILLS: SkillDef[] = [
   {
     id: "share_taste",
+    icon: "🍵",
     name: "分かち合いの味",
     description: "1周のうちに霊力を3度分け与えると会得。以後、分けるときの自己消費が軽くなる。",
     scope: "loop",
@@ -27,6 +28,7 @@ export const SKILLS: SkillDef[] = [
   },
   {
     id: "insight_edge",
+    icon: "👁️",
     name: "観の眼・冴え",
     description: "通算30度の集霊で会得（周をまたいで蓄積）。霊脈を読む眼が冴え、集霊の取れ高が+15%。",
     scope: "career",
@@ -36,6 +38,7 @@ export const SKILLS: SkillDef[] = [
   },
   {
     id: "beyond_hunger",
+    icon: "🔥",
     name: "飢えを越えた者",
     description: "1周のうちに餓死寸前（霊力12以下）から3度生還すると会得。日々の負荷が1軽くなる。",
     scope: "loop",
@@ -45,6 +48,7 @@ export const SKILLS: SkillDef[] = [
   },
   {
     id: "binding_hands",
+    icon: "🤝",
     name: "結ぶ手",
     description: "通算5度、語りかけが心を通わせると会得（周をまたいで蓄積）。次周以降、信頼+10で目覚める。",
     scope: "career",
@@ -55,6 +59,7 @@ export const SKILLS: SkillDef[] = [
   },
   {
     id: "sever_solitude",
+    icon: "💞",
     name: "独りを断つ",
     description: "利他が「成熟」（70以上）に届いた周を一度でも達成すると会得。次周以降、霊力+10で目覚める。",
     scope: "career",
@@ -64,6 +69,7 @@ export const SKILLS: SkillDef[] = [
   },
   {
     id: "share_vessel",
+    icon: "🏺",
     name: "わかつ器",
     description: "通算10度、霊力を分け与えると会得（周をまたいで蓄積）。器が深まり、分けるときの自己消費がさらに軽くなる。",
     scope: "career",
@@ -73,6 +79,7 @@ export const SKILLS: SkillDef[] = [
   },
   {
     id: "pathfinder",
+    icon: "🧭",
     name: "道を知る者",
     description: "通算20度、足で移動すると会得（周をまたいで蓄積）。独りの渓を出て他者へ向かう歩みに体が慣れ、日々の負荷が1軽くなる。",
     scope: "career",
@@ -82,6 +89,7 @@ export const SKILLS: SkillDef[] = [
   },
   {
     id: "quiet_awakening",
+    icon: "🧘",
     name: "静かな悟り",
     description: "通算10度、身を鎮めて休むと会得（周をまたいで蓄積）。独りの静けさの中で芯が澄み、次周以降は利他+8で目覚める。",
     scope: "career",
@@ -94,6 +102,7 @@ export const SKILLS: SkillDef[] = [
   // 仲間が解放されれば、分与・庇いの道でも結界を編める。
   {
     id: "ward_basics",
+    icon: "🛡️",
     name: "結界の心得",
     description: "通算8度、祓い清めると会得（周をまたいで蓄積）。荒れた地を鎮める手が結界の基礎となり、大禍への結界力+18。",
     scope: "career",
@@ -103,6 +112,7 @@ export const SKILLS: SkillDef[] = [
   },
   {
     id: "ward_vigil",
+    icon: "🪷",
     name: "守りの静坐",
     description: "通算10度、身を鎮めて休むと会得（周をまたいで蓄積）。澄んだ静けさが心の備えとなり、大禍への結界力+14。",
     scope: "career",
@@ -112,6 +122,7 @@ export const SKILLS: SkillDef[] = [
   },
   {
     id: "ward_bonds",
+    icon: "🪢",
     name: "守りの絆",
     description: "通算12度、霊力を分け与えると会得（周をまたいで蓄積）。人と結んだ絆が盾となり、大禍への結界力+12。",
     scope: "career",
@@ -121,6 +132,7 @@ export const SKILLS: SkillDef[] = [
   },
   {
     id: "ward_resolve",
+    icon: "🦸",
     name: "捨て身の守り",
     description: "通算6度、誰かを庇い守ると会得（周をまたいで蓄積）。身を挺して守る覚悟が力に変わり、大禍への結界力+14。",
     scope: "career",
