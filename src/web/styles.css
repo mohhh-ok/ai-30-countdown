@@ -103,7 +103,7 @@ h3 {
   font-size: 20px;
   letter-spacing: 0.04em;
 }
-/* タイトルロゴ画像（assets/title.webp）。topbar 内に他UIと調和する高さで収める。 */
+/* タイトルロゴ画像（assets/title.webp）。div.title 内、SiteNav より上の最上部に配置。 */
 .title-logo {
   line-height: 0;
   display: flex;
