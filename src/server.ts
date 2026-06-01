@@ -228,6 +228,17 @@ const server = Bun.serve({
       },
     },
 
+    // タイトルロゴ（assets/title.webp）。単一ファイルなので固定パスで配信。
+    "/assets/title.webp": {
+      GET: async () => {
+        const f = Bun.file("assets/title.webp");
+        if (!(await f.exists())) return new Response("not found", { status: 404 });
+        return new Response(f, {
+          headers: { "Cache-Control": DEV ? "no-store" : "public, max-age=86400" },
+        });
+      },
+    },
+
   },
   development: DEV,
 });

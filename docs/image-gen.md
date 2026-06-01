@@ -74,3 +74,14 @@ IMAGE_MODEL=gpt-image-1 IMAGE_TRANSPARENT=1 bun scripts/gen-character-art.ts
 - 表示:
   - 楽屋ビューの「京都の地図」（`PlacesMap.tsx`）で各場所カードのサムネとして表示（絵が無い場所は `onError` で画像のみ非表示）。
   - 観客ビュー（`FrontStage.tsx`）の主役枠 `.hero` の背景として、主役の現在地（`placeId`）の絵を `object-fit: cover` で敷く。上に暗幕（`.hero::after`）を重ねて本文を読めるようにし、絵が無い場所は `onError` で地色に落ちる。
+
+## タイトルロゴ
+- スクリプト: `scripts/gen-title-art.ts`。トップの topbar に出すタイトルバナーを1枚だけ生成する。
+  ```sh
+  bun scripts/gen-title-art.ts
+  ```
+- 背景込み・人物/透過なしの横長バナー。既定は `gpt-image-2`・`1536x1024`（透過不要なので gpt-image-1 は使わない）。env で `IMAGE_MODEL` / `IMAGE_SIZE` を切替可能。
+- プロンプトで日本語タイトル「30日のカウントダウン」を中央に焼き込む。gpt-image 系は日本語字形が崩れやすいので、崩れたら英字ロゴ＋HTML 側で日本語を重ねる方針へ切り替える（結果を見て判断）。
+- 出力先: `assets/title.webp`（PNG→WebP 変換）。単一ファイルなので id 別ではない。
+- 配信: `server.ts` に `/assets/title.webp` の固定 GET ルートあり（動的パラメータが無いのでサニタイズ不要）。
+- 表示: `App.tsx` の topbar（`.title-logo`）で `<img>` として表示。topbar の他 UI と高さを揃えて収める。
