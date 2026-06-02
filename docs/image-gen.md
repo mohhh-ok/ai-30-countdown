@@ -52,7 +52,7 @@ IMAGE_MODEL=gpt-image-1 IMAGE_TRANSPARENT=1 bun scripts/gen-character-art.ts
   ファイル名はサニタイズしてパストラバーサルを防止、`Cache-Control` 1 日）。
 - 表示: **キャラページ（`CharacterPage.tsx`）にプロフィール画像として表示済み**
   （`/assets/characters/<id>.webp`、絵が無いキャラは `onError` で非表示）。
-- `CharacterCard.tsx`（ホームのカード）への組み込みは未対応。
+- `CharacterCard.tsx`（ホームのカード）にも `CharAvatar` コンポーネント経由で表示済み。
 
 ## 既存のキャラ
 | id | 名前 | 役どころ |
