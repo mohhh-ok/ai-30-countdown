@@ -11,7 +11,12 @@
 //     死の場面・出会い（会話劇）・天変地異・禁忌・餓えの淵・段階変化など。
 //
 // どちらも client（Highlights.tsx）が描画に使う。
-import type { LoopSummary, MetaEvent, TickResult } from "./types.ts";
+import type {
+  CharacterTickResult,
+  LoopSummary,
+  MetaEvent,
+  TickResult,
+} from "./types.ts";
 
 export type HighlightKind =
   // 回帰を超えた節目
@@ -129,6 +134,39 @@ interface Signal {
 }
 
 /**
+ * 見せ場（観客向け）の scene 用に、その日の出来事を「短い一行」に詰める。
+ * engine の `notable` は各キャラの deltaReason（長い説明文）まで全部結合していて
+ * 観客ビューには冗長すぎる。ここでは構造化フィールドだけから組み直し、
+ * 出会い（同室）＞移動 の順で最も絵になる一点に絞る。詳細（理由つきフル文）は
+ * `notable` のまま楽屋ビュー（TickLog）に残す。該当が無ければ空＝シーン化しない。
+ */
+function briefScene(t: TickResult): string {
+  const living = t.characters.filter((c) => !c.died);
+  // 同じ場所に2人以上いて、その日に誰かが移動してきた＝「居合わせた」瞬間。
+  const byPlace = new Map<string, CharacterTickResult[]>();
+  for (const c of living) {
+    const arr = byPlace.get(c.placeId) ?? [];
+    arr.push(c);
+    byPlace.set(c.placeId, arr);
+  }
+  const meets: string[] = [];
+  for (const members of byPlace.values()) {
+    if (members.length >= 2 && members.some((m) => m.moved)) {
+      meets.push(
+        `${members[0].placeName}で${members.map((m) => m.name).join("と")}が居合わせた`,
+      );
+    }
+  }
+  if (meets.length) return meets.join("／");
+  // 出会いが無ければ移動だけを簡潔に（「名→行き先」をカンマ区切り）。
+  const moves = living
+    .filter((c) => c.moved)
+    .map((c) => `${c.name}→${c.placeName}`);
+  if (moves.length) return `移動: ${moves.join("、")}`;
+  return "";
+}
+
+/**
  * そのティックの見どころシグナルを列挙する。
  * 複数当たれば score は総和、見出しの kind/text は最も重いシグナルを採用する。
  */
@@ -203,8 +241,9 @@ function tickSignals(
       text: names.length >= 2 ? `${names.join("と")}の会話` : "会話劇",
     });
   }
-  if (t.tempo === "scene" && t.notable) {
-    s.push({ weight: 8, kind: "scene", text: t.notable });
+  if (t.tempo === "scene") {
+    const brief = briefScene(t);
+    if (brief) s.push({ weight: 8, kind: "scene", text: brief });
   }
   return s;
 }
