@@ -120,7 +120,7 @@ function directorContext(state: WorldState, tension: Tension, recentLog: TickRes
   const placeList = state.places
     .map(
       (p) =>
-        `  - "${p.id}"（${p.name}）民の霊力 清${p.populace.sei}/濁${p.populace.daku}（頂ける上限${p.forage.normal}）`,
+        `  - "${p.id}"（${p.name}）民の霊力 和魂${p.populace.sei}/荒魂${p.populace.daku}（頂ける上限${p.forage.normal}）`,
     )
     .join("\n");
   const recent =

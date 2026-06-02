@@ -361,7 +361,7 @@ for (let i = 0; i < days; i++) {
     if (scene) {
       console.log(`   🎥 見せ場: ${result.tempoReasons.join("・")}`);
       const kyo = world.places
-        .map((p) => `${p.name}:清${p.populace.sei}/濁${p.populace.daku}`)
+        .map((p) => `${p.name}:和${p.populace.sei}/荒${p.populace.daku}`)
         .join("  ");
       console.log(`   ⛩ 京の気: ${kyo}`);
       if (result.director) {

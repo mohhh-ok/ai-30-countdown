@@ -1,6 +1,7 @@
 // 舞台＝妖の京。神と妖の棲む、もうひとつの京都。
 // 鴨川を人と妖の交わる岸＝ハブに、北の霊地（大原・貴船）、西（嵐山）、南（伏見）が広がる。
-// 各地には「民の霊力」（清＝澄んだ想い／濁＝怨み・業）が溜まり、集霊で枯れ、ゆっくり回復する。
+// 各地には「民の霊力」（和魂＝和やぎの気／荒魂＝猛き念）が溜まり、集霊で枯れ、ゆっくり回復する。
+// （内部フィールドは sei＝和魂、daku＝荒魂。荒魂は穢れではなく神の猛き面で、鎮めれば和魂へ和らぐ。）
 import type { Place } from "./types.ts";
 
 export const PLACES: Place[] = [
@@ -8,7 +9,7 @@ export const PLACES: Place[] = [
     id: "kamogawa",
     name: "鴨川の河原",
     description:
-      "人と妖の交わる岸。市井の人がもっとも多く行き交い、清も濁もまじり合う。どこへ向かうにも通り道になる要の地。",
+      "人と妖の交わる岸。市井の人がもっとも多く行き交い、和魂も荒魂もまじり合う。どこへ向かうにも通り道になる要の地。",
     appearance:
       "A lively riverbank of the Kamo River in an old-Kyoto spirit world. " +
       "Wide stone-strewn shore beside flowing water, traditional machiya townhouses and a wooden bridge in the distance, " +
@@ -23,7 +24,7 @@ export const PLACES: Place[] = [
     id: "ohara",
     name: "大原の隠れ里",
     description:
-      "洛北の山あいに開けた里。祈りと暮らしの澄んだ気に満ち、清霊が豊か。穏やかだが人は多くない。",
+      "洛北の山あいに開けた里。祈りと暮らしの澄んだ気に満ち、和魂が豊か。穏やかだが人は多くない。",
     appearance:
       "A secluded mountain village in the northern hills of an old-Kyoto spirit world. " +
       "Terraced rice fields and thatched-roof farmhouses nestled among forested slopes, " +
@@ -38,7 +39,7 @@ export const PLACES: Place[] = [
     id: "kibune",
     name: "貴船の渓",
     description:
-      "鞍馬の奥、水神の宿る清流の谷。澄んだ霊力は安定するが、人里離れて細い。静寂の地。",
+      "鞍馬の奥、水神の宿る清流の谷。和魂は澄んで安定するが、人里離れて細い。静寂の地。",
     appearance:
       "A deep secluded ravine of the Kibune valley in an old-Kyoto spirit world. " +
       "A crystal-clear mountain stream tumbling over rocks through dense green forest, " +
@@ -53,7 +54,7 @@ export const PLACES: Place[] = [
     id: "arashiyama",
     name: "嵐山の竹林",
     description:
-      "西郊、保津川と竹の精の地。旅人が行き交い、清と濁が中ほどにまじる。",
+      "西郊、保津川と竹の精の地。旅人が行き交い、和魂と荒魂が中ほどにまじる。",
     appearance:
       "A misty bamboo grove in the western outskirts of an old-Kyoto spirit world (Arashiyama). " +
       "Towering green bamboo stalks lining a winding path, the Hozu River and a wooden bridge nearby, " +
@@ -68,7 +69,7 @@ export const PLACES: Place[] = [
     id: "fushimi",
     name: "伏見の稲荷",
     description:
-      "南の狐の地。欲と願いが渦巻き、濁霊が濃い。霊力は大きいが澄んだ気は乏しく、博打のような土地。",
+      "南の狐の地。人の欲と願いが渦を巻き、荒魂が濃くこもる。霊力は大きく猛々しいが和魂は細い、荒ぶる神威の渦巻く土地。",
     appearance:
       "The fox shrine of Fushimi Inari in an old-Kyoto spirit world. " +
       "Endless tunnels of vermilion torii gates climbing a forested hillside, stone fox statues with red bibs, " +

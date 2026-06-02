@@ -649,11 +649,11 @@ export async function runTick(
       const dr = forageDrawById.get(actor.id) ?? { gain: 0, sei: 0, daku: 0, taboo: false };
       if (actor.talent === "devour") {
         if (dr.daku > 0) {
-          raw.push({ channel: "thrill", label: `${place.name}で濁霊を${dr.daku}喰らった`, base: dr.daku });
+          raw.push({ channel: "thrill", label: `${place.name}で荒魂を${dr.daku}喰らった`, base: dr.daku });
         }
         if (dr.sei > 0) {
-          raw.push({ channel: "thrill", label: `${place.name}で清き霊を${dr.sei}喰らった（禁忌）`, base: dr.sei });
-          raw.push({ channel: "stress", label: "清き霊を穢した業がのしかかる", base: -Math.round(dr.sei * 0.6) });
+          raw.push({ channel: "thrill", label: `${place.name}で和魂さえ${dr.sei}喰らった（禁忌）`, base: dr.sei });
+          raw.push({ channel: "stress", label: "和魂さえ喰らった業がのしかかる", base: -Math.round(dr.sei * 0.6) });
         }
         if (dr.gain === 0) {
           raw.push({ channel: "stress", label: `${place.name}には喰らう霊も残っていない`, base: -3 });
@@ -661,7 +661,7 @@ export async function runTick(
       } else {
         const label =
           dr.gain > 0
-            ? `${place.name}で清霊を${dr.gain}頂いた`
+            ? `${place.name}で和魂を${dr.gain}頂いた`
             : `${place.name}は枯れ、頂ける霊がなかった`;
         raw.push({ channel: dr.gain > 0 ? "achievement" : "stress", label, base: dr.gain > 0 ? dr.gain : -3 });
       }
@@ -697,7 +697,7 @@ export async function runTick(
       const cleansed = purifyCleansedById.get(actor.id) ?? 0;
       raw.push(
         cleansed > 0
-          ? { channel: "comfort", label: `${place.name}の濁りを${cleansed}祓い清めた`, base: REWARD.purify }
+          ? { channel: "comfort", label: `${place.name}の荒魂を${cleansed}鎮めた`, base: REWARD.purify }
           : { channel: "comfort", label: `${place.name}で静かに祈った`, base: REWARD.purifyQuiet },
       );
     }
@@ -804,7 +804,7 @@ export async function runTick(
         memo = base + (ft ? `${ft}の傍に寄り添った` : `寄り添う相手を探した`);
       } else if (action === "purify") {
         const cleansed = purifyCleansedById.get(actor.id) ?? 0;
-        memo = base + (cleansed > 0 ? `濁りを祓い清めた` : `静かに祈った`);
+        memo = base + (cleansed > 0 ? `荒魂を鎮めた` : `静かに祈った`);
       } else {
         memo = base + ACTION_LABELS[action];
       }
@@ -887,7 +887,7 @@ export async function runTick(
     }
     if (r.died) notableParts.push(`${r.name} が力尽きた。`);
     if (r.forageDraw?.taboo) {
-      notableParts.unshift(`${r.name} が${r.placeName}の清き霊を喰らった——禁忌の業。`);
+      notableParts.unshift(`${r.name} が${r.placeName}の和魂さえ喰らった——禁忌の業。`);
     }
     if (r.deltaReason && Object.keys(r.paramDeltas).length > 0) {
       notableParts.push(`${r.name}: ${r.deltaReason}`);
