@@ -552,7 +552,12 @@ export async function runTick(
     actor.energy += action === "forage" ? doForage(actor, place) : self;
     // 相手への害/恵み（partner 増減）を相手に適用する。
     if (target && eff.partner !== 0) {
-      target.energy += eff.partner;
+      let partner = eff.partner;
+      // 主人公のスキル「奪われぬ芯」: 奪われるときの霊力喪失を軽くする（partner は負値）
+      if (action === "steal" && isHero(target.id) && skillEffects.stealResist > 0) {
+        partner = Math.round(partner * (1 - skillEffects.stealResist));
+      }
+      target.energy += partner;
     }
     // 禁忌「奪う」を犯すと、奪った側自身の日次負荷が恒久的に増す（旨味 energy +12 の代償）。
     // 以後ずっと毎ティックの消耗が重くなり、回帰内では戻らない。奪い続ければ自滅へ向かう。
@@ -636,6 +641,8 @@ export async function runTick(
   //  まず昨日からの減衰（立ち直り・耐性の回復）→ 今日のイベントを適用、の順。
   for (const actor of living) decayRewardState(actor);
   const rewardEventsById = new Map<string, RewardEvent[]>();
+  // この日、誰かに霊力を奪われた（steal の標的にされた）者の id。耐性スキル「奪われぬ芯」の会得判定に使う。
+  const stolenFromById = new Map<string, boolean>();
   for (const actor of living) {
     const act = resolved.get(actor.id)!.action;
     const target = targetById.get(actor.id);
@@ -709,7 +716,13 @@ export async function runTick(
         raw.push({ channel: "bond", label: `${o.name}から分けてもらった`, base: REWARD.shareReceived });
         bumpSoul(actor, "altruism"); // 利他の心: 分けてもらった経験を刻む（積もると芽生え、プロンプトへ注入される）
       } else if (oAct === "steal") {
-        raw.push({ channel: "stress", label: `${o.name}に奪われた`, base: REWARD.victim });
+        stolenFromById.set(actor.id, true); // 標的にされた事実を記録（耐性スキルの会得判定用）
+        let base: number = REWARD.victim;
+        // 主人公のスキル「奪われぬ芯」: 奪われたときのストレスを軽くする（base は負値）
+        if (isHero(actor.id) && skillEffects.stealResist > 0) {
+          base = Math.round(base * (1 - skillEffects.stealResist));
+        }
+        raw.push({ channel: "stress", label: `${o.name}に奪われた`, base });
       }
     }
 
@@ -846,6 +859,7 @@ export async function runTick(
       forageDraw: action === "forage" ? forageDrawById.get(actor.id) : undefined,
       purifyCleansed: action === "purify" ? (purifyCleansedById.get(actor.id) ?? 0) : undefined,
       stealBurden: actor.stealBurden,
+      wasStolenFrom: stolenFromById.get(actor.id) ?? false,
       impulse: impulseIds.has(actor.id),
       rewardEvents: rewardEventsById.get(actor.id) ?? [],
       mood: { ...actor.mood },

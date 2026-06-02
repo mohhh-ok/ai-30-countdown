@@ -253,6 +253,7 @@ export interface CharacterTickResult {
   /** 祓い清める(purify)で実際に祓った濁霊量。0 は濁りが無く「静かに祈った」だけの日 */
   purifyCleansed?: number;
   stealBurden: number; // 禁忌「奪う」で積もった業（日次消耗の上乗せ）
+  wasStolenFrom: boolean; // この日、他者に霊力を奪われたか（steal の標的にされたか。耐性スキルの会得判定に使う）
   impulse: boolean; // 衝動（募った囁き）に突き動かされて動いたか
   // --- 報酬・気分 ---
   rewardEvents: RewardEvent[]; // この日に起きた報酬/ストレスのイベント
@@ -450,6 +451,7 @@ export interface SkillEffectRaw {
   startTrustBonus?: number; // 周開始時の信頼 +n
   startAltruismBonus?: number; // 周開始時の利他 +n
   wardPower?: number; // 結界力 +n（30日目の大禍を祓い退けるための備え。これが猛威度に届けばクリア）
+  stealResist?: number; // 奪われたときの霊力喪失・ストレスを軽くする割合（0〜1、0.5=半減）
 }
 
 /** 全習得スキルを合算した実効効果（engine / freshWorldFor が読む） */
@@ -461,6 +463,7 @@ export interface SkillEffects {
   startTrustBonus: number;
   startAltruismBonus: number;
   wardPower: number; // 結界力の総和（30日目の大禍の猛威度に届けば回避＝クリア）
+  stealResist: number; // 奪われ被害の軽減割合の総和（0〜1にクランプして使う）
 }
 
 /**

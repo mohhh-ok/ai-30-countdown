@@ -68,14 +68,14 @@ export const SKILLS: SkillDef[] = [
     effect: { startEnergyBonus: 10 },
   },
   {
-    id: "share_vessel",
-    icon: "🏺",
-    name: "わかつ器",
-    description: "通算10度、霊力を分け与えると会得（周をまたいで蓄積）。器が深まり、分けるときの自己消費がさらに軽くなる。",
+    id: "warded_heart",
+    icon: "🪨",
+    name: "奪われぬ芯",
+    description: "通算3度、誰かに霊力を奪われると会得（周をまたいで蓄積）。奪われ慣れた芯が穢れを弾き、以後は奪われても霊力の損とストレスが半分で済む。",
     scope: "career",
-    threshold: 10,
-    measure: ({ hero }) => (hero.action === "share" && hero.targetId ? 1 : 0),
-    effect: { shareSelfReduction: 2 },
+    threshold: 3,
+    measure: ({ hero }) => (hero.wasStolenFrom ? 1 : 0),
+    effect: { stealResist: 0.5 },
   },
   {
     id: "pathfinder",
@@ -200,6 +200,7 @@ export function noSkillEffects(): SkillEffects {
     startTrustBonus: 0,
     startAltruismBonus: 0,
     wardPower: 0,
+    stealResist: 0,
   };
 }
 
@@ -217,6 +218,9 @@ export function aggregateEffects(acquired: SkillId[]): SkillEffects {
     if (e.startTrustBonus) eff.startTrustBonus += e.startTrustBonus;
     if (e.startAltruismBonus) eff.startAltruismBonus += e.startAltruismBonus;
     if (e.wardPower) eff.wardPower += e.wardPower;
+    if (e.stealResist) eff.stealResist += e.stealResist;
   }
+  // 奪われ被害の軽減割合は 0〜1 に収める（将来複数スキルが重なっても全損化させない）
+  eff.stealResist = Math.min(1, eff.stealResist);
   return eff;
 }
