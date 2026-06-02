@@ -590,10 +590,10 @@ export async function runTick(
     //  実プレイで永遠に届かない（到達可能性アウディットの 🔴 対策）。
     const myAction = resolved.get(actor.id)?.action;
     let altruismBonus = 0;
-    if (myAction === "share" && targetById.get(actor.id)) altruismBonus = 2; // 分与の成立
+    if (myAction === "share" && targetById.get(actor.id)) altruismBonus = 4; // 分与の成立
     else if (myAction === "purify" && (purifyCleansedById.get(actor.id) ?? 0) > 0)
-      altruismBonus = 2; // 荒れ地を実際に清めた
-    else if (myAction === "follow" && followTargetById.get(actor.id)) altruismBonus = 1; // 寄り添いに動いた（離れた相手も含む）
+      altruismBonus = 4; // 荒れ地を実際に清めた
+    else if (myAction === "follow" && followTargetById.get(actor.id)) altruismBonus = 2; // 寄り添いに動いた（離れた相手も含む）
     if (altruismBonus > 0) {
       actor.params.altruism = clampParam(actor.params.altruism + altruismBonus);
       // 楽屋ビュー（TickLog）の表示が実変動とズレないよう、ボーナス分も paramDeltas に反映する。
