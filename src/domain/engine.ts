@@ -845,6 +845,7 @@ export async function runTick(
       targetName: isPersonal ? personalTarget?.name : undefined,
       forageDraw: action === "forage" ? forageDrawById.get(actor.id) : undefined,
       purifyCleansed: action === "purify" ? (purifyCleansedById.get(actor.id) ?? 0) : undefined,
+      stealBurden: actor.stealBurden,
       impulse: impulseIds.has(actor.id),
       rewardEvents: rewardEventsById.get(actor.id) ?? [],
       mood: { ...actor.mood },

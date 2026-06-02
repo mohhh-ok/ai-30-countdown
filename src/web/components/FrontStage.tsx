@@ -103,10 +103,14 @@ function actStory(c: CharacterTickResult): string {
       return c.targetName
         ? `${c.name}は${c.targetName}に霊力を分けた`
         : `${c.name}は霊力を分けようとした`;
-    case "steal":
-      return c.targetName
+    case "steal": {
+      const base = c.targetName
         ? `${c.name}は${c.targetName}から霊を奪った`
         : `${c.name}は霊を奪った`;
+      return c.stealBurden > 1
+        ? `${base}——業が重くなり、日々の消耗がさらに増した`
+        : `${base}——禁忌を犯した代償に、日々の消耗が重くなった`;
+    }
     case "follow":
       return c.targetName
         ? `${c.name}は${c.targetName}の傍に寄り添った`
@@ -137,7 +141,7 @@ function briefAct(c: CharacterTickResult): string {
     case "share":
       return c.targetName ? `${c.targetName}に分けた` : "分けようとした";
     case "steal":
-      return c.targetName ? `${c.targetName}から奪った` : "奪った";
+      return c.targetName ? `${c.targetName}から奪った——業が重くなる` : "奪った——業が重くなる";
     case "follow":
       return c.targetName ? `${c.targetName}に寄り添い` : "寄り添う相手を探し";
     case "purify":

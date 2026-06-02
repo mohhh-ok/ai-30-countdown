@@ -252,6 +252,7 @@ export interface CharacterTickResult {
   forageDraw?: { gain: number; sei: number; daku: number; taboo: boolean };
   /** 祓い清める(purify)で実際に祓った濁霊量。0 は濁りが無く「静かに祈った」だけの日 */
   purifyCleansed?: number;
+  stealBurden: number; // 禁忌「奪う」で積もった業（日次消耗の上乗せ）
   impulse: boolean; // 衝動（募った囁き）に突き動かされて動いたか
   // --- 報酬・気分 ---
   rewardEvents: RewardEvent[]; // この日に起きた報酬/ストレスのイベント
