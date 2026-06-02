@@ -32,5 +32,6 @@
 
 | ドキュメント | 内容 |
 |---|---|
+| [research/README.md](research/README.md) | 実 LLM の挙動を数で観る実験ログ（アクション選択の分布観測 ほか） |
 | [runpod-serverless.md](runpod-serverless.md) | RunPod Serverless 調査メモ（本番 LLM ホスティング候補） |
 | [ideas.md](ideas.md) | 将来アイデア・バックログ |
