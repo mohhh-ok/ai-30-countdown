@@ -11,6 +11,7 @@ import type { CSSProperties } from "react";
 import { useState } from "react";
 import { charColor } from "../charTheme.ts";
 import { CharAvatar } from "./CharAvatar.tsx";
+import { SceneFX } from "./SceneFX.tsx";
 
 /** 主役枠の地に敷く「今いる場所」の背景絵。object-fit でフィットさせ、未生成(404)なら消えて地色に落ちる。 */
 function HeroBackground({ placeId, placeName }: { placeId?: string; placeName?: string }) {
@@ -199,6 +200,8 @@ function Scene({ t, primary }: { t: TickResult; primary: boolean }) {
               placeId={hero.placeId}
               placeName={hero.placeName}
             />
+            {/* 背景絵の上に「霊気」の粒子を漂わせる演出レイヤ。場所が変われば key で作り直す。 */}
+            <SceneFX key={`fx-${hero.placeId ?? "none"}`} tone={hero.died ? "cool" : "warm"} />
             <CharAvatar
               id={hero.id}
               name={hero.name}
