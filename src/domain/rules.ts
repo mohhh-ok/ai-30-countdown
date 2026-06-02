@@ -56,8 +56,8 @@ export function actionEffect(
     case "rest":
       return { self: 6, partner: 0 };
     case "share":
-      // 自分 −10 / 相手 +10
-      return { self: -10, partner: 10 };
+      // 自分 −10 / 相手 +12（利他は総量を増やす）
+      return { self: -10, partner: 12 };
     case "talk":
       // 双方 −2
       return { self: -2, partner: -2 };
