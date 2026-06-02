@@ -95,7 +95,7 @@ export function createMockProvider(rng: () => number = Math.random): DecisionPro
           const cand: { action: Action; moveTarget?: string; targetId?: string; ab: number }[] = [];
           cand.push({ action: "forage", ab: c.antibodies.achievement });
           cand.push({ action: "rest", ab: c.antibodies.comfort });
-          // 荒れた地（荒魂が猛った地）にいるなら、祓い清める（鎮める）のも安らぎの一手
+          // 荒れた地（荒びが猛った地）にいるなら、祓い清める（鎮める）のも安らぎの一手
           const here = findPlace(state.places, c.currentPlaceId);
           if (here && here.populace.daku > 0) {
             cand.push({ action: "purify", ab: c.antibodies.comfort });

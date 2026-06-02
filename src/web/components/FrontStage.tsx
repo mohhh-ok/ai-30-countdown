@@ -88,8 +88,8 @@ function actStory(c: CharacterTickResult): string {
   switch (c.action) {
     case "forage": {
       const dr = c.forageDraw;
-      if (dr?.taboo) return `${c.name}は${c.placeName}で和魂さえ喰らった——禁忌`;
-      if (dr && dr.daku > 0 && dr.sei === 0) return `${c.name}は${c.placeName}で荒魂を喰らった`;
+      if (dr?.taboo) return `${c.name}は${c.placeName}で和みさえ喰らった——禁忌`;
+      if (dr && dr.daku > 0 && dr.sei === 0) return `${c.name}は${c.placeName}で荒びを喰らった`;
       if (dr && dr.gain === 0) return `${c.name}は霊を集めたが、この地は枯れていた`;
       return `${c.name}は${c.placeName}で霊を集めた`;
     }
@@ -117,7 +117,7 @@ function actStory(c: CharacterTickResult): string {
         : `${c.name}は寄り添う相手を探した`;
     case "purify":
       return (c.purifyCleansed ?? 1) > 0
-        ? `${c.name}は${c.placeName}の荒魂を鎮めた`
+        ? `${c.name}は${c.placeName}の荒びを鎮めた`
         : `${c.name}は${c.placeName}で静かに祈った`;
     default:
       return `${c.name}はその日を過ごした`;
@@ -145,7 +145,7 @@ function briefAct(c: CharacterTickResult): string {
     case "follow":
       return c.targetName ? `${c.targetName}に寄り添い` : "寄り添う相手を探し";
     case "purify":
-      return (c.purifyCleansed ?? 1) > 0 ? "荒魂を鎮めた" : "静かに祈った";
+      return (c.purifyCleansed ?? 1) > 0 ? "荒びを鎮めた" : "静かに祈った";
     default:
       return "日を過ごした";
   }
@@ -310,16 +310,16 @@ export function FrontStage({
       {/* いちばん新しい1日を主役の場面として大きく見せる */}
       <Scene t={latest} primary />
 
-      {/* 京の気 — 各霊地に残る民の霊力（和魂＝sei／荒魂＝daku）。枯れゆく京を体感する。ライブな世界のときだけ。
+      {/* 京の気 — 各霊地に残る民の霊力（和み＝sei／荒び＝daku）。枯れゆく京を体感する。ライブな世界のときだけ。
           全霊地で器を共有スケール化し（自地の天井で割ると皆ほぼ満タン＝同じに見えてしまう）、
-          上＝和魂・下＝荒魂の2本バーで「地の性格（器の長さ）」と「枯れ具合（塗りの長さ）」を同時に見せる。 */}
+          上＝和み・下＝荒びの2本バーで「地の性格（器の長さ）」と「枯れ具合（塗りの長さ）」を同時に見せる。 */}
       {state && (
       <div className="kyo-gauge">
         <div className="kyo-head">
           <span className="kyo-title">⛩ 京の気</span>
           <span className="kyo-legend">
-            <span className="kyo-leg"><i className="kyo-dot kyo-dot-sei" />和魂(にぎ)</span>
-            <span className="kyo-leg"><i className="kyo-dot kyo-dot-daku" />荒魂(あら)</span>
+            <span className="kyo-leg"><i className="kyo-dot kyo-dot-sei" />和み</span>
+            <span className="kyo-leg"><i className="kyo-dot kyo-dot-daku" />荒び</span>
           </span>
         </div>
         <div className="kyo-places">
@@ -330,8 +330,8 @@ export function FrontStage({
               ...state.places.flatMap((p) => [p.populaceMax.sei, p.populaceMax.daku]),
             );
             return state.places.map((p) => {
-              const seiVessel = (p.populaceMax.sei / scale) * 100; // 器（和魂）の大きさ＝地の性格
-              const dakuVessel = (p.populaceMax.daku / scale) * 100; // 器（荒魂）の大きさ
+              const seiVessel = (p.populaceMax.sei / scale) * 100; // 器（和み）の大きさ＝地の性格
+              const dakuVessel = (p.populaceMax.daku / scale) * 100; // 器（荒び）の大きさ
               const seiFill = (p.populace.sei / Math.max(1, p.populaceMax.sei)) * 100; // 枯れ具合
               const dakuFill = (p.populace.daku / Math.max(1, p.populaceMax.daku)) * 100;
               return (
