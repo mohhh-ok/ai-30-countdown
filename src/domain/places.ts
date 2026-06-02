@@ -13,7 +13,7 @@ export const PLACES: Place[] = [
       "A lively riverbank of the Kamo River in an old-Kyoto spirit world. " +
       "Wide stone-strewn shore beside flowing water, traditional machiya townhouses and a wooden bridge in the distance, " +
       "warm bustling crossroads atmosphere where humans and spirits mingle, lanterns and market stalls.",
-    forage: { normal: 12, lean: 5 }, // 1日に頂ける上限
+    forage: { normal: 10, lean: 3 }, // 1日に頂ける上限
     populace: { sei: 42, daku: 30 },
     populaceMax: { sei: 42, daku: 30 },
     regen: { sei: 6, daku: 4 },
@@ -28,7 +28,7 @@ export const PLACES: Place[] = [
       "A secluded mountain village in the northern hills of an old-Kyoto spirit world. " +
       "Terraced rice fields and thatched-roof farmhouses nestled among forested slopes, " +
       "a small wayside shrine, serene prayerful atmosphere, clear pure air with drifting morning mist.",
-    forage: { normal: 16, lean: 7 },
+    forage: { normal: 14, lean: 5 },
     populace: { sei: 56, daku: 6 },
     populaceMax: { sei: 56, daku: 6 },
     regen: { sei: 8, daku: 1 },
@@ -43,7 +43,7 @@ export const PLACES: Place[] = [
       "A deep secluded ravine of the Kibune valley in an old-Kyoto spirit world. " +
       "A crystal-clear mountain stream tumbling over rocks through dense green forest, " +
       "vermilion lanterns and a water-god shrine, hushed sacred stillness, cool dappled light, faint glowing spirit-wisps.",
-    forage: { normal: 9, lean: 7 },
+    forage: { normal: 7, lean: 5 },
     populace: { sei: 34, daku: 4 },
     populaceMax: { sei: 34, daku: 4 },
     regen: { sei: 5, daku: 1 },
@@ -58,7 +58,7 @@ export const PLACES: Place[] = [
       "A misty bamboo grove in the western outskirts of an old-Kyoto spirit world (Arashiyama). " +
       "Towering green bamboo stalks lining a winding path, the Hozu River and a wooden bridge nearby, " +
       "travelers and bamboo spirits passing through, soft filtered green light and drifting haze.",
-    forage: { normal: 14, lean: 5 },
+    forage: { normal: 12, lean: 3 },
     populace: { sei: 38, daku: 18 },
     populaceMax: { sei: 38, daku: 18 },
     regen: { sei: 6, daku: 3 },
@@ -73,7 +73,7 @@ export const PLACES: Place[] = [
       "The fox shrine of Fushimi Inari in an old-Kyoto spirit world. " +
       "Endless tunnels of vermilion torii gates climbing a forested hillside, stone fox statues with red bibs, " +
       "dense restless air thick with desire and prayer, smoldering lantern light and lingering shadows.",
-    forage: { normal: 18, lean: 2 },
+    forage: { normal: 16, lean: 2 },
     populace: { sei: 18, daku: 46 },
     populaceMax: { sei: 18, daku: 46 },
     regen: { sei: 2, daku: 6 },

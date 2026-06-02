@@ -310,7 +310,7 @@ export async function runTick(
   const placeName = (id: string): string =>
     findPlace(state.places, id)?.name ?? id;
 
-  // 1. 負荷（−8）を生者全員に適用
+  // 1. 負荷（−6）を生者全員に適用
   const energyBefore = new Map<string, number>();
   for (const c of living) {
     energyBefore.set(c.id, c.energy);

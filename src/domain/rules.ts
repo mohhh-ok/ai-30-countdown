@@ -12,8 +12,8 @@ import type {
 } from "./types.ts";
 import { REWARD_CHANNELS } from "./types.ts";
 
-/** 毎ティックの負荷（plan.md 第1節）。両者のエネルギーが −8 される。 */
-export const DAILY_LOAD = 8;
+/** 毎ティックの負荷（plan.md 第1節）。両者のエネルギーが −6 される。 */
+export const DAILY_LOAD = 6;
 
 /**
  * 禁忌「奪う(steal)」を 1 回犯すごとに、奪った側自身の日次負荷へ恒久的に上乗せされる量。
@@ -54,7 +54,7 @@ export function actionEffect(
       // 場所ごとの実り（通常日 / 不作日）
       return { self: weather === "normal" ? place.forage.normal : place.forage.lean, partner: 0 };
     case "rest":
-      return { self: 6, partner: 0 };
+      return { self: 8, partner: 0 };
     case "share":
       // 自分 −10 / 相手 +12（利他は総量を増やす）
       return { self: -10, partner: 12 };
