@@ -252,6 +252,10 @@ export function buildSingleUserPrompt(
   const living = state.characters.filter((c) => c.alive);
   const others = living.filter((o) => o.id !== self.id);
   const block = characterBlock(self, weather, state.places, others);
+  const soloNote =
+    others.length === 0
+      ? "\n\n※ 今この京に妖はあなた独りだけ。仲間も他の妖も存在しない。日記・内省でも「あの二人」「みんな」など実在しない他者を語らないこと（語りかける・分け与える・奪う・寄り添う相手は誰もいない）。"
+      : "";
 
   const schema = `{
   "action": "次のいずれか1つ: ${Object.keys(ACTION_LABELS)
@@ -273,7 +277,7 @@ ${ACTION_MENU}
 
 あなたは次の妖です。あなた一人の、この1日の行動を1つだけ決めてください:
 
-${block}
+${block}${soloNote}
 
 あなたの芯と気質、異能、記憶、周りの妖の居場所、今日の天候と霊地の枯れ具合（民の清/濁の残量）を踏まえて選ぶこと。
 関わりたい相手が離れているなら "move" で近づくことを検討。いまの地が枯れているなら霊力の残る霊地へ移ろうことも。同じ地に複数いるなら targetId で相手を選ぶこと。直近の行動が単調なら芯にかなうか省みること。

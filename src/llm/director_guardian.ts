@@ -101,9 +101,13 @@ function buildUserPrompt(state: WorldState, tension: Tension, recentLog: TickRes
 
   const places = new Set(living.map((c) => c.currentPlaceId));
   const separated = living.length >= 2 && places.size > 1;
-  const sepNote = separated
-    ? "※ 登場人物は今、別々の場所にいる（各地は隣接する霊地へ1日で移ろえる）。出会いは無理に作らず各人の芯に委ねること（実りでの引き寄せ・毎日の「会いたい」囁きは禁止）。"
-    : "※ 登場人物は同じ場所にいる。";
+  const soloName = living[0]?.name ?? "主人公";
+  const sepNote =
+    living.length === 1
+      ? `※ 今、京にいる妖は ${soloName} 独りだけ。ほかに妖はいない。ナレーションでも囁きでも「三人」「二人」「仲間」「あの者たち」など他者の存在を一切匂わせないこと（独りであることが今この物語の事実）。`
+      : separated
+        ? "※ 登場人物は今、別々の場所にいる（各地は隣接する霊地へ1日で移ろえる）。出会いは無理に作らず各人の芯に委ねること（実りでの引き寄せ・毎日の「会いたい」囁きは禁止）。"
+        : "※ 登場人物は同じ場所にいる。";
 
   const prevSpotId = recentLog.length ? recentLog[recentLog.length - 1].spotlightId : undefined;
   const prevSpotName = prevSpotId

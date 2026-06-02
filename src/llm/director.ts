@@ -82,9 +82,13 @@ export function createDirectorProvider(): DirectorProvider {
 
     const places = new Set(living.map((c) => c.currentPlaceId));
     const separated = living.length >= 2 && places.size > 1;
-    const separationNote = separated
-      ? `※ 登場人物は今、別々の場所にいて出会えていない。これが続くなら出会いを誘発する介入を強く検討すること。`
-      : `※ 登場人物は同じ場所にいる。`;
+    const soloName = living[0]?.name ?? "主人公";
+    const separationNote =
+      living.length === 1
+        ? `※ 今、京にいる妖は ${soloName} 独りだけ。ほかに妖はいない。ナレーションでも囁きでも「三人」「二人」「仲間」「あの者たち」など他者の存在を一切匂わせないこと（独りであることが今この物語の事実）。`
+        : separated
+          ? `※ 登場人物は今、別々の場所にいて出会えていない。これが続くなら出会いを誘発する介入を強く検討すること。`
+          : `※ 登場人物は同じ場所にいる。`;
 
     const prevSpotId = recentLog.length
       ? recentLog[recentLog.length - 1].spotlightId

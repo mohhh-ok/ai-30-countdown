@@ -133,9 +133,13 @@ function directorContext(state: WorldState, tension: Tension, recentLog: TickRes
       .join("\n") || "  （まだない）";
   const places = new Set(living.map((c) => c.currentPlaceId));
   const separated = living.length >= 2 && places.size > 1;
-  const sepNote = separated
-    ? "※ 登場人物は今、別々の場所にいる（各地は隣接する霊地へ1日で移ろえる）。出会いは無理に作らず各人の芯に委ねること（実りでの引き寄せ・毎日の「会いたい」囁きは禁止）。"
-    : "※ 登場人物は同じ場所にいる。";
+  const soloName = living[0]?.name ?? "主人公";
+  const sepNote =
+    living.length === 1
+      ? `※ 今、京にいる妖は ${soloName} 独りだけ。ほかに妖はいない。ナレーションでも囁きでも「三人」「二人」「仲間」「あの者たち」など他者の存在を一切匂わせないこと（独りであることが今この物語の事実）。`
+      : separated
+        ? "※ 登場人物は今、別々の場所にいる（各地は隣接する霊地へ1日で移ろえる）。出会いは無理に作らず各人の芯に委ねること（実りでの引き寄せ・毎日の「会いたい」囁きは禁止）。"
+        : "※ 登場人物は同じ場所にいる。";
   const prevSpotId = recentLog.length ? recentLog[recentLog.length - 1].spotlightId : undefined;
   const prevSpotName = prevSpotId
     ? state.characters.find((c) => c.id === prevSpotId)?.name ?? prevSpotId
@@ -164,6 +168,10 @@ ${placeList}`;
 function characterSubPrompt(state: WorldState, self: Character, others: Character[]): string {
   // characterBlock は weather を使わないのでダミーを渡す。囁きは c.currentWhisper 未設定のため出ない。
   const block = characterBlock(self, "normal", state.places, others);
+  const soloNote =
+    others.length === 0
+      ? "\n\n※ 今この京に妖はあなた独りだけ。仲間も他の妖も存在しない。日記・内省でも「あの二人」「みんな」など実在しない他者を語らないこと（語りかける・分け与える・奪う・寄り添う相手は誰もいない）。"
+      : "";
   const schema = `{
   "action": "次のいずれか1つ: ${Object.keys(ACTION_LABELS).map((k) => `"${k}"`).join(", ")}",
   "moveTarget": "action が \\"move\\" のときだけ移ろう先の場所id。それ以外は空文字",
@@ -182,7 +190,7 @@ ${ACTION_MENU}
 
 あなたは次の妖です。あなた一人の、この1日の行動を1つだけ決めてください:
 
-${block}
+${block}${soloNote}
 
 あなたの芯と気質・異能・記憶・周りの妖の居場所・霊地の枯れ具合を踏まえて選ぶこと。関わりたい相手が離れているなら "move" で近づくことも、枯れた地なら霊力の残る地へ移ろうことも検討。同じ地に複数いるなら targetId で相手を選ぶ。パラメータ変動は今日の出来事に基づいてのみ（理由が無ければ0）。
 
