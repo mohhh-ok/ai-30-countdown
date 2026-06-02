@@ -42,6 +42,13 @@ import {
 import {
   AXIS_LABEL,
   DAILY_LOAD,
+  FRENZY_BETRAYAL_GAIN,
+  FRENZY_BURDEN_GAIN,
+  FRENZY_DECAY,
+  FRENZY_ISOLATION_GAIN,
+  FRENZY_MAX,
+  FRENZY_ONSET,
+  FRENZY_TRUST_CEILING,
   LEAN_PROBABILITY,
   NEEDS_PARTNER,
   REWARD,
@@ -144,7 +151,13 @@ interface ForageDraw {
  * - insight（観の眼）: 効率よく頂く。枯れ地でもわずかに見つけ出す。
  * - それ以外: 清を穏当に頂く。
  */
-function drawForagePool(place: Place, weather: Weather, boost: number, talent: Talent): ForageDraw {
+function drawForagePool(
+  place: Place,
+  weather: Weather,
+  boost: number,
+  talent: Talent,
+  frenzied = false,
+): ForageDraw {
   const cap = Math.max(
     0,
     (weather === "normal" ? place.forage.normal : place.forage.lean) + boost,
@@ -152,7 +165,8 @@ function drawForagePool(place: Place, weather: Weather, boost: number, talent: T
   if (cap <= 0) return { gain: 0, sei: 0, daku: 0, taboo: false };
 
   if (talent === "devour") {
-    const want = Math.round(cap * 1.6); // 多く喰らう
+    // 荒ぶり中はさらに激しく喰らう（荒びを貪り、足りねば和みにも深く踏み込んで地を激しく枯らす）
+    const want = Math.round(cap * (frenzied ? 2.4 : 1.6));
     const dakuTake = Math.min(place.populace.daku, want);
     place.populace.daku -= dakuTake;
     const rest = want - dakuTake;
@@ -169,6 +183,22 @@ function drawForagePool(place: Place, weather: Weather, boost: number, talent: T
   // 観の眼: 枯れ地でもわずかな霊脈を読み当てる（最低限の floor。新鮮な地ほどではない）
   if (talent === "insight" && want > 0 && gain < 2) gain = 2;
   return { gain, sei: seiTake, daku: 0, taboo: false };
+}
+
+/** 当日の変身・鎮静を観客向けの地の文（narration）に滲ませる。数値・intent は出さない（観客ビューの掟）。 */
+function appendFrenzyNarration(base: string, results: CharacterTickResult[]): string {
+  const lines: string[] = [];
+  const becamer = results.find((r) => r.becameFrenzied);
+  if (becamer) {
+    lines.push(`——${becamer.name}の眼の色が変わる。餓えと猛りが理性を呑み、荒ぶりが鎌首をもたげた。`);
+  }
+  if (results.some((r) => r.quelledFrenzy)) {
+    const wild = results.find((r) => r.frenzyLevel !== undefined);
+    const who = wild ? `荒ぶる${wild.name}` : "荒ぶる者";
+    lines.push(`祓いの手が、${who}の猛りをゆっくりと鎮めていく。張りつめた気配が、ほどけていった。`);
+  }
+  if (lines.length === 0) return base;
+  return base ? `${base}\n${lines.join("\n")}` : lines.join("\n");
 }
 
 /** 記憶バッファ（エピソード記憶）を直近 N 件に保つ */
@@ -297,7 +327,7 @@ export async function runTick(
   const forageDrawById = new Map<string, ForageDraw>();
   const doForage = (actor: Character, place: Place): number => {
     const boost = forageBoost.get(place.id) ?? 0;
-    const r = drawForagePool(place, weather, boost, actor.talent);
+    const r = drawForagePool(place, weather, boost, actor.talent, actor.frenzy?.active ?? false);
     // 主人公のスキル「観の眼・冴え」など、集霊倍率を取れ高に乗せる
     if (isHero(actor.id) && skillEffects.forageMult !== 1) {
       r.gain = Math.round(r.gain * skillEffects.forageMult);
@@ -580,6 +610,31 @@ export async function runTick(
     }
   }
 
+  // 4.5 鎮め（ハルが荒ぶる半妖を祓い鎮める）。会得した鎮めの術 quellPower が荒ぶり度に届けば鎮静。
+  //  鎮め損ねても「荒ぶる者と同じ地で向き合って祓った」事実は heroFacedFrenzy に残し、career スキル
+  //  「鎮めの術」を育てる糧にする（#1 measure＝救えなかった子を次周で救うという回帰の核）。
+  let heroFacedFrenzy = false;
+  let heroQuelledFrenzy = false;
+  {
+    const hero = living.find((c) => isHero(c.id));
+    if (hero && resolved.get(hero.id)?.action === "purify") {
+      const wild = living.find(
+        (c) => c.frenzy?.active && c.currentPlaceId === hero.currentPlaceId,
+      );
+      if (wild?.frenzy) {
+        heroFacedFrenzy = true;
+        if (skillEffects.quellPower >= wild.frenzy.level) {
+          // 鎮静: 変身を解き、荒ぶり中に溜めた後払いの業を本人へ清算する（C: カイ自身が消耗へ向かう）。
+          wild.stealBurden += wild.frenzy.pendingBurden;
+          wild.frenzy.pendingBurden = 0;
+          wild.frenzy.level = 0;
+          wild.frenzy.active = false;
+          heroQuelledFrenzy = true;
+        }
+      }
+    }
+  }
+
   // 5. パラメータ変動を適用（±5・最大2項目に安全化）
   for (const actor of living) {
     const d = decisionById.get(actor.id);
@@ -641,6 +696,8 @@ export async function runTick(
   //  まず昨日からの減衰（立ち直り・耐性の回復）→ 今日のイベントを適用、の順。
   for (const actor of living) decayRewardState(actor);
   const rewardEventsById = new Map<string, RewardEvent[]>();
+  // この日あらたに変身した（平常→荒ぶり）者の id。演出（#5）の見せ場に使う。
+  const becameFrenziedById = new Map<string, boolean>();
   // この日、誰かに霊力を奪われた（steal の標的にされた）者の id。耐性スキル「奪われぬ芯」の会得判定に使う。
   const stolenFromById = new Map<string, boolean>();
   for (const actor of living) {
@@ -757,6 +814,39 @@ export async function runTick(
     }
 
     rewardEventsById.set(actor.id, applyRewards(actor, raw));
+
+    // 5.7 荒ぶり（変身）の蓄積・判定（frenzy を持つ＝半妖カイのみ）。
+    //  孤立（同室者なし）・裏切り（一方的に拒まれた／奪われた）が、信頼の地に落ちた者に募る。
+    //  level が FRENZY_ONSET に達すると変身（active）。以後は鎮め(#4 quellPower)でしか解けない＝自然鎮静なし。
+    //  変身前で信頼が満ち、満たされた日には level がわずかに引き、変身に至らず鎮まることもある。
+    const frenzy = actor.frenzy;
+    if (frenzy) {
+      // 変身中に犯した業（奪う／激しく喰らう）を後払いで溜める。鎮静時(#4)にまとめて本人へ清算する。
+      if (frenzy.active) {
+        const act = resolved.get(actor.id)?.action;
+        const drew = (forageDrawById.get(actor.id)?.gain ?? 0) > 0;
+        if (act === "steal" || (act === "forage" && drew)) {
+          frenzy.pendingBurden += FRENZY_BURDEN_GAIN;
+        }
+      }
+      const isolated = living.length >= 2 && coLocatedNow.length === 0;
+      const betrayed =
+        interaction.get(actor.id) === "ignored" || (stolenFromById.get(actor.id) ?? false);
+      let gain = 0;
+      if (actor.params.trust < FRENZY_TRUST_CEILING) {
+        if (isolated) gain += FRENZY_ISOLATION_GAIN;
+        if (betrayed) gain += FRENZY_BETRAYAL_GAIN;
+      }
+      if (gain > 0) {
+        frenzy.level = Math.min(FRENZY_MAX, frenzy.level + gain);
+      } else if (!frenzy.active && actor.params.trust >= FRENZY_TRUST_CEILING) {
+        frenzy.level = Math.max(0, frenzy.level - FRENZY_DECAY);
+      }
+      if (!frenzy.active && frenzy.level >= FRENZY_ONSET) {
+        frenzy.active = true;
+        becameFrenziedById.set(actor.id, true); // この日あらたに変身（演出の見せ場）
+      }
+    }
   }
 
   // 6. 結果の組み立て + 死亡判定 + 段階変化 + 記憶更新
@@ -864,6 +954,13 @@ export async function runTick(
       rewardEvents: rewardEventsById.get(actor.id) ?? [],
       mood: { ...actor.mood },
       antibodies: { ...actor.antibodies },
+      // 荒ぶり（変身）。frenzy を持つ＝カイのみ値が入る。
+      frenzyLevel: actor.frenzy?.level,
+      frenzyPendingBurden: actor.frenzy?.pendingBurden,
+      frenzyActive: actor.frenzy?.active,
+      becameFrenzied: becameFrenziedById.get(actor.id) ?? false,
+      facedFrenzy: isHero(actor.id) ? heroFacedFrenzy : false,
+      quelledFrenzy: isHero(actor.id) ? heroQuelledFrenzy : false,
     });
   }
 
@@ -1038,6 +1135,10 @@ export async function runTick(
     if (r.stageChanged) tempoReasons.push(`${r.name}の段階変化`);
     if (r.impulse) tempoReasons.push(`${r.name}の衝動`);
     if (r.forageDraw?.taboo) tempoReasons.push(`${r.name}の禁忌`);
+    // 変身・鎮静は観客の見せ場。montage に埋もれて director.narration（地の文）が
+    // 観客ビューに出ないのを防ぐため、必ず scene 化する（FrontStage は scene 時のみ narration を表示）。
+    if (r.becameFrenzied) tempoReasons.push(`${r.name}の変身`);
+    if (r.quelledFrenzy) tempoReasons.push("荒ぶりの鎮め");
   }
   const tempo: Tempo = tempoReasons.length > 0 ? "scene" : "montage";
 
@@ -1053,7 +1154,7 @@ export async function runTick(
     dialogue,
     director: director
       ? {
-          narration: director.narration,
+          narration: appendFrenzyNarration(director.narration, results),
           intent: director.intent,
           tension,
           forageBoosts: director.forageBoosts,

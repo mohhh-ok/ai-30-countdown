@@ -850,6 +850,14 @@ button.ghost {
   border-radius: 6px;
   padding: 1px 7px;
 }
+.log-frenzy {
+  font-size: 11px;
+  background: #3a2440;
+  color: #d89ad8;
+  border-radius: 6px;
+  padding: 1px 7px;
+  font-weight: 700;
+}
 .log-died {
   font-size: 11px;
   background: #4a2424;

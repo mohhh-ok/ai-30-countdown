@@ -145,6 +145,16 @@ function talentText(c: Character): string {
   }
 }
 
+/**
+ * 荒ぶり（変身）中の本人向け提示。平常時は空。
+ * SYSTEM_PROMPT の「奪うは禁忌・無理に起こさず劇薬」を、荒ぶり時だけこの本人向けブロックで上書きし、
+ * steal/devour（集霊で激しく喰らう）への自制を解く。鎮め(#4)が来ぬ限り已まないことも示す。
+ */
+function frenzyText(c: Character): string {
+  if (!c.frenzy?.active) return "";
+  return `\n【荒ぶり】いま我を失い、餓えと猛りが理性を呑んでいる。「信じれば喰われる、だから先に喰らう」——その芯がむき出しだ。ふだんは禁忌として抑えている「霊を奪う（steal）」へのためらいは、いまは無い。同じ霊地に誰かがいれば奪う衝動が湧き、民の荒びを貪り喰らう（集霊＝devour）。この荒ぶりは、誰かが祓い鎮めてくれぬ限り已まない。`;
+}
+
 export function characterBlock(c: Character, weather: Weather, places: Place[], others: Character[]): string {
   const t = temperamentText(c.params);
   const talent = talentText(c);
@@ -171,7 +181,7 @@ ${memoryBlock(c, places)}${(() => {
     c.currentWhisper
       ? `\nふと心に浮かんだ声（守護神の囁き。従っても、抗ってもよい）: 「${c.currentWhisper}」`
       : ""
-  }`;
+  }${frenzyText(c)}`;
 }
 
 const ACTION_NOTES: Record<string, string> = {

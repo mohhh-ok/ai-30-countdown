@@ -191,6 +191,7 @@ function charSaveToRow(runId: number, c: CharSave) {
     episodicJson: JSON.stringify(c.episodicMemory),
     diaryJson: JSON.stringify(c.diary),
     soulCountersJson: JSON.stringify(c.soulCounters), // ココロ（kind→受領回数）
+    frenzyJson: c.frenzy ? JSON.stringify(c.frenzy) : null, // 荒ぶり（変身）状態（半妖カイのみ。他は null）
   };
 }
 
@@ -475,6 +476,7 @@ export function loadLatestRun(): {
       episodicMemory: JSON.parse(c.episodicJson),
       diary: JSON.parse(c.diaryJson),
       soulCounters: c.soulCountersJson ? JSON.parse(c.soulCountersJson) : {}, // ココロ（kind→受領回数）
+      frenzy: c.frenzyJson ? JSON.parse(c.frenzyJson) : undefined, // 荒ぶり（変身）状態（カイのみ。他は undefined）
     }));
 
   // 場所の枯れ具合 → PlaceSave[]

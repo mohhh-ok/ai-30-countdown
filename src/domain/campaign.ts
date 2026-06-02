@@ -4,6 +4,7 @@
 import type {
   ChannelMap,
   Chronicle,
+  FrenzyState,
   LoopSummary,
   Params,
   Populace,
@@ -46,6 +47,8 @@ export interface CharSave {
   diary: string[];
   /** ココロ（kind.id→受領回数）。周またぎ持ち越しはハルだけ（freshWorldFor 参照）。 */
   soulCounters: Record<string, number>;
+  /** 荒ぶり（変身）状態。半妖カイのみ持つ（他キャラは undefined）。周内のみ・回帰でリセット。 */
+  frenzy?: FrenzyState;
 }
 
 /** 場所の「可変状態」だけ（地形・隣接・実り上限はコード placesCopy() が持つ）。 */
@@ -180,6 +183,7 @@ export class Campaign {
         episodicMemory: c.episodicMemory,
         diary: c.diary,
         soulCounters: c.soulCounters,
+        frenzy: c.frenzy,
       })),
       places: w.places.map((p) => ({ id: p.id, populace: p.populace })),
     };
@@ -223,6 +227,8 @@ export class Campaign {
       ch.episodicMemory = cs.episodicMemory;
       ch.diary = cs.diary;
       ch.soulCounters = cs.soulCounters; // ココロ（kind→受領回数）
+      // 荒ぶり（変身）。保存があれば上書き（旧DB＝未保存ならコード既定の初期 frenzy を残す＝0/未変身）。
+      if (cs.frenzy) ch.frenzy = cs.frenzy;
     }
     for (const ps of save.places) {
       const p = w.places.find((x) => x.id === ps.id);

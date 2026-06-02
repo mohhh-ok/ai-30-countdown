@@ -208,6 +208,25 @@ export interface Character {
    * 再開）。他キャラは freshWorldFor で空 {} から始まる（その周限りの芽生え）。
    */
   soulCounters: Record<string, number>;
+  /**
+   * 荒ぶり（変身）。半妖カイ専用の周内可変状態（未定義＝荒ぶらない個体）。
+   * 孤立・裏切りが募ると level が溜まり、閾値で active=true へ変身。変身中は steal/devour の
+   * 箍が外れ、後払いの pendingBurden を溜める。ハルが「鎮めの術」(quellPower) で祓い鎮めると
+   * level がリセットされ active=false に戻り、溜めた pendingBurden が本人の stealBurden へ清算される。
+   * 鎮め損ねれば荒ぶり続ける（自然鎮静なし）。周（回帰）をまたぐと createInitialCharacters で
+   * 初期化される（記憶・気分と同じ一代限り）。周内の再起動に耐えるため run_char に永続化する。
+   */
+  frenzy?: FrenzyState;
+}
+
+/** 荒ぶり（変身）状態。半妖カイの「信じれば喰われる、だから先に喰らう」が暴走した姿。 */
+export interface FrenzyState {
+  /** 荒ぶり度。孤立・裏切りで蓄積し、鎮めの quellPower がこれに届けば鎮静する（0〜FRENZY_MAX）。 */
+  level: number;
+  /** 変身中か。level が FRENZY_ONSET を超えると true、ハルの鎮めで false に戻る。 */
+  active: boolean;
+  /** 変身中に溜める後払いの stealBurden。鎮静時にまとめて本人の stealBurden へ清算する。 */
+  pendingBurden: number;
 }
 
 /** 世界の状態 */
@@ -259,6 +278,19 @@ export interface CharacterTickResult {
   rewardEvents: RewardEvent[]; // この日に起きた報酬/ストレスのイベント
   mood: { elation: number; calm: number; warmth: number; stress: number }; // 日終わりの気分
   antibodies: ChannelMap; // 日終わりの抗体
+  // --- 荒ぶり（変身）。半妖カイのみ。観客/楽屋ビューと鎮めの術 measure が参照する ---
+  /** 日終わりの荒ぶり度（楽屋ビュー用）。frenzy を持たない個体は undefined。 */
+  frenzyLevel?: number;
+  /** 変身中に溜まった後払いの業（楽屋ビュー用・代償の推移）。鎮静時に stealBurden へ清算される。 */
+  frenzyPendingBurden?: number;
+  /** 日終わりに変身（荒ぶり）状態か。 */
+  frenzyActive?: boolean;
+  /** この日あらたに変身した（平常→荒ぶり）。演出の見せ場。 */
+  becameFrenzied?: boolean;
+  /** ハルが荒ぶる半妖と同じ霊地で祓った（鎮め成否を問わず＝鎮めの術 measure の糧）。 */
+  facedFrenzy?: boolean;
+  /** ハルの祓いが荒ぶりを鎮めた（変身解除に成功）。演出の見せ場。 */
+  quelledFrenzy?: boolean;
 }
 
 /** 会話の1発言（talk 成立時に生成される） */
@@ -452,6 +484,7 @@ export interface SkillEffectRaw {
   startAltruismBonus?: number; // 周開始時の利他 +n
   wardPower?: number; // 結界力 +n（30日目の大禍を祓い退けるための備え。これが猛威度に届けばクリア）
   stealResist?: number; // 奪われたときの霊力喪失・ストレスを軽くする割合（0〜1、0.5=半減）
+  quellPower?: number; // 鎮めの力 +n（荒ぶる半妖をハルが祓い鎮めるための備え。これが荒ぶり度に届けば鎮静）
 }
 
 /** 全習得スキルを合算した実効効果（engine / freshWorldFor が読む） */
@@ -464,6 +497,7 @@ export interface SkillEffects {
   startAltruismBonus: number;
   wardPower: number; // 結界力の総和（30日目の大禍の猛威度に届けば回避＝クリア）
   stealResist: number; // 奪われ被害の軽減割合の総和（0〜1にクランプして使う）
+  quellPower: number; // 鎮めの力の総和（荒ぶる半妖の荒ぶり度に届けば鎮静できる）
 }
 
 /**

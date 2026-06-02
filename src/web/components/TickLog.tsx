@@ -161,6 +161,19 @@ export function TickLog({ log }: { log: TickResult[] }) {
                 </span>
               )}
               {c.died && <span className="log-died">力尽きた</span>}
+              {c.frenzyLevel !== undefined && (c.frenzyLevel > 0 || c.frenzyActive) && (
+                <span className="log-frenzy">
+                  荒ぶり{c.frenzyLevel}
+                  {c.frenzyActive ? "【変身中】" : ""}
+                  {c.becameFrenzied ? "⚡変身!" : ""}
+                  {c.frenzyPendingBurden ? ` 業+${c.frenzyPendingBurden}` : ""}
+                </span>
+              )}
+              {c.facedFrenzy && (
+                <span className="log-frenzy">
+                  {c.quelledFrenzy ? "🕊️荒ぶりを鎮めた!" : "荒ぶる者と向き合い祓った"}
+                </span>
+              )}
             </div>
           ))}
           {t.dialogue && t.dialogue.length > 0 && (

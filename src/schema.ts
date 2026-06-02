@@ -75,6 +75,7 @@ export const runChar = sqliteTable(
     episodicJson: text("episodic_json").notNull(), // string[]（直近5件ほど）
     diaryJson: text("diary_json").notNull(), // string[]（現周の一行日記）
     soulCountersJson: text("soul_counters_json"), // ココロ（kind→受領回数のJSON）
+    frenzyJson: text("frenzy_json"), // 荒ぶり（変身）状態 FrenzyState のJSON（半妖カイのみ。他キャラは null）
   },
   (t) => [primaryKey({ columns: [t.runId, t.charId] })],
 );

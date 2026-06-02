@@ -21,6 +21,22 @@ export const DAILY_LOAD = 6;
  */
 export const STEAL_DRAIN_INCREASE = 1;
 
+// --- 荒ぶり（変身）: 半妖カイが孤立・裏切りに呑まれて豹変するためのしきい値群（周内状態） ---
+/** 荒ぶりが募るのは信頼がこの値を下回るとき（地に落ちた信頼が前提）。 */
+export const FRENZY_TRUST_CEILING = 30;
+/** その日同じ霊地に誰もいなかった（孤立した）ときに荒ぶり度へ足す量。 */
+export const FRENZY_ISOLATION_GAIN = 2;
+/** 一方的に拒まれた／誰かに奪われた（裏切り）日に荒ぶり度へ足す量。 */
+export const FRENZY_BETRAYAL_GAIN = 3;
+/** 変身前に、信頼が満ちて満たされた日に荒ぶり度から引く量（変身に至らず鎮まる）。 */
+export const FRENZY_DECAY = 1;
+/** 荒ぶり度がこれに達すると変身（active）。以後は鎮め(quellPower)でしか解けない（自然鎮静なし）。 */
+export const FRENZY_ONSET = 6;
+/** 荒ぶり度の上限。鎮めの術 quellPower(14) がこれを上回るため、会得すれば確実に鎮められる。 */
+export const FRENZY_MAX = 12;
+/** 変身中、業（steal／激しい devour）を犯した日に後払いで溜める stealBurden 量。鎮静時にまとめて本人へ清算する（C: カイ自身が消耗）。 */
+export const FRENZY_BURDEN_GAIN = 2;
+
 /** 不作日の確率（plan.md 第2節・約1/3） */
 export const LEAN_PROBABILITY = 1 / 3;
 

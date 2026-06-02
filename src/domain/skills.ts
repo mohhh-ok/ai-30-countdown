@@ -140,6 +140,22 @@ export const SKILLS: SkillDef[] = [
     measure: ({ hero }) => (hero.action === "follow" ? 1 : 0),
     effect: { wardPower: 14 },
   },
+  // --- 鎮めの術（荒ぶる半妖カイを祓い鎮める「鎮めの力 quellPower」を積む。結界 wardPower の双子）---
+  // 荒ぶるカイと同じ霊地でハルが祓った日だけ進む。ward_basics の素の purify とは差別化し、
+  // 「カイと向き合った経験」だけが術になる。会得すれば quellPower=14 で FRENZY_MAX(12) を上回り確実に鎮められる。
+  {
+    id: "quell_art",
+    icon: "🕊️",
+    name: "鎮めの術",
+    description:
+      "荒ぶる半妖と同じ霊地で向き合い、通算5度その地を祓うと会得（周をまたいで蓄積／鎮め損ねた日も糧になる）。荒ぶりを解く鎮めの力＝quellPower+14。",
+    scope: "career",
+    threshold: 5,
+    // facedFrenzy: ハルが荒ぶる者と同じ地で祓った日（engine 4.5 で鎮め成否を問わず立つ）。
+    // 鎮めた日も含めて数えるため、鎮め判定で active=false になっても進捗を取りこぼさない。
+    measure: ({ hero }) => (hero.facedFrenzy ? 1 : 0),
+    effect: { quellPower: 14 },
+  },
 ];
 
 const SKILL_BY_ID = new Map<SkillId, SkillDef>(SKILLS.map((s) => [s.id, s]));
@@ -201,6 +217,7 @@ export function noSkillEffects(): SkillEffects {
     startAltruismBonus: 0,
     wardPower: 0,
     stealResist: 0,
+    quellPower: 0,
   };
 }
 
@@ -219,6 +236,7 @@ export function aggregateEffects(acquired: SkillId[]): SkillEffects {
     if (e.startAltruismBonus) eff.startAltruismBonus += e.startAltruismBonus;
     if (e.wardPower) eff.wardPower += e.wardPower;
     if (e.stealResist) eff.stealResist += e.stealResist;
+    if (e.quellPower) eff.quellPower += e.quellPower;
   }
   // 奪われ被害の軽減割合は 0〜1 に収める（将来複数スキルが重なっても全損化させない）
   eff.stealResist = Math.min(1, eff.stealResist);

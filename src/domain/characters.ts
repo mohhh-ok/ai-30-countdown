@@ -121,6 +121,9 @@ export function createInitialCharacters(): Character[] {
       diary: [],
       soulCounters: {},
       relationLabel: "値踏み",
+      // 荒ぶり（変身）の周内状態。半妖カイだけが持つ。孤立・裏切りが募ると level が溜まり、
+      // FRENZY_ONSET で active=true へ変身する（engine が蓄積・判定する）。
+      frenzy: { level: 0, active: false, pendingBurden: 0 },
     },
     {
       id: "sora",
