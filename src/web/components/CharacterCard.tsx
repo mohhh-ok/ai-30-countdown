@@ -7,7 +7,7 @@ import type {
 import { stageOf } from "../../domain/rules.ts";
 import { ParamBar } from "./ParamBar.tsx";
 import { CharAvatar } from "./CharAvatar.tsx";
-import { useDiary, useDomainNames, useT } from "../i18n.tsx";
+import { useDiary, useDomainNames, useReward, useT } from "../i18n.tsx";
 
 const MAX_ENERGY = 100; // バー表示の基準（実際は上限なしだが目安）
 
@@ -25,6 +25,7 @@ export function CharacterCard({
   const t = useT();
   const dn = useDomainNames();
   const diary = useDiary();
+  const reward = useReward();
   const c = character;
   const axisValue = c.params[c.growthAxis];
   const stage = stageOf(axisValue);
@@ -170,7 +171,7 @@ export function CharacterCard({
                 key={i}
                 className={`reward-tag ${e.channel === "stress" ? "neg" : "pos"}`}
               >
-                {e.label}
+                {reward(e)}
                 <b>
                   {e.effective >= 0 ? `+${e.effective}` : e.effective}
                 </b>

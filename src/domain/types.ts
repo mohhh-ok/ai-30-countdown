@@ -132,9 +132,19 @@ export const REWARD_CHANNELS: RewardChannel[] = [
 export type ChannelMap = Record<RewardChannel, number>;
 
 /** その日に1人に起きた報酬イベント（観察用の内訳） */
+/** 報酬ラベルの i18n 構造化（EN は UI でテンプレ展開。名前・地名は useDomainNames で英訳）。 */
+export interface RewardI18n {
+  key: string; // UI テンプレキー（rwd_*）
+  placeId?: string; // 地名 id
+  charId?: string; // 相手キャラ id
+  charName?: string; // 相手キャラ名（日本語フォールバック）
+  n?: number; // 数量（頂いた/喰らった/鎮めた量）
+}
+
 export interface RewardEvent {
   channel: RewardChannel | "stress";
-  label: string; // 何が起きたか（日本語）
+  label: string; // 何が起きたか（日本語＝source of truth／i18n が無いときの表示フォールバック）
+  i18n?: RewardI18n; // 表示の言語別組み立て用（UI: useReward）
   base: number; // 基礎報酬（stress は負）
   effective: number; // 抗体適用後の実効報酬（stress は base と同じ）
 }

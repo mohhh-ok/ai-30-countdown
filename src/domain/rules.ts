@@ -6,6 +6,7 @@ import type {
   Place,
   RewardChannel,
   RewardEvent,
+  RewardI18n,
   Stage,
   Weather,
   Character,
@@ -224,6 +225,7 @@ export const REWARD = {
 export interface RawRewardEvent {
   channel: RewardChannel | "stress";
   label: string;
+  i18n?: RewardI18n; // 表示の言語別組み立て用（UI で展開）
   base: number; // 報酬は正、ストレスは負
 }
 
@@ -237,7 +239,7 @@ export function applyRewards(c: Character, raw: RawRewardEvent[]): RewardEvent[]
     if (e.channel === "stress") {
       // ストレスには慣れない（抗体がつかない）。気分の stress を押し上げる。
       c.mood.stress = clampParam(c.mood.stress + -e.base);
-      out.push({ channel: "stress", label: e.label, base: e.base, effective: e.base });
+      out.push({ channel: "stress", label: e.label, i18n: e.i18n, base: e.base, effective: e.base });
       continue;
     }
     const ab = c.antibodies[e.channel];
@@ -247,7 +249,7 @@ export function applyRewards(c: Character, raw: RawRewardEvent[]): RewardEvent[]
     // 気分に反映
     const moodKey = CHANNEL_MOOD[e.channel];
     c.mood[moodKey] = clampParam(c.mood[moodKey] + effective);
-    out.push({ channel: e.channel, label: e.label, base: e.base, effective });
+    out.push({ channel: e.channel, label: e.label, i18n: e.i18n, base: e.base, effective });
   }
   return out;
 }

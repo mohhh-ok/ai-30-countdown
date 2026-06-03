@@ -17,6 +17,7 @@ import type {
   CharacterTickResult,
   HighlightI18n,
   LocalizedText,
+  RewardI18n,
 } from "../domain/types.ts";
 import { charIdByName, skillIdByName } from "./util.ts";
 
@@ -92,6 +93,31 @@ const UI = {
     // 日記の理由注記（engine が衝動／分与で行動を上書きした日。本文の前に添える）。
     diary_note_impulse: "（抑えきれない衝動に突き動かされて）",
     diary_note_gift: "（弱った相手を見かね、霊力を分け与えた）",
+    // この日の報酬ラベル。ja は engine の label（source of truth）を使うので下記は parity 用。
+    rwd_forage_devour_daku: "{place}で荒びを{n}喰らった",
+    rwd_forage_devour_sei: "{place}で和みさえ{n}喰らった（禁忌）",
+    rwd_taboo_burden: "和みさえ喰らった業がのしかかる",
+    rwd_forage_devour_dry: "{place}には喰らう霊も残っていない",
+    rwd_forage_gain: "{place}で和みを{n}頂いた",
+    rwd_forage_dry: "{place}は枯れ、頂ける霊がなかった",
+    rwd_rest: "休んで安らいだ",
+    rwd_talk_mutual: "{name}と心が通った",
+    rwd_talk_ignored: "{name}に語りかけたが応じてもらえなかった",
+    rwd_talk_ignored_solo: "語りかけたが独りだった",
+    rwd_share_given: "{name}に分け与えた",
+    rwd_steal: "{name}から奪った",
+    rwd_steal_solo: "奪った",
+    rwd_follow_beside: "{name}の傍に寄り添った",
+    rwd_follow_chase: "{name}を追って歩いた",
+    rwd_follow_none: "寄り添う相手を求めた",
+    rwd_purify_cleansed: "{place}の荒びを{n}鎮めた",
+    rwd_purify_quiet: "{place}で静かに祈った",
+    rwd_share_received: "{name}から分けてもらった",
+    rwd_stolen: "{name}に奪われた",
+    rwd_lonely_nearest: "{name}たちと離れていて心細い",
+    rwd_lonely_solo: "ひとりで心細い",
+    rwd_satiety: "満ち足りている",
+    rwd_hunger: "飢えが身にこたえる",
     act_died: "{name}は、ここで消え去った…",
     act_follow_move: "{name}は{target}を慕って{place}へ近づいた",
     act_move: "{name}は{from}から{place}へ移ろった",
@@ -338,6 +364,30 @@ const UI = {
       "The purifying hand slowly quells {who}’s fury. The taut, strained air loosens at last.",
     diary_note_impulse: "(driven by an uncontrollable impulse) ",
     diary_note_gift: "(seeing a weakened companion, shared spirit power) ",
+    rwd_forage_devour_daku: "Devoured {n} turmoil at {place}",
+    rwd_forage_devour_sei: "Devoured even {n} calm at {place} (taboo)",
+    rwd_taboo_burden: "The karma of devouring calm weighs down",
+    rwd_forage_devour_dry: "No spirit left to devour at {place}",
+    rwd_forage_gain: "Received {n} calm at {place}",
+    rwd_forage_dry: "{place} was barren—no spirit to receive",
+    rwd_rest: "Rested and found ease",
+    rwd_talk_mutual: "Hearts connected with {name}",
+    rwd_talk_ignored: "Spoke to {name} but got no answer",
+    rwd_talk_ignored_solo: "Spoke up, but was alone",
+    rwd_share_given: "Shared with {name}",
+    rwd_steal: "Stole from {name}",
+    rwd_steal_solo: "Stole spirit",
+    rwd_follow_beside: "Nestled close to {name}",
+    rwd_follow_chase: "Walked after {name}",
+    rwd_follow_none: "Sought someone to stay close to",
+    rwd_purify_cleansed: "Quelled {n} turmoil at {place}",
+    rwd_purify_quiet: "Prayed quietly at {place}",
+    rwd_share_received: "Received a share from {name}",
+    rwd_stolen: "Robbed by {name}",
+    rwd_lonely_nearest: "Far from {name} and the others—lonely",
+    rwd_lonely_solo: "Alone and lonely",
+    rwd_satiety: "Content and full",
+    rwd_hunger: "Hunger bites deep",
     act_died: "{name} vanished here…",
     act_follow_move: "{name} drew near to {place}, longing for {target}",
     act_move: "{name} drifted from {from} to {place}",
@@ -870,6 +920,34 @@ export function useLocalized() {
       console.warn(`[i18n] 英訳が空のため日本語表示にフォールバック: ${what}`);
     }
     return v.ja;
+  };
+}
+
+/**
+ * 「この日の報酬」ラベルを現在の言語で組む。
+ * ja は engine が組み立てた label（source of truth）をそのまま使い、
+ * en は構造化 i18n（key＋placeId/charId/n）からテンプレ展開する（名前・地名は useDomainNames で英訳）。
+ * 構造化を持たない旧データは label（日本語）へフォールバックし、en では warn で1度だけ可視化する。
+ */
+export function useReward() {
+  const { lang } = useLang();
+  const t = useT();
+  const dn = useDomainNames();
+  return (e: { label: string; i18n?: RewardI18n }): string => {
+    if (lang !== "en") return e.label;
+    const x = e.i18n;
+    if (!x) {
+      if (!warnedKeys.has("reward.legacy")) {
+        warnedKeys.add("reward.legacy");
+        console.warn("[i18n] 旧データの報酬ラベルは構造化が無いため日本語表示にフォールバック");
+      }
+      return e.label;
+    }
+    return t(x.key as UiKey, {
+      place: x.placeId ? dn.place(x.placeId, x.placeId) : "",
+      name: x.charId ? dn.char(x.charId, x.charName ?? "") : (x.charName ?? ""),
+      n: x.n ?? 0,
+    });
   };
 }
 

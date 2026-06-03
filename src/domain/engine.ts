@@ -712,38 +712,86 @@ export async function runTick(
       const dr = forageDrawById.get(actor.id) ?? { gain: 0, sei: 0, daku: 0, taboo: false };
       if (actor.talent === "devour") {
         if (dr.daku > 0) {
-          raw.push({ channel: "thrill", label: `${place.name}で荒びを${dr.daku}喰らった`, base: dr.daku });
+          raw.push({
+            channel: "thrill",
+            label: `${place.name}で荒びを${dr.daku}喰らった`,
+            i18n: { key: "rwd_forage_devour_daku", placeId: place.id, n: dr.daku },
+            base: dr.daku,
+          });
         }
         if (dr.sei > 0) {
-          raw.push({ channel: "thrill", label: `${place.name}で和みさえ${dr.sei}喰らった（禁忌）`, base: dr.sei });
-          raw.push({ channel: "stress", label: "和みさえ喰らった業がのしかかる", base: -Math.round(dr.sei * 0.6) });
+          raw.push({
+            channel: "thrill",
+            label: `${place.name}で和みさえ${dr.sei}喰らった（禁忌）`,
+            i18n: { key: "rwd_forage_devour_sei", placeId: place.id, n: dr.sei },
+            base: dr.sei,
+          });
+          raw.push({
+            channel: "stress",
+            label: "和みさえ喰らった業がのしかかる",
+            i18n: { key: "rwd_taboo_burden" },
+            base: -Math.round(dr.sei * 0.6),
+          });
         }
         if (dr.gain === 0) {
-          raw.push({ channel: "stress", label: `${place.name}には喰らう霊も残っていない`, base: -3 });
+          raw.push({
+            channel: "stress",
+            label: `${place.name}には喰らう霊も残っていない`,
+            i18n: { key: "rwd_forage_devour_dry", placeId: place.id },
+            base: -3,
+          });
         }
       } else {
-        const label =
+        raw.push(
           dr.gain > 0
-            ? `${place.name}で和みを${dr.gain}頂いた`
-            : `${place.name}は枯れ、頂ける霊がなかった`;
-        raw.push({ channel: dr.gain > 0 ? "achievement" : "stress", label, base: dr.gain > 0 ? dr.gain : -3 });
+            ? {
+                channel: "achievement",
+                label: `${place.name}で和みを${dr.gain}頂いた`,
+                i18n: { key: "rwd_forage_gain", placeId: place.id, n: dr.gain },
+                base: dr.gain,
+              }
+            : {
+                channel: "stress",
+                label: `${place.name}は枯れ、頂ける霊がなかった`,
+                i18n: { key: "rwd_forage_dry", placeId: place.id },
+                base: -3,
+              },
+        );
       }
     } else if (act === "rest") {
-      raw.push({ channel: "comfort", label: "休んで安らいだ", base: REWARD.rest });
+      raw.push({ channel: "comfort", label: "休んで安らいだ", i18n: { key: "rwd_rest" }, base: REWARD.rest });
     } else if (act === "talk") {
       if (reaches(targetAct) && targetBackAtMe && target) {
-        raw.push({ channel: "bond", label: `${target.name}と心が通った`, base: REWARD.talkMutual });
+        raw.push({
+          channel: "bond",
+          label: `${target.name}と心が通った`,
+          i18n: { key: "rwd_talk_mutual", charId: target.id, charName: target.name },
+          base: REWARD.talkMutual,
+        });
       } else {
         raw.push({
           channel: "stress",
           label: target ? `${target.name}に語りかけたが応じてもらえなかった` : "語りかけたが独りだった",
+          i18n: target
+            ? { key: "rwd_talk_ignored", charId: target.id, charName: target.name }
+            : { key: "rwd_talk_ignored_solo" },
           base: REWARD.ignored,
         });
       }
     } else if (act === "share" && target) {
-      raw.push({ channel: "bond", label: `${target.name}に分け与えた`, base: REWARD.shareGiven });
+      raw.push({
+        channel: "bond",
+        label: `${target.name}に分け与えた`,
+        i18n: { key: "rwd_share_given", charId: target.id, charName: target.name },
+        base: REWARD.shareGiven,
+      });
     } else if (act === "steal") {
-      raw.push({ channel: "thrill", label: target ? `${target.name}から奪った` : "奪った", base: REWARD.illicit });
+      raw.push({
+        channel: "thrill",
+        label: target ? `${target.name}から奪った` : "奪った",
+        i18n: target ? { key: "rwd_steal", charId: target.id, charName: target.name } : { key: "rwd_steal_solo" },
+        base: REWARD.illicit,
+      });
     } else if (act === "follow") {
       const ft = followTargetById.get(actor.id);
       const beside = ft && ft.currentPlaceId === actor.currentPlaceId;
@@ -754,14 +802,27 @@ export async function runTick(
             ? `${ft.name}の傍に寄り添った`
             : `${ft.name}を追って歩いた`
           : "寄り添う相手を求めた",
+        i18n: ft
+          ? { key: beside ? "rwd_follow_beside" : "rwd_follow_chase", charId: ft.id, charName: ft.name }
+          : { key: "rwd_follow_none" },
         base: REWARD.follow,
       });
     } else if (act === "purify") {
       const cleansed = purifyCleansedById.get(actor.id) ?? 0;
       raw.push(
         cleansed > 0
-          ? { channel: "comfort", label: `${place.name}の荒びを${cleansed}鎮めた`, base: REWARD.purify }
-          : { channel: "comfort", label: `${place.name}で静かに祈った`, base: REWARD.purifyQuiet },
+          ? {
+              channel: "comfort",
+              label: `${place.name}の荒びを${cleansed}鎮めた`,
+              i18n: { key: "rwd_purify_cleansed", placeId: place.id, n: cleansed },
+              base: REWARD.purify,
+            }
+          : {
+              channel: "comfort",
+              label: `${place.name}で静かに祈った`,
+              i18n: { key: "rwd_purify_quiet", placeId: place.id },
+              base: REWARD.purifyQuiet,
+            },
       );
     }
 
@@ -769,7 +830,12 @@ export async function runTick(
     for (const o of actorsTargeting(actor)) {
       const oAct = resolved.get(o.id)?.action;
       if (oAct === "share") {
-        raw.push({ channel: "bond", label: `${o.name}から分けてもらった`, base: REWARD.shareReceived });
+        raw.push({
+          channel: "bond",
+          label: `${o.name}から分けてもらった`,
+          i18n: { key: "rwd_share_received", charId: o.id, charName: o.name },
+          base: REWARD.shareReceived,
+        });
         bumpSoul(actor, "altruism"); // 利他の心: 分けてもらった経験を刻む（積もると芽生え、プロンプトへ注入される）
       } else if (oAct === "steal") {
         stolenFromById.set(actor.id, true); // 標的にされた事実を記録（耐性スキルの会得判定用）
@@ -778,7 +844,12 @@ export async function runTick(
         if (isHero(actor.id) && skillEffects.stealResist > 0) {
           base = Math.round(base * (1 - skillEffects.stealResist));
         }
-        raw.push({ channel: "stress", label: `${o.name}に奪われた`, base });
+        raw.push({
+          channel: "stress",
+          label: `${o.name}に奪われた`,
+          i18n: { key: "rwd_stolen", charId: o.id, charName: o.name },
+          base,
+        });
       }
     }
 
@@ -798,17 +869,25 @@ export async function runTick(
       raw.push({
         channel: "stress",
         label: nearest ? `${nearest.name}たちと離れていて心細い` : "ひとりで心細い",
+        i18n: nearest
+          ? { key: "rwd_lonely_nearest", charId: nearest.id, charName: nearest.name }
+          : { key: "rwd_lonely_solo" },
         base: -actor.lonelinessSensitivity,
       });
     }
 
     // 充足／飢え（その日の終わりのエネルギーに対して）
     if (actor.energy >= actor.satiety) {
-      raw.push({ channel: "comfort", label: "満ち足りている", base: REWARD.satiety });
+      raw.push({ channel: "comfort", label: "満ち足りている", i18n: { key: "rwd_satiety" }, base: REWARD.satiety });
     } else {
       const deficit = actor.satiety - Math.max(0, actor.energy);
       if (deficit > 0) {
-        raw.push({ channel: "stress", label: "飢えが身にこたえる", base: -Math.round(deficit * REWARD.hungerScale) });
+        raw.push({
+          channel: "stress",
+          label: "飢えが身にこたえる",
+          i18n: { key: "rwd_hunger" },
+          base: -Math.round(deficit * REWARD.hungerScale),
+        });
       }
     }
 
