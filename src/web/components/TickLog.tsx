@@ -2,7 +2,13 @@
 import type { CSSProperties } from "react";
 import type { LlmCallTiming, TickResult } from "../../domain/types.ts";
 import { charColor } from "../charTheme.ts";
-import { useDomainNames, useSep, useT } from "../i18n.tsx";
+import {
+  useDomainNames,
+  useFrenzyNarration,
+  useLocalized,
+  useSep,
+  useT,
+} from "../i18n.tsx";
 
 /** ミリ秒を読みやすく（1秒以上は「1.2s」、未満は「840ms」）。 */
 function fmtMs(ms: number): string {
@@ -61,6 +67,8 @@ export function TickLog({ log }: { log: TickResult[] }) {
   const tr = useT();
   const dn = useDomainNames();
   const sep = useSep();
+  const loc = useLocalized();
+  const frenzyNarration = useFrenzyNarration();
   if (log.length === 0) {
     return <p className="log-empty">{tr("tlog_empty")}</p>;
   }
@@ -133,10 +141,14 @@ export function TickLog({ log }: { log: TickResult[] }) {
               )}
             </div>
           )}
-          {t.director?.narration && (
+          {t.director && (
             <div className="narration">
               <span className="clap">🎬</span>
-              <span className="narration-text">{t.director.narration}</span>
+              <span className="narration-text">
+                {[loc(t.director.narration, "narration"), frenzyNarration(t.characters)]
+                  .filter(Boolean)
+                  .join("\n")}
+              </span>
               <span className="narration-intent" title={t.director.intent}>
                 {tr("tlog_intent", { intent: t.director.intent })}
                 {t.director.forageBoosts.length > 0 &&

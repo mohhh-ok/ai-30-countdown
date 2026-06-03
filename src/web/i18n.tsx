@@ -13,7 +13,11 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { CharacterTickResult, HighlightI18n } from "../domain/types.ts";
+import type {
+  CharacterTickResult,
+  HighlightI18n,
+  LocalizedText,
+} from "../domain/types.ts";
 import { charIdByName, skillIdByName } from "./util.ts";
 
 export type Lang = "ja" | "en";
@@ -77,6 +81,14 @@ const UI = {
     mark_skill: "✨ ハルは「{skills}」を会得した",
     mark_unlock: "🆕 {names} が次の回帰から京に現れる",
     mark_regress: "↻ ハルは力尽き、時は巻き戻る——",
+    // 変身・鎮静の地の文（決定的ルール文。LLM ナレーションの後に UI が言語別に添える）。
+    narr_frenzy_became:
+      "——{name}の眼の色が変わる。餓えと猛りが理性を呑み、荒ぶりが鎌首をもたげた。",
+    narr_frenzy_steal: "荒ぶる{name}は{target}から霊を奪い、京の気をさらに枯らしていく。",
+    narr_frenzy_steal_solo: "荒ぶる{name}は霊を奪い、京の気をさらに枯らしていく。",
+    narr_frenzy_taboo: "荒ぶる{name}は和みすら喰らい、京の気をさらに枯らしていく。",
+    narr_quell:
+      "祓いの手が、{who}の猛りをゆっくりと鎮めていく。張りつめた気配が、ほどけていった。",
     act_died: "{name}は、ここで消え去った…",
     act_follow_move: "{name}は{target}を慕って{place}へ近づいた",
     act_move: "{name}は{from}から{place}へ移ろった",
@@ -311,6 +323,16 @@ const UI = {
     mark_skill: "✨ Haru mastered {skills}",
     mark_unlock: "🆕 {names} will appear in Kyoto from the next loop",
     mark_regress: "↻ Haru’s strength fails, and time rewinds—",
+    narr_frenzy_became:
+      "—{name}’s eyes change color. Hunger and fury swallow reason, and the frenzy rears its head.",
+    narr_frenzy_steal:
+      "The frenzied {name} devours spirit from {target}, withering Kyoto’s spirit further.",
+    narr_frenzy_steal_solo:
+      "The frenzied {name} devours spirit, withering Kyoto’s spirit further.",
+    narr_frenzy_taboo:
+      "The frenzied {name} devours even the calm, withering Kyoto’s spirit further.",
+    narr_quell:
+      "The purifying hand slowly quells {who}’s fury. The taut, strained air loosens at last.",
     act_died: "{name} vanished here…",
     act_follow_move: "{name} drew near to {place}, longing for {target}",
     act_move: "{name} drifted from {from} to {place}",
@@ -822,6 +844,77 @@ export function useLoopEnd() {
     return sum.endPlaceId
       ? t("loop_end_died_at", { place: dn.place(sum.endPlaceId, sum.endPlaceId) })
       : t("loop_end_died");
+  };
+}
+
+/**
+ * LLM 生成の多言語文（{ja,en}）を現在の言語で取り出す（フェーズ2）。
+ * en が空のときは日本語へフォールバックし、warn で1度だけ可視化する（黙って既定化しない）。
+ * 移行期の保険として素の string も受ける（その場合はそのまま）。
+ */
+export function useLocalized() {
+  const { lang } = useLang();
+  return (v: LocalizedText | string | undefined | null, what = "llm"): string => {
+    if (v == null) return "";
+    if (typeof v === "string") return v;
+    if (lang !== "en") return v.ja;
+    if (v.en) return v.en;
+    const wk = `localized.${what}`;
+    if (!warnedKeys.has(wk)) {
+      warnedKeys.add(wk);
+      console.warn(`[i18n] 英訳が空のため日本語表示にフォールバック: ${what}`);
+    }
+    return v.ja;
+  };
+}
+
+/**
+ * 当日の変身・鎮静を観客向けの地の文に組む（決定的ルール文）。
+ * 旧来 engine が narration に焼き込んでいたものを、名前の英訳のため UI 層へ移設。
+ * LLM ナレーションの後ろに添える想定。該当が無ければ空文字。
+ */
+export function useFrenzyNarration() {
+  const t = useT();
+  const dn = useDomainNames();
+  return (chars: CharacterTickResult[]): string => {
+    const lines: string[] = [];
+    const becamer = chars.find((r) => r.becameFrenzied);
+    if (becamer) {
+      lines.push(t("narr_frenzy_became", { name: dn.char(becamer.id, becamer.name) }));
+    }
+    // 荒ぶり継続中の所業（奪い・和みすら喰らう。変身当日は上で告げ済みなので除く）。
+    const rampager = chars.find(
+      (r) =>
+        r.frenzyActive &&
+        !r.becameFrenzied &&
+        !r.died &&
+        (r.action === "steal" || r.forageDraw?.taboo),
+    );
+    if (rampager) {
+      const name = dn.char(rampager.id, rampager.name);
+      if (rampager.action === "steal") {
+        lines.push(
+          rampager.targetName
+            ? t("narr_frenzy_steal", {
+                name,
+                target: rampager.targetId
+                  ? dn.char(rampager.targetId, rampager.targetName)
+                  : rampager.targetName,
+              })
+            : t("narr_frenzy_steal_solo", { name }),
+        );
+      } else {
+        lines.push(t("narr_frenzy_taboo", { name }));
+      }
+    }
+    if (chars.some((r) => r.quelledFrenzy)) {
+      const wild = chars.find((r) => r.frenzyLevel !== undefined);
+      const who = wild
+        ? t("mark_quell_wild", { name: dn.char(wild.id, wild.name) })
+        : t("mark_quell_someone");
+      lines.push(t("narr_quell", { who }));
+    }
+    return lines.join("\n");
   };
 }
 

@@ -12,7 +12,14 @@ import { useState } from "react";
 import { charColor } from "../charTheme.ts";
 import { CharAvatar } from "./CharAvatar.tsx";
 import { SceneFX } from "./SceneFX.tsx";
-import { useDomainNames, useSep, useStory, useT } from "../i18n.tsx";
+import {
+  useDomainNames,
+  useFrenzyNarration,
+  useLocalized,
+  useSep,
+  useStory,
+  useT,
+} from "../i18n.tsx";
 
 /** 主役枠の地に敷く「今いる場所」の背景絵。object-fit でフィットさせ、未生成(404)なら消えて地色に落ちる。 */
 function HeroBackground({ placeId, placeName }: { placeId?: string; placeName?: string }) {
@@ -131,8 +138,14 @@ function Scene({ t, primary }: { t: TickResult; primary: boolean }) {
   const tr = useT();
   const dn = useDomainNames();
   const story = useStory();
+  const loc = useLocalized();
+  const frenzyNarration = useFrenzyNarration();
   const hero = t.characters.find((c) => c.id === t.spotlightId);
   const others = t.characters.filter((c) => c.id !== t.spotlightId);
+  // LLM のナレーション（言語別）＋当日の変身・鎮静の地の文（決定的ルール文）。
+  const narration = [loc(t.director?.narration, "narration"), frenzyNarration(t.characters)]
+    .filter(Boolean)
+    .join("\n");
 
   return (
     <div className={`scene${primary ? "" : " scene-past"}`}>
@@ -146,9 +159,7 @@ function Scene({ t, primary }: { t: TickResult; primary: boolean }) {
 
       <SceneMarks t={t} />
 
-      {t.director?.narration && (
-        <p className="scene-narration">{t.director.narration}</p>
-      )}
+      {narration && <p className="scene-narration">{narration}</p>}
 
       {hero &&
         (primary ? (

@@ -365,7 +365,7 @@ for (let i = 0; i < days; i++) {
         .join("  ");
       console.log(`   ⛩ 京の気: ${kyo}`);
       if (result.director) {
-        console.log(`   🎬 ${result.director.narration}`);
+        console.log(`   🎬 ${result.director.narration.ja}`);
         const boosts = result.director.forageBoosts
           .map((b) => `${pn(world, b.placeId)}${b.delta >= 0 ? "+" : ""}${b.delta}`)
           .join("、");

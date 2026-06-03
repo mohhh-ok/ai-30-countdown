@@ -22,7 +22,7 @@ import type {
 } from "../domain/types.ts";
 import { findPlace } from "../domain/places.ts";
 import { temperamentText } from "../domain/rules.ts";
-import { chatJSON } from "./backend.ts";
+import { chatJSON, normalizeLocalized } from "./backend.ts";
 import { llog } from "./log.ts";
 
 const SYSTEM_PROMPT = `あなたは、ある小さな世界を見守る「演出家」であり、同時に登場人物それぞれに憑く「守護神」たちでもあります。観客（読者）がこの物語に飽きないよう、舞台＝環境に介入し、各人の心に一人称の声をささやきます。
@@ -58,6 +58,7 @@ const SYSTEM_PROMPT = `あなたは、ある小さな世界を見守る「演出
 
 ナレーションは観客向けの地の文。トーンは全振りで“pop”に：実況・煽り系のノリで軽快に短く、情景と次への引きを込めて（例:「霊力ガス欠寸前!?今日のサバイバルやいかに〜！」）。古めかしい言い回しは使わず、感嘆符や「!?」「〜」も気軽に。
 ナレーションは行動より前（夜明け）に書かれる。断定してよいのは「今この時点で既に真である事実」（誰がどこにいる／天候／霊力／何日膠着しているか 等）だけ。この日キャラが何をするか・どう応じるか・出会えるかは、まだ決まっておらず囁きに抗われることもあるので、未来の行動や結末を断定しない。未来は「〜できるのか」「〜が揺らぐ」と"問い・賭け金"の形に倒すこと（NG例:「ハルがナギに語りかける」「応えが返ってくる瞬間」／OK例:「ハルは殻を破れるのか」「ふたりの糸が揺らぐ」）。こうすれば結果がどう転んでもナレーションは嘘にならない。
+ナレーション（narration）は日本語(ja)と英語(en)の両方を必ず書くこと。英語は直訳でなく、同じ場面・同じ煽り・同じ"問い"を英語ネイティブ向けの自然な口語・実況トーンで（casual, punchy, present-tense）。固有名は英語側では Haru/Nagi のようにローマ字で。
 必ず指定の JSON だけを出力し、説明文を付けないこと。`;
 
 const TENSION_LABEL: Record<Tension, string> = {
@@ -133,7 +134,7 @@ ${placeList}
 次の JSON だけを出力:
 {
   "weather": "normal | lean のいずれか",
-  "narration": "幕開けの語り（観客向けの地の文・一〜二文）。夜明け時点で既に真である事実＋これから問われる緊張(問い)だけで書く。この日の行動・結末は断定しない（「〜できるのか」はOK／「語りかける・応える・出会う」と予告するのはNG）",
+  "narration": { "ja": "幕開けの語り（観客向けの地の文・一〜二文）。夜明け時点で既に真である事実＋これから問われる緊張(問い)だけで書く。この日の行動・結末は断定しない（「〜できるのか」はOK／「語りかける・応える・出会う」と予告するのはNG）", "en": "the same opening narration in natural casual English (1-2 sentences, same question/stakes, no spoilers)" },
   "intent": "この演出の狙いを一行で（メタ・記録用）",
   "forageBoosts": [ { "placeId": "場所id", "delta": -8から8までの整数(符号は付けない。例 5 や -3) } ],
   "directives": [ { "id": "${ids.join(" か ")}", "intent": "守護神への指示・どう動かしたいか" } ],
@@ -197,7 +198,7 @@ function parsePlan(raw: string, state: WorldState): DirGuardPlan {
 
   const director: DirectorDecision = {
     weather: parsed.weather === "lean" ? "lean" : "normal",
-    narration: typeof parsed.narration === "string" ? parsed.narration : "",
+    narration: normalizeLocalized(parsed.narration),
     intent: typeof parsed.intent === "string" ? parsed.intent : "",
     forageBoosts: boosts,
     directives,
@@ -242,7 +243,7 @@ async function runDirGuard(
     return {
       director: {
         weather: "normal",
-        narration: "",
+        narration: { ja: "", en: "" },
         intent: "",
         forageBoosts: [],
         directives: [],

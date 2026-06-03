@@ -32,7 +32,7 @@ import type {
 } from "../domain/types.ts";
 import { ACTIONS, ACTION_LABELS } from "../domain/types.ts";
 import { findPlace } from "../domain/places.ts";
-import { chatJSON } from "./backend.ts";
+import { chatJSON, normalizeLocalized } from "./backend.ts";
 import { llog } from "./log.ts";
 import { SYSTEM_PROMPT, ACTION_MENU, characterBlock } from "./prompt.ts";
 
@@ -216,7 +216,7 @@ export function buildOrchestratorUserPrompt(
   const schema = `{
   "director": {
     "weather": "normal | lean",
-    "narration": "幕開けの語り（観客向けの地の文・一〜二文）。行動より前に書くので、夜明け時点で既に真である事実(居場所/天候/霊力/膠着)＋これから問われる緊張(問い)だけで書く。この日の行動・結末は断定しない（NG例:「ハルがナギに語りかける」「応えが返ってくる瞬間」／OK例:「ハルは殻を破れるのか」「ふたりの糸が揺らぐ」。囁きに抗われ嘘になるため）",
+    "narration": { "ja": "幕開けの語り（観客向けの地の文・一〜二文）。行動より前に書くので、夜明け時点で既に真である事実(居場所/天候/霊力/膠着)＋これから問われる緊張(問い)だけで書く。この日の行動・結末は断定しない（NG例:「ハルがナギに語りかける」「応えが返ってくる瞬間」／OK例:「ハルは殻を破れるのか」「ふたりの糸が揺らぐ」。囁きに抗われ嘘になるため）", "en": "the same opening narration in natural casual English (1-2 sentences, same question/stakes, no spoilers; romanize names like Haru/Nagi)" },
     "intent": "演出の狙いを一行で",
     "forageBoosts": [ { "placeId": "場所id", "delta": -8から8の整数 } ],
     "directives": [ { "id": "対象キャラid", "intent": "守護神への指示" } ],
@@ -290,7 +290,7 @@ function parseTickPlan(raw: string, state: WorldState): TickPlan {
     : [];
   const director: DirectorDecision = {
     weather: d.weather === "lean" ? "lean" : "normal",
-    narration: typeof d.narration === "string" ? d.narration : "",
+    narration: normalizeLocalized(d.narration),
     intent: typeof d.intent === "string" ? d.intent : "",
     forageBoosts: boosts,
     directives,
@@ -386,7 +386,7 @@ async function runOneCall(
     return {
       director: {
         weather: "normal",
-        narration: "",
+        narration: { ja: "", en: "" },
         intent: "",
         forageBoosts: [],
         directives: [],

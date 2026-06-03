@@ -317,10 +317,19 @@ export interface DirectorDirective {
   intent: string; // どう動かしたいか（守護神への戦略指示）
 }
 
+/**
+ * LLM 生成文の多言語版（フェーズ2）。日本語が source of truth、英語は同時生成した訳。
+ * 表示は UI が現在の言語で出し分ける。en が空のときは ja へフォールバックする（UI 側）。
+ */
+export interface LocalizedText {
+  ja: string;
+  en: string;
+}
+
 /** 演出家の介入（環境のみ。キャラへは守護神を通じてしか働きかけない） */
 export interface DirectorDecision {
   weather: Weather; // その日の天候
-  narration: string; // 幕開けのナレーション（観客向け）
+  narration: LocalizedText; // 幕開けのナレーション（観客向け・日英）
   intent: string; // 演出意図（なぜこうしたか・メタ記録）
   forageBoosts: { placeId: string; delta: number }[]; // 場所の実りの一時増減
   directives: DirectorDirective[]; // 守護神への指示
@@ -396,7 +405,7 @@ export interface TickResult {
   notable: string; // 注目の変化（plan.md 第10節）
   dialogue?: DialogueLine[]; // talk が成立した日の会話（セリフのやり取り）
   director?: {
-    narration: string;
+    narration: LocalizedText;
     intent: string;
     tension: Tension;
     forageBoosts: { placeId: string; delta: number }[];

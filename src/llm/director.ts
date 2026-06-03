@@ -8,7 +8,7 @@ import type {
 } from "../domain/types.ts";
 import { findPlace } from "../domain/places.ts";
 import { eventBlurb, eventLabel } from "../domain/events.ts";
-import { chatJSON } from "./backend.ts";
+import { chatJSON, normalizeLocalized } from "./backend.ts";
 
 const SYSTEM_PROMPT = `あなたは、ある小さな世界を見守る「演出家」です。観客（読者）がこの物語に飽きないよう、舞台＝環境に介入します。
 
@@ -46,6 +46,7 @@ const SYSTEM_PROMPT = `あなたは、ある小さな世界を見守る「演出
 - 飢饉のさなかなら、それは登場人物を死に近づける好機でもあり、絆や禁忌が試される局面でもある。ドラマとして最も映えるよう活かせ。
 
 ナレーションは観客に向けた地の文。トーンは全振りで“pop”に：実況・煽り系のノリで軽快に、短く、情景と次への引きを込めて（例:「霊力ガス欠寸前!?今日のサバイバルやいかに〜！」）。古めかしい言い回しは使わず、感嘆符や「!?」「〜」も気軽に。可能なら主役の視点に寄り添う。
+ナレーション（narration）は日本語(ja)と英語(en)の両方を必ず書くこと。英語は日本語の直訳ではなく、同じ場面・同じ煽りを英語ネイティブ向けに自然な口語・実況トーンで書く（casual, punchy, present-tense play-by-play）。固有名（ハル/ナギ等）は英語側では Haru/Nagi のようにローマ字表記にする。
 必ず指定の JSON だけを出力し、説明文を付けないこと。`;
 
 const TENSION_LABEL: Record<Tension, string> = {
@@ -125,7 +126,7 @@ ${placeList}
 次の JSON だけを出力:
 {
   "weather": "normal | lean のいずれか",
-  "narration": "幕開けの語り（観客向けの地の文・一〜二文）",
+  "narration": { "ja": "幕開けの語り（観客向けの地の文・一〜二文）", "en": "the same opening narration in natural casual English (1-2 sentences)" },
   "intent": "この演出の狙いを一行で（メタ・記録用）",
   "forageBoosts": [ { "placeId": "場所id", "delta": -8から8までの整数(符号は付けない。例 5 や -3) } ],
   "directives": [ { "id": "${living.map((c) => c.id).join(" か ")}", "intent": "守護神への指示・どう動かしたいか" } ],
@@ -176,9 +177,13 @@ forageBoosts・directives は介入しないなら空配列で構いません。
         ? parsed.spotlightId
         : undefined;
 
+    // narration は {ja,en} で受け取る。万一モデルが旧形（素の string）を返したら ja に寄せ、
+    // en は空のまま残す（黙って ja で埋めず、UI 側で warn 可視化＋日本語フォールバックさせる）。
+    const narration = normalizeLocalized(parsed.narration);
+
     return {
       weather,
-      narration: typeof parsed.narration === "string" ? parsed.narration : "",
+      narration,
       intent: typeof parsed.intent === "string" ? parsed.intent : "",
       forageBoosts: boosts,
       directives,

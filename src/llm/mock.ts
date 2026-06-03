@@ -185,7 +185,8 @@ export function createMockDirector(rng: () => number = Math.random): DirectorPro
     const spot = [...living].sort((a, b) => b.mood.stress - a.mood.stress)[0];
     return {
       weather,
-      narration,
+      // mock は翻訳しない（テスト用）。ja=en で {ja,en} 形だけ満たす。
+      narration: { ja: narration, en: narration },
       intent,
       forageBoosts,
       directives,

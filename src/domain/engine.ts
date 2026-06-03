@@ -185,37 +185,6 @@ function drawForagePool(
   return { gain, sei: seiTake, daku: 0, taboo: false };
 }
 
-/** 当日の変身・鎮静を観客向けの地の文（narration）に滲ませる。数値・intent は出さない（観客ビューの掟）。 */
-function appendFrenzyNarration(base: string, results: CharacterTickResult[]): string {
-  const lines: string[] = [];
-  const becamer = results.find((r) => r.becameFrenzied);
-  if (becamer) {
-    lines.push(`——${becamer.name}の眼の色が変わる。餓えと猛りが理性を呑み、荒ぶりが鎌首をもたげた。`);
-  }
-  // 荒ぶり継続中に犯した所業（奪い・和みすら喰らう）も滲ませる（変身した当日は上で告げ済みなので除く）。
-  const rampager = results.find(
-    (r) =>
-      r.frenzyActive &&
-      !r.becameFrenzied &&
-      !r.died &&
-      (r.action === "steal" || r.forageDraw?.taboo),
-  );
-  if (rampager) {
-    const deed =
-      rampager.action === "steal"
-        ? `${rampager.targetName ? `${rampager.targetName}から` : ""}霊を奪い`
-        : "和みすら喰らい";
-    lines.push(`荒ぶる${rampager.name}は${deed}、京の気をさらに枯らしていく。`);
-  }
-  if (results.some((r) => r.quelledFrenzy)) {
-    const wild = results.find((r) => r.frenzyLevel !== undefined);
-    const who = wild ? `荒ぶる${wild.name}` : "荒ぶる者";
-    lines.push(`祓いの手が、${who}の猛りをゆっくりと鎮めていく。張りつめた気配が、ほどけていった。`);
-  }
-  if (lines.length === 0) return base;
-  return base ? `${base}\n${lines.join("\n")}` : lines.join("\n");
-}
-
 /** 記憶バッファ（エピソード記憶）を直近 N 件に保つ */
 const EPISODIC_LIMIT = 5;
 function pushEpisodic(c: Character, entry: string): void {
@@ -1183,7 +1152,9 @@ export async function runTick(
     dialogue,
     director: director
       ? {
-          narration: appendFrenzyNarration(director.narration, results),
+          // narration は LLM の {ja,en} をそのまま渡す。変身・鎮静の地の文（決定的ルール文）は
+          // 名前の英訳が要るため UI 層（useFrenzyNarration）で言語別に組み、ここでは焼き込まない。
+          narration: director.narration,
           intent: director.intent,
           tension,
           forageBoosts: director.forageBoosts,

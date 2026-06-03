@@ -11,8 +11,27 @@ import {
 import { recordTiming } from "./timing.ts";
 import { llog } from "./log.ts";
 import { logLlmCallStart, logLlmCallEnd } from "../db.ts";
+import type { LocalizedText } from "../domain/types.ts";
 
 export type { ChatMessage } from "./ollama.ts";
+
+/**
+ * LLM が返した多言語フィールドを {ja,en} に正規化する（フェーズ2）。
+ * - {ja,en} 形ならそのまま採る（欠落キーは空文字）。
+ * - 旧形（素の string）が来たら ja に寄せ、en は空のまま（＝未訳。UI が warn 可視化＋日本語フォールバック）。
+ * 黙って en を ja で埋めない（未訳を隠さない＝CLAUDE.md の握りつぶし禁止）。
+ */
+export function normalizeLocalized(v: unknown): LocalizedText {
+  if (typeof v === "string") return { ja: v, en: "" };
+  if (v && typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    return {
+      ja: typeof o.ja === "string" ? o.ja : "",
+      en: typeof o.en === "string" ? o.en : "",
+    };
+  }
+  return { ja: "", en: "" };
+}
 
 export const BACKEND = (process.env.LLM_BACKEND ?? "claude-code").toLowerCase();
 /** claude-code のモデル（haiku / sonnet / opus / 完全ID） */
