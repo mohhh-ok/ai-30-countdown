@@ -25,6 +25,7 @@ import { dirname } from "node:path";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import * as schema from "./schema.ts";
+import { nowISO } from "./time.ts";
 import type {
   Chronicle,
   LlmCallTiming,
@@ -67,11 +68,6 @@ const {
   llmCalls,
   skillAudit,
 } = schema;
-
-/** 現在時刻（テスト容易性のため関数化） */
-function nowISO(): string {
-  return new Date().toISOString();
-}
 
 /**
  * セーブ状態を正規化テーブルへ書き込む（run 行は別途。ここは状態テーブルのみ）。1トランザクション。

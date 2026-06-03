@@ -14,6 +14,7 @@
     "secrets:staged": "gitleaks git --staged --no-banner --redact --exit-code 1"
   },
   "dependencies": {
+    "dayjs": "^1.11.21",
     "drizzle-orm": "1.0.0-rc.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

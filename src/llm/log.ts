@@ -4,6 +4,8 @@
 // 出力先は stdout（console.log）。以前は stderr に出していたが、多くのターミナルが
 // stderr を赤系で表示するため「通常ログまで全部赤」になっていた。エラー系メッセージ
 // （✗ で始まる、または warn フラグ）だけを stderr に回し、通常ログは白で出す。
+import { fmtClock } from "../time.ts";
+
 const ENABLED = process.env.LLM_LOG !== "0";
 
 // ANSI カラー（端末以外＝パイプ時は無効化）。NO_COLOR でも無効化。
@@ -14,8 +16,8 @@ const cyan = (s: string) => c("36", s); // scope
 const red = (s: string) => c("31", s); // エラー
 
 function ts(): string {
-  // HH:MM:SS.mmm（ローカルではなく ISO の時刻部分）
-  return new Date().toISOString().slice(11, 23);
+  // HH:mm:ss.SSS（固定TZ＝Asia/Tokyo）。サーバ端末用なのでブラウザ追従ではなく固定。
+  return fmtClock();
 }
 
 /** key=value 形式に整える（長い文字列は端折る）。 */

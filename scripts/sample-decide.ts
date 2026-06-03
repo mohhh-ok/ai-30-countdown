@@ -29,6 +29,7 @@ import { ACTIONS } from "../src/domain/types.ts";
 import type { Action, Character, WorldState, Weather } from "../src/domain/types.ts";
 import { BACKEND, BACKEND_NAME, MODEL, chatJSON } from "../src/llm/backend.ts";
 import { SYSTEM_PROMPT, buildSingleUserPrompt, buildUserPrompt } from "../src/llm/prompt.ts";
+import { fmtFixed, nowISO } from "../src/time.ts";
 
 const OUT_PATH = "docs/research/decide-samples.jsonl";
 
@@ -261,14 +262,9 @@ function gitShortHead(): string {
   return r.stdout.toString().trim();
 }
 
-function jstNow(): string {
-  // ローカル時刻に依存せず +09:00 固定で記録する
-  const jst = new Date(Date.now() + 9 * 3600 * 1000);
-  return jst.toISOString().replace("Z", "+09:00");
-}
-
 const record = {
-  datetime: jstNow(),
+  // 固定TZ（Asia/Tokyo）＋オフセット付きで記録（共通ブリッジ src/time.ts に統一）。
+  datetime: fmtFixed(nowISO()),
   commit: gitShortHead(),
   backend: `${BACKEND_NAME}:${MODEL}`,
   mode,
