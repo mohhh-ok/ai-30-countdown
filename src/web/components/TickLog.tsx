@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import type { LlmCallTiming, TickResult } from "../../domain/types.ts";
 import { charColor } from "../charTheme.ts";
 import {
+  useDiary,
   useDomainNames,
   useFrenzyNarration,
   useLocalized,
@@ -69,6 +70,7 @@ export function TickLog({ log }: { log: TickResult[] }) {
   const sep = useSep();
   const loc = useLocalized();
   const frenzyNarration = useFrenzyNarration();
+  const diary = useDiary();
   if (log.length === 0) {
     return <p className="log-empty">{tr("tlog_empty")}</p>;
   }
@@ -203,7 +205,10 @@ export function TickLog({ log }: { log: TickResult[] }) {
                   {c.energyDelta >= 0 ? `+${c.energyDelta}` : c.energyDelta}
                 </span>
               </span>
-              {c.diary && <span className="log-diary">「{c.diary}」</span>}
+              {(() => {
+                const dt = diary(c.diary, c.diaryNote);
+                return dt ? <span className="log-diary">「{dt}」</span> : null;
+              })()}
               {c.stageChanged && (
                 <span className="log-stage">
                   {tr("tlog_stage", {

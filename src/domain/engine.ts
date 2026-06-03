@@ -395,7 +395,8 @@ export async function runTick(
     if (target && d) {
       d.action = "move";
       d.moveTarget = target;
-      d.diary = `（抑えきれない衝動に突き動かされて）${d.diary ?? ""}`.trim();
+      // 上書きした理由は日記本文に焼かず注記フラグで持つ（表示は UI が言語別に前置）。
+      d.diaryNote = "impulse";
       mover.whisperIgnored = 0;
       impulseIds.add(mover.id);
     }
@@ -439,7 +440,8 @@ export async function runTick(
     if (!weak) continue;
     d.action = "share";
     d.targetId = weak.id;
-    d.diary = `（弱っている${weak.name}を見かね、霊力を分け与えることにした）${d.diary ?? ""}`.trim();
+    // 上書きした理由は日記本文に焼かず注記フラグで持つ（表示は UI が言語別に前置）。
+    d.diaryNote = "gift";
   }
 
   // パラメータ更新前の値（段階変化の検出用）
@@ -662,7 +664,7 @@ export async function runTick(
     }
 
     if (d.relationLabel) actor.relationLabel = d.relationLabel;
-    if (d.diary) actor.diary.push(d.diary);
+    if (d.diary.ja || d.diary.en) actor.diary.push(d.diary);
   }
 
   // 5.5 関係フィードバック（決定論・控えめ）。
@@ -930,7 +932,8 @@ export async function runTick(
       paramsAfter: { ...actor.params },
       paramDeltas: d?.paramDeltas ?? {},
       deltaReason: d?.deltaReason ?? "",
-      diary: d?.diary ?? "",
+      diary: d?.diary ?? { ja: "", en: "" },
+      diaryNote: d?.diaryNote,
       relationLabel: actor.relationLabel,
       stageBefore,
       stageAfter,

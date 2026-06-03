@@ -276,7 +276,9 @@ export function saveTick(runId: number, result: TickResult): void {
             independence: c.paramsAfter.independence,
             trust: c.paramsAfter.trust,
             stage: c.stageAfter,
-            diary: c.diary,
+            diary: c.diary.ja,
+            diaryEn: c.diary.en,
+            diaryNote: c.diaryNote ?? null,
             relation: c.relationLabel,
             deltaReason: c.deltaReason,
             died: c.died ? 1 : 0,
@@ -534,7 +536,9 @@ export interface CharTraceRow {
   day: number;
   place_id: string; // 地名の英訳用（UI で place を解決。place_name は日本語フォールバック）
   place_name: string;
-  diary: string;
+  diary: string; // 日本語（source of truth）
+  diary_en: string; // 英語（未訳は空→UI が日本語フォールバック）
+  diary_note: string | null; // 行動上書きの理由注記 "impulse" | "gift"
   died: number;
   altruism: number;
   stage: string;
@@ -551,6 +555,8 @@ export function loadCharacterTrace(runId: number, charId: string): CharTraceRow[
       place_id: charMetrics.placeId,
       place_name: charMetrics.placeName,
       diary: charMetrics.diary,
+      diary_en: charMetrics.diaryEn,
+      diary_note: charMetrics.diaryNote,
       died: charMetrics.died,
       altruism: charMetrics.altruism,
       stage: charMetrics.stage,

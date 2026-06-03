@@ -7,7 +7,7 @@ import type {
 import { stageOf } from "../../domain/rules.ts";
 import { ParamBar } from "./ParamBar.tsx";
 import { CharAvatar } from "./CharAvatar.tsx";
-import { useDomainNames, useT } from "../i18n.tsx";
+import { useDiary, useDomainNames, useT } from "../i18n.tsx";
 
 const MAX_ENERGY = 100; // バー表示の基準（実際は上限なしだが目安）
 
@@ -24,6 +24,7 @@ export function CharacterCard({
 }) {
   const t = useT();
   const dn = useDomainNames();
+  const diary = useDiary();
   const c = character;
   const axisValue = c.params[c.growthAxis];
   const stage = stageOf(axisValue);
@@ -182,7 +183,9 @@ export function CharacterCard({
       <div className="diary">
         <span className="diary-mark">{t("diary_mark")}</span>
         <span className="diary-text">
-          {c.diary.length ? `「${c.diary[c.diary.length - 1]}」` : t("diary_empty")}
+          {last?.diary || c.diary.length
+            ? `「${diary(last?.diary ?? c.diary[c.diary.length - 1], last?.diaryNote)}」`
+            : t("diary_empty")}
         </span>
       </div>
 

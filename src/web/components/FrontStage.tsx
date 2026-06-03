@@ -13,6 +13,7 @@ import { charColor } from "../charTheme.ts";
 import { CharAvatar } from "./CharAvatar.tsx";
 import { SceneFX } from "./SceneFX.tsx";
 import {
+  useDiary,
   useDomainNames,
   useFrenzyNarration,
   useLocalized,
@@ -140,6 +141,7 @@ function Scene({ t, primary }: { t: TickResult; primary: boolean }) {
   const story = useStory();
   const loc = useLocalized();
   const frenzyNarration = useFrenzyNarration();
+  const diary = useDiary();
   const hero = t.characters.find((c) => c.id === t.spotlightId);
   const others = t.characters.filter((c) => c.id !== t.spotlightId);
   // LLM のナレーション（言語別）＋当日の変身・鎮静の地の文（決定的ルール文）。
@@ -190,7 +192,10 @@ function Scene({ t, primary }: { t: TickResult; primary: boolean }) {
                 </span>
               </div>
               <p className="hero-act">{story.actStory(hero)}</p>
-              {hero.diary && <p className="hero-diary">「{hero.diary}」</p>}
+              {(() => {
+                const dt = diary(hero.diary, hero.diaryNote);
+                return dt ? <p className="hero-diary">「{dt}」</p> : null;
+              })()}
             </div>
           </div>
         ) : (
@@ -198,7 +203,10 @@ function Scene({ t, primary }: { t: TickResult; primary: boolean }) {
             <span className="hero-cam">🎥</span>
             <span className="hero-line-name">{dn.char(hero.id, hero.name)}</span>
             <span className="hero-line-act">{story.actStory(hero)}</span>
-            {hero.diary && <span className="hero-line-diary">「{hero.diary}」</span>}
+            {(() => {
+              const dt = diary(hero.diary, hero.diaryNote);
+              return dt ? <span className="hero-line-diary">「{dt}」</span> : null;
+            })()}
           </div>
         ))}
 

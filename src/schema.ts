@@ -173,7 +173,9 @@ export const charMetrics = sqliteTable(
     independence: integer("independence").notNull(),
     trust: integer("trust").notNull(),
     stage: text("stage").notNull(),
-    diary: text("diary").notNull(),
+    diary: text("diary").notNull(), // 一行日記（日本語＝source of truth）
+    diaryEn: text("diary_en").notNull().default(""), // 一行日記（英語。未訳は空→UI が日本語フォールバック）
+    diaryNote: text("diary_note"), // 行動上書きの理由注記 "impulse" | "gift"（無ければ null）
     relation: text("relation").notNull(),
     deltaReason: text("delta_reason").notNull(),
     died: integer("died").notNull(),

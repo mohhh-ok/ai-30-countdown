@@ -73,7 +73,7 @@ function normalizeOne(o: Record<string, unknown>, id: string): CharacterDecision
     action,
     moveTarget: typeof o.moveTarget === "string" && o.moveTarget ? o.moveTarget : undefined,
     targetId: typeof o.targetId === "string" && o.targetId ? o.targetId : undefined,
-    diary: typeof o.diary === "string" ? o.diary : "",
+    diary: normalizeLocalized(o.diary),
     relationLabel: typeof o.relationLabel === "string" ? o.relationLabel : "",
     paramDeltas: asParamDeltas(o.paramDeltas),
     deltaReason: typeof o.deltaReason === "string" ? o.deltaReason : "",
@@ -84,7 +84,7 @@ function fallbackDecision(id: string): CharacterDecision {
   return {
     id,
     action: "forage",
-    diary: "とりまサバイブ最優先っしょ。",
+    diary: { ja: "とりまサバイブ最優先っしょ。", en: "Survival first, obvs." },
     relationLabel: "",
     paramDeltas: {},
     deltaReason: "",
@@ -176,7 +176,7 @@ function characterSubPrompt(state: WorldState, self: Character, others: Characte
   "action": "次のいずれか1つ: ${Object.keys(ACTION_LABELS).map((k) => `"${k}"`).join(", ")}",
   "moveTarget": "action が \\"move\\" のときだけ移ろう先の場所id。それ以外は空文字",
   "targetId": "action が talk/share/steal のときは同じ地の相手の id、follow のときは寄り添う相手の id（離れていても可）。それ以外は空文字",
-  "diary": "一人称・一行の内省（日本語・pop口調。タメ口で軽快に、記号や絵文字も可）",
+  "diary": { "ja": "一人称・一行の内省（日本語・pop口調。タメ口で軽快に、記号や絵文字も可）", "en": "the same reflection as a first-person one-liner in natural casual English (same pop voice; emojis ok)" },
   "relationLabel": "相手への現在の感情ラベル（pop口調の口語ひと言。例: ガチ警戒 / なんか好き / マジ無理 など）",
   "paramDeltas": { "altruism": 整数(-5〜5), "independence": 整数(-5〜5), "trust": 整数(-5〜5) },
   "deltaReason": "パラメータを動かした理由を一行で。動かさないなら空文字"
@@ -225,7 +225,7 @@ export function buildOrchestratorUserPrompt(
   },
   "whispers": [ { "id": "対象キャラid", "whisper": "そのキャラ視点の一人称の囁き" } ],
   "characters": [
-    { "id": "キャラid", "action": "...", "moveTarget": "", "targetId": "", "diary": "...", "relationLabel": "...", "paramDeltas": { "altruism": 0, "independence": 0, "trust": 0 }, "deltaReason": "" }
+    { "id": "キャラid", "action": "...", "moveTarget": "", "targetId": "", "diary": { "ja": "一行日記(日本語)", "en": "same one-liner in casual English" }, "relationLabel": "...", "paramDeltas": { "altruism": 0, "independence": 0, "trust": 0 }, "deltaReason": "" }
   ],
   "dialogue": [ { "speakerId": "キャラid", "text": "セリフ本文（一文〜二文）" } ]
 }`;

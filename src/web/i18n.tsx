@@ -89,6 +89,9 @@ const UI = {
     narr_frenzy_taboo: "荒ぶる{name}は和みすら喰らい、京の気をさらに枯らしていく。",
     narr_quell:
       "祓いの手が、{who}の猛りをゆっくりと鎮めていく。張りつめた気配が、ほどけていった。",
+    // 日記の理由注記（engine が衝動／分与で行動を上書きした日。本文の前に添える）。
+    diary_note_impulse: "（抑えきれない衝動に突き動かされて）",
+    diary_note_gift: "（弱った相手を見かね、霊力を分け与えた）",
     act_died: "{name}は、ここで消え去った…",
     act_follow_move: "{name}は{target}を慕って{place}へ近づいた",
     act_move: "{name}は{from}から{place}へ移ろった",
@@ -333,6 +336,8 @@ const UI = {
       "The frenzied {name} devours even the calm, withering Kyoto’s spirit further.",
     narr_quell:
       "The purifying hand slowly quells {who}’s fury. The taut, strained air loosens at last.",
+    diary_note_impulse: "(driven by an uncontrollable impulse) ",
+    diary_note_gift: "(seeing a weakened companion, shared spirit power) ",
     act_died: "{name} vanished here…",
     act_follow_move: "{name} drew near to {place}, longing for {target}",
     act_move: "{name} drifted from {from} to {place}",
@@ -865,6 +870,24 @@ export function useLocalized() {
       console.warn(`[i18n] 英訳が空のため日本語表示にフォールバック: ${what}`);
     }
     return v.ja;
+  };
+}
+
+/**
+ * 一行日記を現在の言語で組む（フェーズ2）。本文は LLM の {ja,en}、
+ * engine が行動を上書きした日の理由注記（衝動／分与）を言語別に前置する。
+ */
+export function useDiary() {
+  const loc = useLocalized();
+  const t = useT();
+  return (
+    entry: LocalizedText | string | undefined | null,
+    note?: "impulse" | "gift" | null,
+  ): string => {
+    const body = loc(entry, "diary");
+    if (!note) return body;
+    const prefix = note === "impulse" ? t("diary_note_impulse") : t("diary_note_gift");
+    return body ? `${prefix}${body}` : prefix.trimEnd();
   };
 }
 

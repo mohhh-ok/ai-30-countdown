@@ -5,6 +5,7 @@ import type {
   ChannelMap,
   Chronicle,
   FrenzyState,
+  LocalizedText,
   LoopSummary,
   Params,
   Populace,
@@ -44,7 +45,7 @@ export interface CharSave {
   whisperIgnored?: number;
   relationLabel: string;
   episodicMemory: string[];
-  diary: string[];
+  diary: LocalizedText[];
   /** ココロ（kind.id→受領回数）。周またぎ持ち越しはハルだけ（freshWorldFor 参照）。 */
   soulCounters: Record<string, number>;
   /** 荒ぶり（変身）状態。半妖カイのみ持つ（他キャラは undefined）。周内のみ・回帰でリセット。 */

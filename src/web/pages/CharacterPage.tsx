@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import type { Chronicle, Talent } from "../../domain/types.ts";
 import { createInitialCharacters } from "../../domain/characters.ts";
 import { nameOfId, unlockOf } from "../util.ts";
-import { useDomainNames, useT } from "../i18n.tsx";
+import { useDiary, useDomainNames, useT } from "../i18n.tsx";
 
 /** /api/character/:id が返す char_metrics の1行（薄い軌跡）。 */
 interface CharTrace {
@@ -14,6 +14,8 @@ interface CharTrace {
   place_id: string;
   place_name: string;
   diary: string;
+  diary_en: string;
+  diary_note: string | null;
   died: number;
   altruism: number;
   stage: string;
@@ -25,6 +27,7 @@ interface CharTrace {
 function LoopTrace({ loop, rows }: { loop: number; rows: CharTrace[] }) {
   const t = useT();
   const dn = useDomainNames();
+  const diary = useDiary();
   const peakAltruism = Math.max(...rows.map((r) => r.altruism));
   const died = rows.some((r) => r.died);
   const frenzied = rows.some((r) => r.became_frenzied);
@@ -63,7 +66,13 @@ function LoopTrace({ loop, rows }: { loop: number; rows: CharTrace[] }) {
             ) : r.frenzy_active ? (
               <span className="char-day-frenzy">{t("brief_frenzy")}</span>
             ) : null}
-            {r.diary && <span className="char-day-diary">「{r.diary}」</span>}
+            {(() => {
+              const dt = diary(
+                { ja: r.diary, en: r.diary_en },
+                r.diary_note as "impulse" | "gift" | null,
+              );
+              return dt ? <span className="char-day-diary">「{dt}」</span> : null;
+            })()}
             {r.died ? (
               <span className="char-day-end">{t("char_day_end")}</span>
             ) : null}

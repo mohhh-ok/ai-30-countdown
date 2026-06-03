@@ -9,7 +9,7 @@ import type {
   Weather,
 } from "../domain/types.ts";
 import { ACTIONS } from "../domain/types.ts";
-import { BACKEND, chatJSON } from "./backend.ts";
+import { BACKEND, chatJSON, normalizeLocalized } from "./backend.ts";
 import { SYSTEM_PROMPT, buildSingleUserPrompt, buildUserPrompt } from "./prompt.ts";
 
 function asAction(v: unknown): Action | null {
@@ -40,7 +40,7 @@ function normalizeOne(o: Record<string, unknown>, id: string): CharacterDecision
       typeof o.moveTarget === "string" && o.moveTarget ? o.moveTarget : undefined,
     targetId:
       typeof o.targetId === "string" && o.targetId ? o.targetId : undefined,
-    diary: typeof o.diary === "string" ? o.diary : "",
+    diary: normalizeLocalized(o.diary),
     relationLabel: typeof o.relationLabel === "string" ? o.relationLabel : "",
     paramDeltas: asParamDeltas(o.paramDeltas),
     deltaReason: typeof o.deltaReason === "string" ? o.deltaReason : "",
@@ -83,7 +83,7 @@ function fallbackDecision(id: string): CharacterDecision {
   return {
     id,
     action: "forage",
-    diary: "とりまサバイブ最優先っしょ。",
+    diary: { ja: "とりまサバイブ最優先っしょ。", en: "Survival first, obvs." },
     relationLabel: "",
     paramDeltas: {},
     deltaReason: "",

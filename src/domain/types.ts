@@ -197,7 +197,7 @@ export interface Character {
   mood: { elation: number; calm: number; warmth: number; stress: number };
   // --- 記憶（plan.md 第8節・軽量3層） ---
   episodicMemory: string[]; // エピソード記憶（直近5件ほど）
-  diary: string[]; // 毎ティックの一行日記
+  diary: LocalizedText[]; // 毎ティックの一行日記（日英）
   relationLabel: string; // 相手への現在の感情ラベル
   /**
    * ココロ。他者から「された経験」が積もって芽生える内面の傾き（soul.ts の SOUL_KINDS）。
@@ -253,7 +253,9 @@ export interface CharacterTickResult {
   paramsAfter: Params;
   paramDeltas: Partial<Params>;
   deltaReason: string; // パラメータが動いた理由（なければ空）
-  diary: string;
+  diary: LocalizedText; // 一行日記（LLM 生成・日英）
+  // engine が決定的に上書きした行動の理由注記（衝動／分与）。表示は UI が言語別に前置する。
+  diaryNote?: "impulse" | "gift";
   relationLabel: string;
   stageBefore: Stage;
   stageAfter: Stage;
@@ -429,7 +431,9 @@ export interface CharacterDecision {
   action: Action;
   moveTarget?: string; // action が "move" のときの移動先 Place.id
   targetId?: string; // 対人行動(talk/share/steal)の相手キャラ id（同室に複数いるとき誰に向けるか）
-  diary: string;
+  diary: LocalizedText; // 一行日記（LLM 生成・日英）
+  // 行動上書きの理由注記。LLM 応答には含まれず、engine だけが衝動／分与の上書き時にセットする。
+  diaryNote?: "impulse" | "gift";
   relationLabel: string;
   paramDeltas: Partial<Params>;
   deltaReason: string;

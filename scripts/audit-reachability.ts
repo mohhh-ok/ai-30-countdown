@@ -63,7 +63,7 @@ function maximalHero(action: Action): CharacterTickResult {
     paramsAfter: params,
     paramDeltas: {},
     deltaReason: "",
-    diary: "",
+    diary: { ja: "", en: "" },
     relationLabel: "",
     stageBefore: "成熟",
     stageAfter: "成熟",

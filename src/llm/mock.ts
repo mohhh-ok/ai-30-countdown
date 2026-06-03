@@ -136,7 +136,10 @@ export function createMockProvider(rng: () => number = Math.random): DecisionPro
           action,
           moveTarget,
           targetId,
-          diary: `（mock）${c.name}は${action}を選んだ。`,
+          diary: {
+            ja: `（mock）${c.name}は${action}を選んだ。`,
+            en: `(mock) ${c.name} chose ${action}.`,
+          },
           relationLabel: c.relationLabel,
           paramDeltas: {},
           deltaReason: "",
