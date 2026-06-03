@@ -2,11 +2,7 @@
 // 習得条件・効果・スコープと、現在のハルの進捗（chronicle.skills）を見せる。
 import type { Chronicle, SkillDef } from "../../domain/types.ts";
 import { SKILLS } from "../../domain/skills.ts";
-
-const SCOPE_LABEL: Record<SkillDef["scope"], string> = {
-  loop: "周回内",
-  career: "通算",
-};
+import { useDomainNames, useT } from "../i18n.tsx";
 
 /** 1スキルのカード。習得済みなら強調し、未習得なら進捗バーを出す。 */
 function SkillCard({
@@ -18,6 +14,9 @@ function SkillCard({
   acquired: boolean;
   progress: number;
 }) {
+  const t = useT();
+  const dn = useDomainNames();
+  const scopeLabel = skill.scope === "career" ? t("scope_career") : t("scope_loop");
   const ratio = Math.min(1, progress / skill.threshold);
   return (
     <section className={`skill-card${acquired ? " skill-acquired" : ""}`}>
@@ -28,17 +27,17 @@ function SkillCard({
           </span>
           <span className="skill-card-name">
             {acquired ? "✨ " : ""}
-            {skill.name}
+            {dn.skill(skill.id, skill.name)}
           </span>
         </span>
         <span className={`skill-scope skill-scope-${skill.scope}`}>
-          {SCOPE_LABEL[skill.scope]}
+          {scopeLabel}
         </span>
       </div>
       <p className="skill-card-desc">{skill.description}</p>
       <div className="skill-progress">
         {acquired ? (
-          <span className="skill-progress-done">会得済み</span>
+          <span className="skill-progress-done">{t("skill_done")}</span>
         ) : (
           <>
             <div className="skill-bar">
@@ -55,6 +54,7 @@ function SkillCard({
 }
 
 export function SkillsPage({ chronicle }: { chronicle: Chronicle | null }) {
+  const t = useT();
   const prof = chronicle?.skills;
   const acquiredCount = prof?.acquired.length ?? 0;
 
@@ -62,20 +62,17 @@ export function SkillsPage({ chronicle }: { chronicle: Chronicle | null }) {
     <div className="page">
       <div className="page-head">
         <a className="back-link" href="#/">
-          ← ホーム
+          {t("back_home")}
         </a>
         <h2 className="page-title">
-          ✨ 会得式スキル
+          {t("skills_title")}
           <span className="loop-badge">
-            {acquiredCount} / {SKILLS.length} 会得
+            {t("skills_count", { n: acquiredCount, total: SKILLS.length })}
           </span>
         </h2>
       </div>
 
-      <p className="skill-lead">
-        記憶も成長値も異能も回帰のたびにリセットされる中で、ここに並ぶスキルだけが
-        周回をまたいで永続します。ハルが条件を満たした瞬間に会得し、以後は全周にわたって効き続けます。
-      </p>
+      <p className="skill-lead">{t("skills_lead")}</p>
 
       <div className="skill-grid">
         {SKILLS.map((skill) => (

@@ -5,13 +5,7 @@ import { useEffect, useState } from "react";
 import type { Chronicle, Talent } from "../../domain/types.ts";
 import { createInitialCharacters } from "../../domain/characters.ts";
 import { nameOfId, unlockOf } from "../util.ts";
-
-const TALENT_LABEL: Record<Talent, string> = {
-  insight: "観の眼（霊脈を読む）",
-  bond: "結の力（地を癒す）",
-  devour: "奪命（霊を喰らう）",
-  none: "—",
-};
+import { useDomainNames, useT } from "../i18n.tsx";
 
 /** /api/character/:id が返す char_metrics の1行（薄い軌跡）。 */
 interface CharTrace {
@@ -28,6 +22,8 @@ interface CharTrace {
 
 /** 1回帰ぶんのこのキャラの軌跡（見出し＋日記タイムライン）。 */
 function LoopTrace({ loop, rows }: { loop: number; rows: CharTrace[] }) {
+  const t = useT();
+  const dn = useDomainNames();
   const peakAltruism = Math.max(...rows.map((r) => r.altruism));
   const died = rows.some((r) => r.died);
   const frenzied = rows.some((r) => r.became_frenzied);
@@ -39,12 +35,16 @@ function LoopTrace({ loop, rows }: { loop: number; rows: CharTrace[] }) {
     <section className="char-loop">
       <h3 className="char-loop-head">
         <a className="char-loop-num" href={`#/loop/${loop}`}>
-          第 {loop} 回帰
+          {t("loop_label", { n: loop })}
         </a>
         <span className="char-loop-meta">
-          {rows.length} 日・利他ピーク {peakAltruism}・{last.stage}
-          {frenzied ? "・🔥荒ぶり" : ""}
-          {died ? "・力尽きた" : ""}
+          {t("char_loop_meta", {
+            days: rows.length,
+            peak: peakAltruism,
+            stage: dn.stage(last.stage),
+          })}
+          {frenzied ? t("char_meta_frenzy") : ""}
+          {died ? t("char_meta_died") : ""}
         </span>
       </h3>
       <ol className="char-days">
@@ -54,14 +54,17 @@ function LoopTrace({ loop, rows }: { loop: number; rows: CharTrace[] }) {
             className={`char-day${r.died ? " char-day-died" : ""}`}
           >
             <span className="char-day-num">Day {r.day}</span>
+            {/* char_metrics の trace は place_id を持たないため日本語地名のまま表示 */}
             <span className="char-day-place">＠{r.place_name}</span>
             {r.became_frenzied ? (
-              <span className="char-day-frenzy">⚡変身</span>
+              <span className="char-day-frenzy">{t("char_day_transform")}</span>
             ) : r.frenzy_active ? (
-              <span className="char-day-frenzy">🔥荒ぶり</span>
+              <span className="char-day-frenzy">{t("brief_frenzy")}</span>
             ) : null}
             {r.diary && <span className="char-day-diary">「{r.diary}」</span>}
-            {r.died ? <span className="char-day-end">— ここで消え去った</span> : null}
+            {r.died ? (
+              <span className="char-day-end">{t("char_day_end")}</span>
+            ) : null}
           </li>
         ))}
       </ol>
@@ -76,6 +79,14 @@ export function CharacterPage({
   id: string;
   chronicle: Chronicle | null;
 }) {
+  const t = useT();
+  const dn = useDomainNames();
+  const talentLabel: Record<Talent, string> = {
+    insight: t("talent_insight"),
+    bond: t("talent_bond"),
+    devour: t("talent_devour"),
+    none: t("talent_none"),
+  };
   const def = createInitialCharacters().find((c) => c.id === id);
   const isHero = chronicle?.protagonistId === id;
 
@@ -99,7 +110,7 @@ export function CharacterPage({
       })
       .catch((e) => {
         // 握りつぶさず可視化（「未登場」と混同させない）
-        if (alive) setError(e instanceof Error ? e.message : "読み込み失敗");
+        if (alive) setError(e instanceof Error ? e.message : t("comm_error"));
       });
     return () => {
       alive = false;
@@ -113,28 +124,30 @@ export function CharacterPage({
       <div className="page">
         <div className="page-head">
           <a className="back-link" href="#/">
-            ← ホーム
+            {t("back_home")}
           </a>
           <h2 className="page-title">
             🔒 ???
-            <span className="loop-badge">未解放</span>
+            <span className="loop-badge">{t("badge_locked")}</span>
           </h2>
         </div>
-        <p className="page-empty">まだ京には現れていない者。</p>
+        <p className="page-empty">{t("locked_empty")}</p>
         <section className="unlock-card">
-          <h3>解放条件</h3>
+          <h3>{t("unlock_cond")}</h3>
           {unlock ? (
             <>
               <p className="unlock-req">{unlock.requirement}</p>
               <p className="unlock-hint">{unlock.describe}</p>
             </>
           ) : (
-            <p className="unlock-req">この者が現れる条件は、まだ霧の中。</p>
+            <p className="unlock-req">{t("unlock_unknown")}</p>
           )}
           <p className="unlock-now">
-            現在: 第 {chronicle?.loop ?? 1} 回帰 ／ ハルの会得スキル{" "}
-            {chronicle?.skills.acquired.length ?? 0} 個 ／ 利他ピーク{" "}
-            {chronicle?.heroPeakAltruism ?? 0}
+            {t("unlock_now", {
+              loop: chronicle?.loop ?? 1,
+              skills: chronicle?.skills.acquired.length ?? 0,
+              peak: chronicle?.heroPeakAltruism ?? 0,
+            })}
           </p>
         </section>
       </div>
@@ -156,11 +169,11 @@ export function CharacterPage({
     <div className="page">
       <div className="page-head">
         <a className="back-link" href="#/">
-          ← ホーム
+          {t("back_home")}
         </a>
         <h2 className="page-title">
-          {def?.name ?? nameOfId(id)}
-          {isHero && <span className="loop-badge">主人公</span>}
+          {def ? dn.char(def.id, def.name) : nameOfId(id)}
+          {isHero && <span className="loop-badge">{t("badge_hero")}</span>}
         </h2>
       </div>
 
@@ -169,7 +182,7 @@ export function CharacterPage({
           <img
             className="char-portrait"
             src={`/assets/characters/${def.id}.webp`}
-            alt={def.name}
+            alt={dn.char(def.id, def.name)}
             loading="lazy"
             onError={(e) => {
               // まだ絵を生成していないキャラでは枠ごと隠す
@@ -179,17 +192,17 @@ export function CharacterPage({
           <div className="char-profile-text">
             <p className="char-core">{def.core}</p>
             <p className="char-traits">
-              <span>異能: {TALENT_LABEL[def.talent]}</span>
-              <span>処世術: {def.initialLesson}</span>
+              <span>{t("char_talent", { label: talentLabel[def.talent] })}</span>
+              <span>{t("char_lesson", { lesson: def.initialLesson })}</span>
             </p>
           </div>
         </div>
       )}
 
       {error ? (
-        <p className="page-empty">読み込みに失敗しました: {error}</p>
+        <p className="page-empty">{t("load_failed", { error })}</p>
       ) : sections.length === 0 ? (
-        <p className="page-empty">このキャラはまだ登場していません。</p>
+        <p className="page-empty">{t("char_not_appeared")}</p>
       ) : (
         sections.map((s) => (
           <LoopTrace key={s.loop} loop={s.loop} rows={s.rows} />

@@ -1,5 +1,6 @@
 // 成長パラメータ1本ぶんのバー表示
 import type { ParamKey } from "../../domain/types.ts";
+import { useT } from "../i18n.tsx";
 
 const COLORS: Record<ParamKey, string> = {
   altruism: "#e8995a",
@@ -20,11 +21,12 @@ export function ParamBar({
   delta?: number;
   isAxis?: boolean;
 }) {
+  const t = useT();
   return (
     <div className={`param-row${isAxis ? " param-axis" : ""}`}>
       <span className="param-label">
         {label}
-        {isAxis && <span className="axis-mark">軸</span>}
+        {isAxis && <span className="axis-mark">{t("param_axis")}</span>}
       </span>
       <div className="param-track">
         <div

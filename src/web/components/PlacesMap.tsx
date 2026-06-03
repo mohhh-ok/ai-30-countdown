@@ -1,5 +1,6 @@
 // 京都の場所の簡易マップ。各場所に誰がいるかを示す。
 import type { Character, Place } from "../../domain/types.ts";
+import { useDomainNames, useT } from "../i18n.tsx";
 
 export function PlacesMap({
   places,
@@ -8,6 +9,8 @@ export function PlacesMap({
   places: Place[];
   characters: Character[];
 }) {
+  const t = useT();
+  const dn = useDomainNames();
   return (
     <div className="map">
       {places.map((p) => {
@@ -23,22 +26,22 @@ export function PlacesMap({
             <img
               className="map-thumb"
               src={`/assets/places/${p.id}.webp`}
-              alt={p.name}
+              alt={dn.place(p.id, p.name)}
               loading="lazy"
               onError={(e) => {
                 // 絵が無い場所は画像だけ隠す（キャラ絵と同じ流儀）
                 (e.currentTarget as HTMLImageElement).style.display = "none";
               }}
             />
-            <div className="map-name">{p.name}</div>
+            <div className="map-name">{dn.place(p.id, p.name)}</div>
             <div className="map-forage">
-              実り 通常{p.forage.normal}/不作{p.forage.lean}
+              {t("map_forage", { normal: p.forage.normal, lean: p.forage.lean })}
             </div>
             <div className="map-occupants">
               {here.length
                 ? here.map((c) => (
                     <span key={c.id} className="occupant">
-                      {c.name}
+                      {dn.char(c.id, c.name)}
                     </span>
                   ))
                 : "—"}

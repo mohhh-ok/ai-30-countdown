@@ -11,6 +11,7 @@ import {
   loopHighlights,
   loopMetaHighlights,
 } from "../../domain/highlights.ts";
+import { useT } from "../i18n.tsx";
 
 const KIND_ICON: Record<HighlightKind, string> = {
   skill: "✨",
@@ -57,6 +58,7 @@ function HighlightBlock({
   empty: string;
   defaultOpen: boolean;
 }) {
+  const tr = useT();
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className={`highlights-block${open ? "" : " collapsed"}`}>
@@ -67,7 +69,7 @@ function HighlightBlock({
         aria-expanded={open}
       >
         <span className="highlights-title">{title}</span>
-        <span className="highlights-count">{items.length} 件</span>
+        <span className="highlights-count">{tr("hl_count", { n: items.length })}</span>
         <span className="highlights-toggle">{open ? "▾" : "▸"}</span>
       </button>
       {open &&
@@ -91,6 +93,7 @@ export function Highlights({
   log: TickResult[];
   chronicle: Chronicle | null;
 }) {
+  const t = useT();
   const heroId = chronicle?.protagonistId ?? "haru";
   const currentLoop = chronicle?.loop ?? 1;
 
@@ -108,17 +111,17 @@ export function Highlights({
   return (
     <section className="highlights">
       <HighlightBlock
-        title={`🎬 第 ${currentLoop} 回帰の見せ場`}
+        title={t("hl_loop_showcase", { n: currentLoop })}
         items={loopTop}
         showLoop={false}
-        empty="この回帰の見せ場はこれから"
+        empty={t("hl_empty_loop")}
         defaultOpen
       />
       <HighlightBlock
-        title="📜 回帰を超えた年代記"
+        title={t("hl_chronicle")}
         items={meta}
         showLoop
-        empty="まだ節目はない"
+        empty={t("hl_empty_chronicle")}
         defaultOpen
       />
     </section>

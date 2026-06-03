@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import type { Chronicle, TickResult } from "../../domain/types.ts";
 import { FrontStage } from "../components/FrontStage.tsx";
 import { skillName } from "../util.ts";
+import { useDomainNames, useLang, useT } from "../i18n.tsx";
 
 export function LoopPage({
   loop,
@@ -13,6 +14,10 @@ export function LoopPage({
   loop: number;
   chronicle: Chronicle | null;
 }) {
+  const t = useT();
+  const dn = useDomainNames();
+  const { lang } = useLang();
+  const sep = lang === "en" ? ", " : "・";
   const sum = (chronicle?.history ?? []).find((s) => s.loop === loop);
   const live = (chronicle?.loop ?? 1) === loop && !sum;
 
@@ -33,7 +38,7 @@ export function LoopPage({
       })
       .catch((e) => {
         // 握りつぶさず可視化（「記録なし」と混同させない）
-        if (alive) setError(e instanceof Error ? e.message : "読み込み失敗");
+        if (alive) setError(e instanceof Error ? e.message : t("comm_error"));
       });
     return () => {
       alive = false;
@@ -44,33 +49,42 @@ export function LoopPage({
     <div className="page">
       <div className="page-head">
         <a className="back-link" href="#/loops">
-          ← 回帰一覧
+          {t("back_loops")}
         </a>
         <h2 className="page-title">
-          第 {loop} 回帰
-          {live && <span className="loop-badge live">進行中</span>}
+          {t("loop_label", { n: loop })}
+          {live && <span className="loop-badge live">{t("loops_live")}</span>}
         </h2>
       </div>
 
       {sum && (
         <div className="loop-summary">
           <span className="loop-summary-end">{sum.causeOfEnd}</span>
-          <span>生存 {sum.days} 日</span>
+          <span>{t("loop_survived", { n: sum.days })}</span>
           <span>
-            到達 {sum.stageReached}（利他 {sum.altruismReached}）
+            {t("loops_reached", {
+              stage: dn.stage(sum.stageReached),
+              alt: sum.altruismReached,
+            })}
           </span>
           {sum.acquiredSkills.length > 0 && (
-            <span>✨ {sum.acquiredSkills.map(skillName).join("・")}</span>
+            <span>
+              {t("loops_skills", {
+                skills: sum.acquiredSkills
+                  .map((sid) => dn.skill(sid, skillName(sid)))
+                  .join(sep),
+              })}
+            </span>
           )}
         </div>
       )}
 
       {error ? (
-        <p className="page-empty">読み込みに失敗しました: {error}</p>
+        <p className="page-empty">{t("load_failed", { error })}</p>
       ) : ticks === null ? (
-        <p className="page-empty">読み込み中…</p>
+        <p className="page-empty">{t("loading")}</p>
       ) : ticks.length === 0 ? (
-        <p className="page-empty">この回帰の記録はありません。</p>
+        <p className="page-empty">{t("loop_no_record")}</p>
       ) : (
         <FrontStage log={ticks} chronicle={chronicle} />
       )}

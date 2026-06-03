@@ -2,6 +2,8 @@
 import type { CSSProperties } from "react";
 import type { LlmCallTiming, TickResult } from "../../domain/types.ts";
 import { charColor } from "../charTheme.ts";
+import { useDomainNames, useLang, useT } from "../i18n.tsx";
+import { charIdByName, skillIdByName } from "../util.ts";
 
 /** ミリ秒を読みやすく（1秒以上は「1.2s」、未満は「840ms」）。 */
 function fmtMs(ms: number): string {
@@ -10,6 +12,7 @@ function fmtMs(ms: number): string {
 
 /** その日の LLM 呼び出し時間の内訳。種別（label の ":" 前）でまとめ、合計が大きい順に並べる。 */
 function TimingBlock({ timings }: { timings: LlmCallTiming[] }) {
+  const t = useT();
   if (!timings.length) return null;
   // 述べ時間（並列呼び出しは実時間では重なるので合計は上限の目安）。最長1件はボトルネック特定用。
   const totalMs = timings.reduce((s, t) => s + t.ms, 0);
@@ -31,13 +34,21 @@ function TimingBlock({ timings }: { timings: LlmCallTiming[] }) {
   return (
     <div className="log-timing">
       <span className="timing-head">
-        ⏱ LLM {timings.length}回 / 述べ {fmtMs(totalMs)}
-        <span className="timing-slow">最長 {slowest.label} {fmtMs(slowest.ms)}</span>
-        {fails > 0 && <span className="timing-fail">失敗{fails}（リトライ）</span>}
+        {t("tlog_timing_head", { n: timings.length, total: fmtMs(totalMs) })}
+        <span className="timing-slow">
+          {t("tlog_timing_slow", { label: slowest.label, ms: fmtMs(slowest.ms) })}
+        </span>
+        {fails > 0 && (
+          <span className="timing-fail">{t("tlog_timing_fail", { n: fails })}</span>
+        )}
       </span>
       <span className="timing-groups">
         {rows.map(([kind, g]) => (
-          <span key={kind} className="timing-group" title={`${g.count}回 / 最長 ${fmtMs(g.max)}`}>
+          <span
+            key={kind}
+            className="timing-group"
+            title={t("tlog_timing_group_title", { count: g.count, max: fmtMs(g.max) })}
+          >
             {kind} {fmtMs(g.sum)}
             <span className="timing-count">×{g.count}</span>
           </span>
@@ -48,8 +59,12 @@ function TimingBlock({ timings }: { timings: LlmCallTiming[] }) {
 }
 
 export function TickLog({ log }: { log: TickResult[] }) {
+  const tr = useT();
+  const dn = useDomainNames();
+  const { lang } = useLang();
+  const sep = lang === "en" ? ", " : "・";
   if (log.length === 0) {
-    return <p className="log-empty">まだ何も起きていない。「次の1日」を押して始めましょう。</p>;
+    return <p className="log-empty">{tr("tlog_empty")}</p>;
   }
   // 新しい順
   const items = [...log].reverse();
@@ -62,7 +77,9 @@ export function TickLog({ log }: { log: TickResult[] }) {
             {t.loop != null && <span className="log-loop">L{t.loop}</span>}
             Day {t.day}
             <span className={`weather weather-${t.weather}`}>
-              {t.weather === "normal" ? "通常" : "不作"}
+              {t.weather === "normal"
+                ? tr("tlog_weather_normal")
+                : tr("tlog_weather_lean")}
             </span>
             {t.worldEvents?.map((e) => {
               const dayNo = e.totalDays - e.remainingDays + 1;
@@ -71,10 +88,12 @@ export function TickLog({ log }: { log: TickResult[] }) {
                 <span
                   key={e.kind}
                   className={`world-event world-event-${e.kind}${isNew ? " world-event-new" : ""}`}
-                  title={`${dayNo}日目 / 全${e.totalDays}日`}
+                  title={tr("tlog_event_title", { n: dayNo, total: e.totalDays })}
                 >
-                  {e.icon} {e.name}
-                  {isNew ? "（発生）" : `（${dayNo}/${e.totalDays}）`}
+                  {e.icon} {dn.event(e.kind, e.name)}
+                  {isNew
+                    ? tr("tlog_event_new")
+                    : tr("tlog_event_progress", { n: dayNo, total: e.totalDays })}
                 </span>
               );
             })}
@@ -85,23 +104,42 @@ export function TickLog({ log }: { log: TickResult[] }) {
             <div className="log-marks">
               {t.acquiredSkills?.length ? (
                 <span className="mark mark-skill">
-                  ✨ ハル、「{t.acquiredSkills.join("」「")}」を会得
+                  {tr("tlog_mark_skill", {
+                    skills: t.acquiredSkills
+                      .map((n) => {
+                        const id = skillIdByName(n);
+                        return id ? dn.skill(id, n) : n;
+                      })
+                      .join(lang === "en" ? ", " : "」「"),
+                  })}
                 </span>
               ) : null}
               {t.unlockedCharacters?.length ? (
                 <span className="mark mark-unlock">
-                  🆕 {t.unlockedCharacters.join("・")} 解放（次の回帰から登場）
+                  {tr("tlog_mark_unlock", {
+                    names: t.unlockedCharacters
+                      .map((n) => {
+                        const id = charIdByName(n);
+                        return id ? dn.char(id, n) : n;
+                      })
+                      .join(sep),
+                  })}
                 </span>
               ) : null}
               {t.regressed ? (
-                <span className="mark mark-regress">↻ ハル力尽き、時は巻き戻る</span>
+                <span className="mark mark-regress">{tr("tlog_mark_regress")}</span>
               ) : null}
             </div>
           )}
           {t.spotlightName && (
             <div className="spotlight-line">
               <span className="cam">🎥</span>
-              今日の主役: <strong>{t.spotlightName}</strong>
+              {tr("tlog_spotlight_label")}
+              <strong>
+                {t.spotlightId
+                  ? dn.char(t.spotlightId, t.spotlightName)
+                  : t.spotlightName}
+              </strong>
               {t.spotlightReason && (
                 <span className="spotlight-reason">— {t.spotlightReason}</span>
               )}
@@ -112,11 +150,13 @@ export function TickLog({ log }: { log: TickResult[] }) {
               <span className="clap">🎬</span>
               <span className="narration-text">{t.director.narration}</span>
               <span className="narration-intent" title={t.director.intent}>
-                演出: {t.director.intent}
+                {tr("tlog_intent", { intent: t.director.intent })}
                 {t.director.forageBoosts.length > 0 &&
-                  `（実り操作 ${t.director.forageBoosts
-                    .map((b) => `${b.delta >= 0 ? "+" : ""}${b.delta}`)
-                    .join("/")}）`}
+                  tr("tlog_forage_op", {
+                    ops: t.director.forageBoosts
+                      .map((b) => `${b.delta >= 0 ? "+" : ""}${b.delta}`)
+                      .join("/"),
+                  })}
               </span>
             </div>
           )}
@@ -128,7 +168,9 @@ export function TickLog({ log }: { log: TickResult[] }) {
                 return (
                   <div key={i} className="whisper">
                     <span className="dove">🕊️</span>
-                    <span className="whisper-to">守護神→{name}</span>
+                    <span className="whisper-to">
+                      {tr("tlog_whisper_to", { name: dn.char(w.id, name) })}
+                    </span>
                     <span className="whisper-text">「{w.whisper}」</span>
                   </div>
                 );
@@ -137,17 +179,24 @@ export function TickLog({ log }: { log: TickResult[] }) {
           )}
           {t.characters.map((c) => (
             <div key={c.id} className="log-line">
-              <span className="log-name">{c.name}</span>
+              <span className="log-name">{dn.char(c.id, c.name)}</span>
               <span className="log-action">
                 {c.moved && c.fromPlaceName
-                  ? `${c.fromPlaceName}→${c.placeName}へ移動`
-                  : c.actionLabel}
+                  ? tr("tlog_moved", {
+                      from: c.fromPlaceId
+                        ? dn.place(c.fromPlaceId, c.fromPlaceName)
+                        : c.fromPlaceName,
+                      to: dn.place(c.placeId, c.placeName),
+                    })
+                  : dn.action(c.action, c.actionLabel)}
                 {c.targetName && (
-                  <span className="log-target">→ {c.targetName}</span>
+                  <span className="log-target">
+                    → {c.targetId ? dn.char(c.targetId, c.targetName) : c.targetName}
+                  </span>
                 )}
-                {c.impulse && <span className="impulse-tag">衝動</span>}
+                {c.impulse && <span className="impulse-tag">{tr("tlog_impulse")}</span>}
               </span>
-              <span className="log-place">＠{c.placeName}</span>
+              <span className="log-place">＠{dn.place(c.placeId, c.placeName)}</span>
               <span className="log-energy">
                 {c.energyBefore}→{c.energyAfter}
                 <span className={c.energyDelta >= 0 ? "delta up" : "delta down"}>
@@ -157,21 +206,26 @@ export function TickLog({ log }: { log: TickResult[] }) {
               {c.diary && <span className="log-diary">「{c.diary}」</span>}
               {c.stageChanged && (
                 <span className="log-stage">
-                  段階: {c.stageBefore}→{c.stageAfter}
+                  {tr("tlog_stage", {
+                    before: dn.stage(c.stageBefore),
+                    after: dn.stage(c.stageAfter),
+                  })}
                 </span>
               )}
-              {c.died && <span className="log-died">力尽きた</span>}
+              {c.died && <span className="log-died">{tr("dead_banner")}</span>}
               {c.frenzyLevel !== undefined && (c.frenzyLevel > 0 || c.frenzyActive) && (
                 <span className="log-frenzy">
-                  荒ぶり{c.frenzyLevel}
-                  {c.frenzyActive ? "【変身中】" : ""}
-                  {c.becameFrenzied ? "⚡変身!" : ""}
-                  {c.frenzyPendingBurden ? ` 業+${c.frenzyPendingBurden}` : ""}
+                  {tr("tlog_frenzy", { n: c.frenzyLevel })}
+                  {c.frenzyActive ? tr("tlog_frenzy_active") : ""}
+                  {c.becameFrenzied ? tr("tlog_frenzy_became") : ""}
+                  {c.frenzyPendingBurden
+                    ? tr("tlog_frenzy_burden", { n: c.frenzyPendingBurden })
+                    : ""}
                 </span>
               )}
               {c.facedFrenzy && (
                 <span className="log-frenzy">
-                  {c.quelledFrenzy ? "🕊️荒ぶりを鎮めた!" : "荒ぶる者と向き合い祓った"}
+                  {c.quelledFrenzy ? tr("tlog_quelled") : tr("tlog_faced")}
                 </span>
               )}
             </div>
@@ -194,7 +248,9 @@ export function TickLog({ log }: { log: TickResult[] }) {
                       } as CSSProperties
                     }
                   >
-                    <span className="speaker">{line.speakerName}</span>
+                    <span className="speaker">
+                      {dn.char(line.speakerId, line.speakerName)}
+                    </span>
                     <span className="bubble-text">{line.text}</span>
                   </div>
                 );
@@ -204,7 +260,10 @@ export function TickLog({ log }: { log: TickResult[] }) {
           {t.llmTimings && t.llmTimings.length > 0 && (
             <TimingBlock timings={t.llmTimings} />
           )}
-          <div className="log-notable">注目の変化: {t.notable}</div>
+          <div className="log-notable">
+            {tr("tlog_notable_label")}
+            {t.notable}
+          </div>
         </div>
       ))}
     </div>

@@ -4,6 +4,7 @@
 // （進行中の経過日数だけは現周ログの長さを currentDays として受け取る）。
 import type { Chronicle, LoopSummary } from "../../domain/types.ts";
 import { skillName } from "../util.ts";
+import { useDomainNames, useLang, useT } from "../i18n.tsx";
 
 export function LoopsPage({
   chronicle,
@@ -12,6 +13,10 @@ export function LoopsPage({
   chronicle: Chronicle | null;
   currentDays: number;
 }) {
+  const t = useT();
+  const dn = useDomainNames();
+  const { lang } = useLang();
+  const sep = lang === "en" ? ", " : "・";
   const current = chronicle?.loop ?? 1;
   const summaries = new Map<number, LoopSummary>(
     (chronicle?.history ?? []).map((s) => [s.loop, s]),
@@ -23,9 +28,9 @@ export function LoopsPage({
 
   return (
     <div className="page">
-      <h2 className="page-title">📜 回帰の年代記</h2>
+      <h2 className="page-title">{t("loops_title")}</h2>
       {!hasAny ? (
-        <p className="page-empty">まだ記録がありません。ホームで物語を進めましょう。</p>
+        <p className="page-empty">{t("loops_empty")}</p>
       ) : (
         <div className="loop-grid">
           {loops
@@ -37,27 +42,36 @@ export function LoopsPage({
               return (
                 <a key={n} className="loop-card" href={`#/loop/${n}`}>
                   <div className="loop-card-head">
-                    <span className="loop-card-num">第 {n} 回帰</span>
+                    <span className="loop-card-num">{t("loop_label", { n })}</span>
                     {live ? (
-                      <span className="loop-badge live">進行中</span>
+                      <span className="loop-badge live">{t("loops_live")}</span>
                     ) : (
-                      <span className="loop-badge">{sum?.days ?? currentDays} 日</span>
+                      <span className="loop-badge">
+                        {t("loops_days", { n: sum?.days ?? currentDays })}
+                      </span>
                     )}
                   </div>
                   {sum ? (
                     <>
                       <p className="loop-card-end">{sum.causeOfEnd}</p>
                       <p className="loop-card-meta">
-                        到達: {sum.stageReached}（利他 {sum.altruismReached}）
+                        {t("loops_reached", {
+                          stage: dn.stage(sum.stageReached),
+                          alt: sum.altruismReached,
+                        })}
                       </p>
                       {sum.acquiredSkills.length > 0 && (
                         <p className="loop-card-skills">
-                          ✨ {sum.acquiredSkills.map(skillName).join("・")}
+                          {t("loops_skills", {
+                            skills: sum.acquiredSkills
+                              .map((sid) => dn.skill(sid, skillName(sid)))
+                              .join(sep),
+                          })}
                         </p>
                       )}
                     </>
                   ) : (
-                    <p className="loop-card-meta">{currentDays} 日経過</p>
+                    <p className="loop-card-meta">{t("loops_elapsed", { n: currentDays })}</p>
                   )}
                 </a>
               );
