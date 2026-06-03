@@ -36,11 +36,16 @@ const WEATHER_WORD: Record<string, string> = {
 
 /** 回帰の節目（スキル会得・キャラ解放・巻き戻り）を物語の言葉で添える */
 function SceneMarks({ t }: { t: TickResult }) {
+  const becamer = t.characters.find((c) => c.becameFrenzied);
+  const queller = t.characters.find((c) => c.quelledFrenzy);
+  const wild = t.characters.find((c) => c.frenzyLevel !== undefined);
   if (
     !t.acquiredSkills?.length &&
     !t.unlockedCharacters?.length &&
     !t.regressed &&
-    !t.climax
+    !t.climax &&
+    !becamer &&
+    !queller
   ) {
     return null;
   }
@@ -51,6 +56,16 @@ function SceneMarks({ t }: { t: TickResult }) {
           {t.climax.averted
             ? "☄️ 大禍、来たる——ハルの結界が京を護り抜いた。京は救われた"
             : "☄️ 大禍、来たる——結界は及ばず、京は呑まれた"}
+        </span>
+      ) : null}
+      {becamer ? (
+        <span className="mark mark-frenzy">
+          🔥 {becamer.name}の眼の色が変わる——餓えと猛りが理性を呑み、荒ぶり（変身）に堕ちた
+        </span>
+      ) : null}
+      {queller ? (
+        <span className="mark mark-quell">
+          🕊️ ハルの祓いが{wild ? `荒ぶる${wild.name}` : "荒ぶる者"}の猛りを鎮めた——静けさが戻る
         </span>
       ) : null}
       {t.acquiredSkills?.length ? (
@@ -78,8 +93,8 @@ function vigorWord(e: number): string {
   return "元気";
 }
 
-/** その日その人が「何をしたか」を物語の言葉にする */
-function actStory(c: CharacterTickResult): string {
+/** その日その人が「何をしたか」を物語の言葉にする（荒ぶり継続印は下の actStory が添える） */
+function actStoryBase(c: CharacterTickResult): string {
   if (c.died) return `${c.name}は、ここで消え去った…`;
   if (c.moved)
     return c.action === "follow" && c.targetName
@@ -122,6 +137,19 @@ function actStory(c: CharacterTickResult): string {
     default:
       return `${c.name}はその日を過ごした`;
   }
+}
+
+/**
+ * 行動の物語に「荒ぶり（変身）」の気配を添える。
+ * 変身した当日は SceneMarks が大きく告げるので、ここでは継続中の日だけ末尾に印を置く。
+ * 死した者には付けない（消えた者に荒ぶりは続かない）。
+ */
+function actStory(c: CharacterTickResult): string {
+  const story = actStoryBase(c);
+  if (!c.died && c.frenzyActive && !c.becameFrenzied) {
+    return `${story}——荒ぶりは鎮まらぬまま`;
+  }
+  return story;
 }
 
 /** 早回し用の短い行為ラベル（名前は別に出すので動詞句だけ） */
@@ -167,6 +195,9 @@ function MontageLine({ t }: { t: TickResult }) {
             <span key={c.id} className={`montage-act${low ? " montage-low" : ""}`}>
               <span className="montage-act-name">{c.name}</span>
               {briefAct(c)}
+              {!c.died && c.frenzyActive && !c.becameFrenzied && (
+                <span className="montage-frenzy">🔥荒ぶり</span>
+              )}
               {low && <span className="montage-warn">…{vigorWord(c.energyAfter)}</span>}
             </span>
           );

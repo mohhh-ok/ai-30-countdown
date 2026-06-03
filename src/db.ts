@@ -282,6 +282,8 @@ export function saveTick(runId: number, result: TickResult): void {
             relation: c.relationLabel,
             deltaReason: c.deltaReason,
             died: c.died ? 1 : 0,
+            frenzyActive: c.frenzyActive ? 1 : 0,
+            becameFrenzied: c.becameFrenzied ? 1 : 0,
           })),
         )
         .run();
@@ -535,6 +537,8 @@ export interface CharTraceRow {
   died: number;
   altruism: number;
   stage: string;
+  frenzy_active: number;
+  became_frenzied: number;
 }
 
 /** 指定キャラの全周横断の軌跡を char_metrics から引く（重い TickResult は読まない）。 */
@@ -548,6 +552,8 @@ export function loadCharacterTrace(runId: number, charId: string): CharTraceRow[
       died: charMetrics.died,
       altruism: charMetrics.altruism,
       stage: charMetrics.stage,
+      frenzy_active: charMetrics.frenzyActive,
+      became_frenzied: charMetrics.becameFrenzied,
     })
     .from(charMetrics)
     .where(and(eq(charMetrics.runId, runId), eq(charMetrics.charId, charId)))

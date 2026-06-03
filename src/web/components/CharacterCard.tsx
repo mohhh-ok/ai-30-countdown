@@ -59,6 +59,17 @@ export function CharacterCard({
         </span>
       </div>
       <p className="core">{c.core}</p>
+      {(c.frenzy?.active || last?.becameFrenzied || last?.quelledFrenzy) && (
+        <div className={`card-frenzy${last?.quelledFrenzy && !c.frenzy?.active ? " quelled" : ""}`}>
+          {last?.becameFrenzied
+            ? "⚡ 変身！荒ぶりに堕ちた"
+            : last?.quelledFrenzy && !c.frenzy?.active
+              ? "🕊️ 荒ぶりが鎮まった"
+              : `🔥 荒ぶり（変身中）${
+                  typeof c.frenzy?.level === "number" ? ` Lv${c.frenzy.level}` : ""
+                }${c.frenzy?.pendingBurden ? ` ／ 溜まる業 ${c.frenzy.pendingBurden}` : ""}`}
+        </div>
+      )}
       {placeName && (
         <div className="place-now">
           <span className="pin">📍</span>

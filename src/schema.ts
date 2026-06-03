@@ -175,6 +175,9 @@ export const charMetrics = sqliteTable(
     relation: text("relation").notNull(),
     deltaReason: text("delta_reason").notNull(),
     died: integer("died").notNull(),
+    // 荒ぶり（変身）。frenzy を持たない個体は常に 0。既存行のため default で安全に足す。
+    frenzyActive: integer("frenzy_active").notNull().default(0),
+    becameFrenzied: integer("became_frenzied").notNull().default(0),
   },
   (t) => [
     unique().on(t.runId, t.loop, t.day, t.charId),

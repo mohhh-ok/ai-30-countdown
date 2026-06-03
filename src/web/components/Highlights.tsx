@@ -21,6 +21,7 @@ const KIND_ICON: Record<HighlightKind, string> = {
   death: "💀",
   worldEvent: "🌀",
   taboo: "⛩️",
+  frenzy: "🔥",
   peril: "🥀",
   dialogue: "💬",
   scene: "🎬",

@@ -22,12 +22,15 @@ interface CharTrace {
   died: number;
   altruism: number;
   stage: string;
+  frenzy_active: number;
+  became_frenzied: number;
 }
 
 /** 1回帰ぶんのこのキャラの軌跡（見出し＋日記タイムライン）。 */
 function LoopTrace({ loop, rows }: { loop: number; rows: CharTrace[] }) {
   const peakAltruism = Math.max(...rows.map((r) => r.altruism));
   const died = rows.some((r) => r.died);
+  const frenzied = rows.some((r) => r.became_frenzied);
   const last = rows[rows.length - 1];
   // 日記タイムラインは date desc（新しい日が上）。
   const daysDesc = [...rows].reverse();
@@ -40,6 +43,7 @@ function LoopTrace({ loop, rows }: { loop: number; rows: CharTrace[] }) {
         </a>
         <span className="char-loop-meta">
           {rows.length} 日・利他ピーク {peakAltruism}・{last.stage}
+          {frenzied ? "・🔥荒ぶり" : ""}
           {died ? "・力尽きた" : ""}
         </span>
       </h3>
@@ -51,6 +55,11 @@ function LoopTrace({ loop, rows }: { loop: number; rows: CharTrace[] }) {
           >
             <span className="char-day-num">Day {r.day}</span>
             <span className="char-day-place">＠{r.place_name}</span>
+            {r.became_frenzied ? (
+              <span className="char-day-frenzy">⚡変身</span>
+            ) : r.frenzy_active ? (
+              <span className="char-day-frenzy">🔥荒ぶり</span>
+            ) : null}
             {r.diary && <span className="char-day-diary">「{r.diary}」</span>}
             {r.died ? <span className="char-day-end">— ここで消え去った</span> : null}
           </li>

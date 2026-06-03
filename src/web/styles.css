@@ -362,6 +362,23 @@ button.ghost {
   color: var(--muted);
 }
 
+.card-frenzy {
+  margin: 0 0 12px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffb27a;
+  background: rgba(230, 110, 40, 0.18);
+  border: 1px solid rgba(235, 120, 50, 0.55);
+  letter-spacing: 0.02em;
+}
+.card-frenzy.quelled {
+  color: #bfe0ea;
+  background: rgba(110, 180, 205, 0.14);
+  border-color: rgba(110, 180, 205, 0.5);
+}
+
 .stage {
   font-size: 12px;
   padding: 3px 10px;
@@ -1254,6 +1271,12 @@ button.ghost {
   font-size: 11px;
   opacity: 0.85;
 }
+.montage-frenzy {
+  margin-left: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffb27a;
+}
 
 /* 過去の場面（最新よりやや控えめだが、ちゃんと読める） */
 .scene-past {
@@ -1607,6 +1630,12 @@ button.ghost {
   background: rgba(108, 134, 216, 0.12);
   border-color: rgba(108, 134, 216, 0.3);
 }
+.highlight.mark-frenzy {
+  color: #f3a96a;
+  background: rgba(230, 120, 50, 0.14);
+  border-color: rgba(230, 120, 50, 0.38);
+  letter-spacing: 0.02em;
+}
 .highlight.mark-taboo {
   color: #e6b8df;
   background: rgba(191, 111, 178, 0.12);
@@ -1684,6 +1713,19 @@ button.ghost {
   color: #ffe6a0;
   background: rgba(220, 170, 70, 0.2);
   border-color: rgba(220, 170, 70, 0.55);
+}
+.mark-frenzy {
+  color: #ffb27a;
+  background: rgba(230, 110, 40, 0.22);
+  border-color: rgba(235, 120, 50, 0.6);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.mark-quell {
+  color: #bfe0ea;
+  background: rgba(110, 180, 205, 0.16);
+  border-color: rgba(110, 180, 205, 0.5);
+  letter-spacing: 0.02em;
 }
 
 .scene-loop,
@@ -2096,6 +2138,11 @@ button.ghost {
 }
 .char-day-end {
   color: var(--down);
+}
+.char-day-frenzy {
+  color: #ffb27a;
+  font-size: 12px;
+  font-weight: 700;
 }
 .char-day-died .char-day-num {
   color: var(--down);

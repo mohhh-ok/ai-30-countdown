@@ -37,7 +37,11 @@ function speakerProfile(c: Character, action: string, places: WorldState["places
 気質: 利他=${t.altruism} / 自立=${t.independence} / 信頼=${t.trust}
 相手への感情: ${c.relationLabel}
 いまの胸の内: 「${lastDiary}」
-現在地: ${place} ｜ エネルギー: ${c.energy}`;
+現在地: ${place} ｜ エネルギー: ${c.energy}${
+    c.frenzy?.active
+      ? `\n⚠いま荒ぶり（変身）の最中。餓えと猛りが理性を呑み、上の固定口調すら刺々しく崩れる——言葉は攻撃的・挑発的になり、飢え・敵意・奪う衝動がむき出しになる。pop さより禍々しさ・凄みを優先する。`
+      : ""
+  }`;
 }
 
 export function createDialogueProvider(): DialogueProvider {

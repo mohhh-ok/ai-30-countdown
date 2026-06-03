@@ -29,6 +29,7 @@ export type HighlightKind =
   | "death"
   | "worldEvent"
   | "taboo"
+  | "frenzy"
   | "peril"
   | "dialogue"
   | "scene";
@@ -225,6 +226,25 @@ function tickSignals(
       kind: "taboo",
       text: where ? `${where}で禁忌に触れる` : "禁忌に触れる",
     });
+  }
+  // 禁忌「奪う」: 誰かが他者から霊を奪った日（hero に限らずカイ等も）。代償付きの大きな決断＝山場。
+  for (const c of t.characters) {
+    if (c.action !== "steal") continue;
+    const from = c.targetName ? `${c.targetName}から` : "";
+    s.push({
+      weight: 30,
+      kind: "taboo",
+      text: `${c.name}、${from}霊を奪う（禁忌）`,
+    });
+  }
+  // 荒ぶり（変身）とその鎮め: 半妖カイの暴走とハルの鎮めの術。観客向けの大見せ場。
+  for (const c of t.characters) {
+    if (c.becameFrenzied) {
+      s.push({ weight: 38, kind: "frenzy", text: `${c.name}、荒ぶりに堕つ（変身）` });
+    }
+    if (c.quelledFrenzy) {
+      s.push({ weight: 36, kind: "frenzy", text: `${c.name}、荒ぶりを鎮める` });
+    }
   }
   if (hero && !t.regressed && hero.energyAfter <= 2) {
     s.push({

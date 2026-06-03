@@ -192,6 +192,21 @@ function appendFrenzyNarration(base: string, results: CharacterTickResult[]): st
   if (becamer) {
     lines.push(`——${becamer.name}の眼の色が変わる。餓えと猛りが理性を呑み、荒ぶりが鎌首をもたげた。`);
   }
+  // 荒ぶり継続中に犯した所業（奪い・和みすら喰らう）も滲ませる（変身した当日は上で告げ済みなので除く）。
+  const rampager = results.find(
+    (r) =>
+      r.frenzyActive &&
+      !r.becameFrenzied &&
+      !r.died &&
+      (r.action === "steal" || r.forageDraw?.taboo),
+  );
+  if (rampager) {
+    const deed =
+      rampager.action === "steal"
+        ? `${rampager.targetName ? `${rampager.targetName}から` : ""}霊を奪い`
+        : "和みすら喰らい";
+    lines.push(`荒ぶる${rampager.name}は${deed}、京の気をさらに枯らしていく。`);
+  }
   if (results.some((r) => r.quelledFrenzy)) {
     const wild = results.find((r) => r.frenzyLevel !== undefined);
     const who = wild ? `荒ぶる${wild.name}` : "荒ぶる者";
