@@ -545,14 +545,39 @@ export interface SkillProfile {
 export interface MetaEvent {
   day: number;
   kind: "skill" | "unlock" | "stage";
-  text: string;
+  text: string; // 日本語が source of truth（i18n が無い旧データの表示フォールバック）
+  i18n?: HighlightI18n; // 表示の言語別組み立て用。旧 run の永続データには無い→text へフォールバック
+}
+
+/**
+ * ハイライト文（年代記・見せ場）の i18n 構造化ペイロード。
+ * EN 表示はこれを UI（useHighlightText）でテンプレ展開する。日本語は text を source of truth とし、
+ * これを持たない旧データ（永続 metaHighlights）は text（日本語）へフォールバックする。
+ * 名前・場所・段階・イベントは「翻訳前の素の値」を載せ、UI 側で useDomainNames が英訳する。
+ */
+export interface HighlightI18n {
+  key: string; // UI テンプレキー（i18n.tsx の hlx_*）
+  skills?: string[]; // スキル名（UI: skillByName で英訳）
+  chars?: string[]; // キャラ名（UI: charByName で英訳）
+  placeId?: string; // 場所 id（UI: place で英訳）
+  stage?: string; // 段階名（UI: stage で英訳）
+  stageBefore?: string;
+  stageAfter?: string;
+  events?: { kind: string; icon: string; name: string }[]; // 天変地異（UI: event で英訳）
+  fromName?: string; // steal の被害者名（UI: charByName で英訳）
+  n?: number; // 数値（peril 霊力 / record 日数）
+  meets?: { placeId: string; names: string[] }[]; // scene: 居合わせ
+  moves?: { name: string; placeId: string }[]; // scene: 移動
 }
 
 /** 1周回の結末の記録（履歴・あらすじ素材） */
 export interface LoopSummary {
   loop: number; // 何周目か
   days: number; // ハルが生きた日数
-  causeOfEnd: string; // 終わり方（死因・状況）
+  causeOfEnd: string; // 終わり方（死因・状況。日本語が source of truth＝表示の JP フォールバック）
+  // 終わり方の構造化（i18n 用）。endKind が無い旧 run は causeOfEnd（日本語）へフォールバックする。
+  endKind?: "cleared" | "died"; // クリア（大禍を祓った）か、力尽きたか
+  endPlaceId?: string; // 力尽きた場所の id（場所が分かる死のときのみ。英訳は UI で解決）
   altruismReached: number; // その周でハルの利他が届いた最大値
   stageReached: Stage; // その周で届いた最高段階（成長軸）
   acquiredSkills: SkillId[]; // その周で会得したスキル

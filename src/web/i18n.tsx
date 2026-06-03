@@ -13,7 +13,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { CharacterTickResult } from "../domain/types.ts";
+import type { CharacterTickResult, HighlightI18n } from "../domain/types.ts";
 import { charIdByName, skillIdByName } from "./util.ts";
 
 export type Lang = "ja" | "en";
@@ -123,6 +123,29 @@ const UI = {
     hl_chronicle: "📜 回帰を超えた年代記",
     hl_empty_loop: "この回帰の見せ場はこれから",
     hl_empty_chronicle: "まだ節目はない",
+    // ハイライト文（年代記・見せ場）。{skills}{chars}{place}{stage}… は useHighlightText が差し込む。
+    hlx_meta_skill: "ハル、「{skills}」を会得",
+    hlx_meta_unlock: "{chars} 解放（次の回帰から登場）",
+    hlx_meta_stage: "ハル、初めて「{stage}」に至る",
+    hlx_record: "最長生存を更新（{n}日）",
+    hlx_regress: "ハル力尽きる",
+    hlx_regress_at: "{place}でハル力尽きる",
+    hlx_death: "{chars}、力尽きる",
+    hlx_skill: "「{skills}」を会得",
+    hlx_unlock: "{chars} を解放",
+    hlx_stage: "ハル、{stageBefore}→{stageAfter}へ",
+    hlx_world_event: "{events} 起こる",
+    hlx_taboo_touch: "禁忌に触れる",
+    hlx_taboo_touch_at: "{place}で禁忌に触れる",
+    hlx_steal: "{chars}、霊を奪う（禁忌）",
+    hlx_steal_from: "{chars}、{from}から霊を奪う（禁忌）",
+    hlx_frenzy_became: "{chars}、荒ぶりに堕つ（変身）",
+    hlx_frenzy_quelled: "{chars}、荒ぶりを鎮める",
+    hlx_peril: "ハル、餓えの淵（霊力 {n}）",
+    hlx_dialogue: "{chars}の会話",
+    hlx_dialogue_solo: "会話劇",
+    hlx_scene_meet: "{place}で{chars}が居合わせた",
+    hlx_scene_moves: "移動: {moves}",
     map_forage: "実り 通常{normal}/不作{lean}",
     param_axis: "軸",
     card_spotlight: "🎥 主役",
@@ -182,6 +205,9 @@ const UI = {
     back_loops: "← 回帰一覧",
     loop_survived: "生存 {n} 日",
     loop_no_record: "この回帰の記録はありません。",
+    loop_end_cleared: "大禍を祓い、京を救った",
+    loop_end_died: "力尽きた",
+    loop_end_died_at: "{place}で力尽きた",
     scope_loop: "周回内",
     scope_career: "通算",
     skill_done: "会得済み",
@@ -333,6 +359,28 @@ const UI = {
     hl_chronicle: "📜 Chronicle across loops",
     hl_empty_loop: "Highlights for this loop are yet to come",
     hl_empty_chronicle: "No milestones yet",
+    hlx_meta_skill: "Haru mastered {skills}",
+    hlx_meta_unlock: "{chars} unlocked (appear next loop)",
+    hlx_meta_stage: "Haru first reaches “{stage}”",
+    hlx_record: "New survival record ({n} days)",
+    hlx_regress: "Haru falls",
+    hlx_regress_at: "Haru falls at {place}",
+    hlx_death: "{chars} fall",
+    hlx_skill: "Mastered {skills}",
+    hlx_unlock: "Unlocked {chars}",
+    hlx_stage: "Haru: {stageBefore}→{stageAfter}",
+    hlx_world_event: "{events} strikes",
+    hlx_taboo_touch: "Touches a taboo",
+    hlx_taboo_touch_at: "Touches a taboo at {place}",
+    hlx_steal: "{chars} devours spirit (taboo)",
+    hlx_steal_from: "{chars} devours spirit from {from} (taboo)",
+    hlx_frenzy_became: "{chars} falls into frenzy (transformation)",
+    hlx_frenzy_quelled: "{chars} quells the frenzy",
+    hlx_peril: "Haru at the brink (spirit power {n})",
+    hlx_dialogue: "Conversation: {chars}",
+    hlx_dialogue_solo: "A dialogue",
+    hlx_scene_meet: "{chars} meet at {place}",
+    hlx_scene_moves: "Moves: {moves}",
     map_forage: "Harvest: clear {normal} / lean {lean}",
     param_axis: "Axis",
     card_spotlight: "🎥 Lead",
@@ -392,6 +440,9 @@ const UI = {
     back_loops: "← Loops",
     loop_survived: "Survived {n} days",
     loop_no_record: "No records for this loop.",
+    loop_end_cleared: "Warded off the Calamity and saved Kyoto",
+    loop_end_died: "Fell, strength spent",
+    loop_end_died_at: "Fell at {place}, strength spent",
     scope_loop: "Per loop",
     scope_career: "Lifetime",
     skill_done: "Mastered",
@@ -516,6 +567,86 @@ const SOUL_STAGE_EN: Record<string, string> = {
   満ちる: "Full",
 };
 
+// ───────────────────────────────────────────────────────────────────────────
+// ドメイン定義の長文（場所の説明・スキル説明・キャラの core/処世術・解放条件）の英訳。
+// 日本語は domain 定義（places.ts / skills.ts / characters.ts）が source of truth。
+// ここは id をキーにした英語の表示派生のみ（フェーズ1.5）。
+// ───────────────────────────────────────────────────────────────────────────
+
+const PLACE_DESC_EN: Record<string, string> = {
+  kamogawa:
+    "The shore where humans and spirits mingle. The busiest crossing of common folk, where calm and turmoil blend alike—a pivotal thoroughfare on the way to anywhere.",
+  ohara:
+    "A village opening among the northern hills of Kyoto. Filled with the clear air of prayer and daily life, rich in calm. Peaceful, though few people pass through.",
+  kibune:
+    "Deep beyond Kurama, a valley of clear streams where the water god dwells. Its calm is pure and steady, but remote and thin. A place of stillness.",
+  arashiyama:
+    "The western outskirts, land of the Hozu River and bamboo spirits. Travelers come and go, with calm and turmoil mingling in moderation.",
+  fushimi:
+    "The fox land to the south. Human desire and prayer swirl here, and turmoil gathers thick. Its spirit power is great and fierce but its calm is thin—a land where raging divine force whirls.",
+};
+
+const SKILL_DESC_EN: Record<string, string> = {
+  share_taste:
+    "Acquired by sharing spirit power 3 times within a single loop. Thereafter, the self-cost of sharing is lighter.",
+  insight_edge:
+    "Acquired by gathering spirit 30 times in total (accumulates across loops). The eye that reads spirit veins sharpens, raising the harvest from gathering by +15%.",
+  beyond_hunger:
+    "Acquired by surviving the brink of starvation (spirit power 12 or below) 3 times within a single loop. The daily toll is lighter by 1.",
+  binding_hands:
+    "Acquired when speaking touches another's heart 5 times in total (accumulates across loops). From the next loop on, you awaken with +10 trust.",
+  sever_solitude:
+    "Acquired by reaching, even once, a loop where altruism attains “Maturity” (70 or above). From the next loop on, you awaken with +10 spirit power.",
+  warded_heart:
+    "Acquired when your spirit power is stolen 3 times in total (accumulates across loops). A core inured to being robbed repels defilement, so thereafter the loss of spirit power and stress from being stolen from are halved.",
+  ward_basics:
+    "Acquired by purifying 8 times in total (accumulates across loops). The hand that quells troubled land becomes the basis of a ward: +18 ward power against the Calamity.",
+  ward_vigil:
+    "Acquired by stilling yourself and resting 10 times in total (accumulates across loops). Clear stillness becomes a readiness of heart: +14 ward power against the Calamity.",
+  ward_bonds:
+    "Acquired by sharing spirit power 12 times in total (accumulates across loops). Bonds forged with others become a shield: +12 ward power against the Calamity.",
+  ward_resolve:
+    "Acquired by staying close to someone 6 times in total (accumulates across loops). The resolve to stand by and support turns to strength: +14 ward power against the Calamity.",
+  quell_art:
+    "Acquired by facing the frenzied half-spirit in the same sacred land and purifying it 5 times in total (accumulates across loops; days you fail to quell still count). Grants +14 quelling power to undo a frenzy.",
+  never_dry:
+    "Acquired by receiving another's sharing 5 times in total (accumulates across loops). Thereafter, when Haru is given spirit power, he returns spirit power to the one who gave at their own expense (+10 spirit return), so they never run dry.",
+};
+
+const CHAR_CORE_EN: Record<string, string> = {
+  haru:
+    "A spirit of purification who hates the monopoly of spirit veins. Calm and of few words.",
+  nagi:
+    "A binding-spirit of miko (shrine-maiden) lineage who fears abandonment above all. Bright and caring.",
+  kai: "A starving half-spirit who devours spirits to survive. Trusts no one.",
+  sora:
+    "A wandering spirit who puts down roots nowhere. He comes and goes, laughing at attachment.",
+  shiori:
+    "A shrine-guardian envoy bound by an old promise. Deeply dutiful, and unforgiving of herself.",
+};
+
+const CHAR_LESSON_EN: Record<string, string> = {
+  haru: "So he ties himself to no one, and lives taking only his own share.",
+  nagi: "So she devotes herself to others, heals spirits, and strives to stay needed.",
+  kai: "Trust, and you are devoured. So devour first.",
+  sora: "Stay, and you lose. So he puts down no roots and lives like the wind.",
+  shiori: "Only the promise governs her. So she will not bend the code.",
+};
+
+const UNLOCK_REQ_EN: Record<string, string> = {
+  nagi: "Haru masters 1 skill",
+  kai: "Haru's altruism reaches Maturity (70+) / masters “Sever Solitude” / masters 3 skills (any one)",
+  sora: "Reach loop 7 and master 4 skills, including “Keen Sight”",
+  shiori: "Master “Binding Hands” and master 5 skills",
+};
+
+const UNLOCK_DESC_EN: Record<string, string> = {
+  nagi: "When Haru gains even one power (skill) to survive alone, the binding-spirit appears in Kyoto.",
+  kai: "Once Haru breaks his shell and his altruism reaches maturity, he comes to face the half-spirit who trusts no one.",
+  sora: "Rumors of Haru, who never halts even across many loops, blow the wandering spirit toward Kyoto.",
+  shiori: "When Haru learns the hand that binds hearts, the envoy who cannot abandon her ruined shrine appears, relying on his lead.",
+};
+
 // 警告済みキーの記録。ポーリングで毎レンダリング走るので、同じ未登録キーを
 // 何度も warn して devtools を溢れさせない（可視化は1回で十分）。
 const warnedKeys = new Set<string>();
@@ -626,6 +757,19 @@ export function useDomainNames() {
       lang === "en" ? pickEn(SOUL_SOURCE_EN, id, jaSource, "soulSource") : jaSource,
     soulStage: (jaStage: string) =>
       lang === "en" ? pickEn(SOUL_STAGE_EN, jaStage, jaStage, "soulStage") : jaStage,
+    // ドメイン定義の長文（id 起点）。ja は元の日本語固定文をそのまま返す。
+    placeDesc: (id: string, jaDesc: string) =>
+      lang === "en" ? pickEn(PLACE_DESC_EN, id, jaDesc, "placeDesc") : jaDesc,
+    skillDesc: (id: string, jaDesc: string) =>
+      lang === "en" ? pickEn(SKILL_DESC_EN, id, jaDesc, "skillDesc") : jaDesc,
+    charCore: (id: string, jaCore: string) =>
+      lang === "en" ? pickEn(CHAR_CORE_EN, id, jaCore, "charCore") : jaCore,
+    charLesson: (id: string, jaLesson: string) =>
+      lang === "en" ? pickEn(CHAR_LESSON_EN, id, jaLesson, "charLesson") : jaLesson,
+    unlockReq: (id: string, jaReq: string) =>
+      lang === "en" ? pickEn(UNLOCK_REQ_EN, id, jaReq, "unlockReq") : jaReq,
+    unlockDesc: (id: string, jaDesc: string) =>
+      lang === "en" ? pickEn(UNLOCK_DESC_EN, id, jaDesc, "unlockDesc") : jaDesc,
     // 表示名（日本語）しか手元に無いとき用（TickResult の acquiredSkills/unlockedCharacters は
     // 表示名で載る）。名前→id 逆引きしてから英訳テーブルへ橋渡しする。
     skillByName: (jaName: string) => {
@@ -647,6 +791,96 @@ export function useSep() {
   return {
     list: lang === "en" ? ", " : "・",
     skills: lang === "en" ? ", " : "」「",
+  };
+}
+
+/**
+ * 回帰の結末文を言語別に組み立てる。
+ * JP は causeOfEnd（domain が source of truth）をそのまま使い、EN は構造化（endKind/endPlaceId）から組む。
+ * 構造化を持たない旧 run は JP（causeOfEnd）へフォールバックし、warn で1度だけ可視化する。
+ */
+export function useLoopEnd() {
+  const { lang } = useLang();
+  const t = useT();
+  const dn = useDomainNames();
+  return (sum: {
+    causeOfEnd: string;
+    endKind?: "cleared" | "died";
+    endPlaceId?: string;
+  }): string => {
+    if (lang !== "en") return sum.causeOfEnd;
+    if (!sum.endKind) {
+      if (!warnedKeys.has("loopEnd.legacy")) {
+        warnedKeys.add("loopEnd.legacy");
+        console.warn(
+          "[i18n] 旧 run の結末（causeOfEnd）は構造化が無いため日本語表示にフォールバック",
+        );
+      }
+      return sum.causeOfEnd;
+    }
+    if (sum.endKind === "cleared") return t("loop_end_cleared");
+    return sum.endPlaceId
+      ? t("loop_end_died_at", { place: dn.place(sum.endPlaceId, sum.endPlaceId) })
+      : t("loop_end_died");
+  };
+}
+
+/**
+ * ハイライト文（年代記・見せ場）を言語別に組み立てる。
+ * 日本語は text（source of truth）をそのまま使い、EN は i18n 構造化（key＋素の値）から
+ * テンプレ展開する。名前・場所・段階・イベントは useDomainNames が英訳する。
+ * 構造化を持たない旧データ（永続 metaHighlights 等）は text（日本語）へフォールバックする。
+ */
+export function useHighlightText() {
+  const { lang } = useLang();
+  const t = useT();
+  const dn = useDomainNames();
+  const sep = useSep();
+  return (h: { text: string; i18n?: HighlightI18n }): string => {
+    if (lang !== "en") return h.text; // 日本語は組み立て済みの text をそのまま
+    const x = h.i18n;
+    if (!x) {
+      if (!warnedKeys.has("highlight.legacy")) {
+        warnedKeys.add("highlight.legacy");
+        console.warn(
+          "[i18n] 旧データのハイライトは構造化が無いため日本語表示にフォールバック",
+        );
+      }
+      return h.text;
+    }
+    // scene は meets/moves から組む（単一テンプレに収まらないため別扱い）。
+    if (x.key === "hlx_scene") {
+      if (x.meets?.length) {
+        return x.meets
+          .map((m) =>
+            t("hlx_scene_meet", {
+              place: dn.place(m.placeId, m.placeId),
+              chars: m.names.map((nm) => dn.charByName(nm)).join(sep.list),
+            }),
+          )
+          .join(" / ");
+      }
+      if (x.moves?.length) {
+        const moves = x.moves
+          .map((mv) => `${dn.charByName(mv.name)}→${dn.place(mv.placeId, mv.placeId)}`)
+          .join(", ");
+        return t("hlx_scene_moves", { moves });
+      }
+      return h.text;
+    }
+    return t(x.key as UiKey, {
+      skills: (x.skills ?? []).map((n) => dn.skillByName(n)).join(sep.skills),
+      chars: (x.chars ?? []).map((n) => dn.charByName(n)).join(sep.list),
+      place: x.placeId ? dn.place(x.placeId, x.placeId) : "",
+      stage: x.stage ? dn.stage(x.stage) : "",
+      stageBefore: x.stageBefore ? dn.stage(x.stageBefore) : "",
+      stageAfter: x.stageAfter ? dn.stage(x.stageAfter) : "",
+      events: (x.events ?? [])
+        .map((e) => `${e.icon}${dn.event(e.kind, e.name)}`)
+        .join(sep.list),
+      from: x.fromName ? dn.charByName(x.fromName) : "",
+      n: x.n ?? 0,
+    });
   };
 }
 

@@ -121,6 +121,8 @@ export const runLoopSummary = sqliteTable(
     loop: integer("loop").notNull(),
     days: integer("days").notNull(),
     causeOfEnd: text("cause_of_end").notNull(),
+    endKind: text("end_kind"), // "cleared" | "died"（i18n 用。旧 run は null→causeOfEnd へフォールバック）
+    endPlaceId: text("end_place_id"), // 力尽きた場所の id（無ければ null）
     altruismReached: real("altruism_reached").notNull(),
     stageReached: text("stage_reached").notNull(),
     cleared: integer("cleared").notNull().default(0),

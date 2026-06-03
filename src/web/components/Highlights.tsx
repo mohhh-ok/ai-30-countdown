@@ -11,7 +11,7 @@ import {
   loopHighlights,
   loopMetaHighlights,
 } from "../../domain/highlights.ts";
-import { useT } from "../i18n.tsx";
+import { useHighlightText, useT } from "../i18n.tsx";
 
 const KIND_ICON: Record<HighlightKind, string> = {
   skill: "✨",
@@ -30,6 +30,7 @@ const KIND_ICON: Record<HighlightKind, string> = {
 
 /** ハイライト1件の行。回帰超えは L＋Day、回帰内は Day のみ表示する。 */
 function HighlightRow({ h, showLoop }: { h: Highlight; showLoop: boolean }) {
+  const hlText = useHighlightText();
   return (
     <li className={`highlight mark-${h.kind}`}>
       <span className="highlight-when">
@@ -39,7 +40,7 @@ function HighlightRow({ h, showLoop }: { h: Highlight; showLoop: boolean }) {
         Day {h.day}
       </span>
       <span className="highlight-icon">{KIND_ICON[h.kind]}</span>
-      <span className="highlight-text">{h.text}</span>
+      <span className="highlight-text">{hlText(h)}</span>
     </li>
   );
 }

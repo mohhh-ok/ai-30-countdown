@@ -41,6 +41,7 @@
 
 ### `run_loop_summary` — 過去の周回の結末
 年代記 history。1周1行。クリア/未クリア・到達段階・会得スキル・メタハイライトを記録。
+結末は日本語の `cause_of_end`（source of truth）に加え、表示の多言語化用に構造化（`end_kind`＝クリア/力尽き、`end_place_id`＝力尽きた場所 id）を持つ。旧 run（未設定）は日本語へフォールバック。
 
 ### `ticks` — 日次結果
 各日の `TickResult` を1日1行で JSON 保存（`loop`/`day` で識別。回帰で `day` は周ごとに1に戻る）。表示ログはここから組む。

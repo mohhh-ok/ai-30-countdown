@@ -34,8 +34,7 @@ function SkillCard({
           {scopeLabel}
         </span>
       </div>
-      {/* TODO(i18n): スキル説明はドメイン定義の日本語固定文（issue #8 で翻訳予定） */}
-      <p className="skill-card-desc">{skill.description}</p>
+      <p className="skill-card-desc">{dn.skillDesc(skill.id, skill.description)}</p>
       <div className="skill-progress">
         {acquired ? (
           <span className="skill-progress-done">{t("skill_done")}</span>

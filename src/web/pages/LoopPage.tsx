@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import type { Chronicle, TickResult } from "../../domain/types.ts";
 import { FrontStage } from "../components/FrontStage.tsx";
 import { skillName } from "../util.ts";
-import { useDomainNames, useSep, useT } from "../i18n.tsx";
+import { useDomainNames, useLoopEnd, useSep, useT } from "../i18n.tsx";
 
 export function LoopPage({
   loop,
@@ -17,6 +17,7 @@ export function LoopPage({
   const t = useT();
   const dn = useDomainNames();
   const sep = useSep();
+  const loopEnd = useLoopEnd();
   const sum = (chronicle?.history ?? []).find((s) => s.loop === loop);
   const live = (chronicle?.loop ?? 1) === loop && !sum;
 
@@ -58,8 +59,7 @@ export function LoopPage({
 
       {sum && (
         <div className="loop-summary">
-          {/* TODO(i18n): causeOfEnd は campaign.ts 生成の日本語固定文（issue #8 で翻訳予定） */}
-          <span className="loop-summary-end">{sum.causeOfEnd}</span>
+          <span className="loop-summary-end">{loopEnd(sum)}</span>
           <span>{t("loop_survived", { n: sum.days })}</span>
           <span>
             {t("loops_reached", {

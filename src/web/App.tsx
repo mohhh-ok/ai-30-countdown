@@ -106,7 +106,10 @@ function SiteNav({
               route.name === "char" && route.id === id ? " nav-on" : ""
             }`}
             href={`#/char/${id}`}
-            title={unlockOf(id)?.requirement ?? t("nav_locked_title")}
+            title={(() => {
+              const u = unlockOf(id);
+              return u ? dn.unlockReq(u.id, u.requirement) : t("nav_locked_title");
+            })()}
           >
             🔒 ???
           </a>

@@ -13,6 +13,7 @@
 // どちらも client（Highlights.tsx）が描画に使う。
 import type {
   CharacterTickResult,
+  HighlightI18n,
   LoopSummary,
   MetaEvent,
   TickResult,
@@ -38,7 +39,8 @@ export interface Highlight {
   loop?: number;
   day: number;
   kind: HighlightKind;
-  text: string;
+  text: string; // 日本語（source of truth／i18n フォールバック）
+  i18n?: HighlightI18n; // 言語別組み立て用（UI: useHighlightText）。無ければ text を使う
   /** 回帰内ハイライトの抽出スコア（上位選抜・デバッグ用。回帰超えでは未設定）。 */
   score?: number;
 }
@@ -64,6 +66,7 @@ export function loopMetaHighlights(
         day: t.day,
         kind: "skill",
         text: `ハル、「${t.acquiredSkills.join("」「")}」を会得`,
+        i18n: { key: "hlx_meta_skill", skills: t.acquiredSkills },
       });
     }
     if (t.unlockedCharacters?.length) {
@@ -71,6 +74,7 @@ export function loopMetaHighlights(
         day: t.day,
         kind: "unlock",
         text: `${t.unlockedCharacters.join("・")} 解放（次の回帰から登場）`,
+        i18n: { key: "hlx_meta_unlock", chars: t.unlockedCharacters },
       });
     }
     if (hero?.stageChanged) {
@@ -78,6 +82,7 @@ export function loopMetaHighlights(
         day: t.day,
         kind: "stage",
         text: `ハル、初めて「${hero.stageAfter}」に至る`,
+        i18n: { key: "hlx_meta_stage", stage: hero.stageAfter },
       });
     }
   }
@@ -107,7 +112,7 @@ export function chronicleHighlights(
         if (stageTextSeen.has(e.text)) continue;
         stageTextSeen.add(e.text);
       }
-      out.push({ loop, day: e.day, kind: e.kind, text: e.text });
+      out.push({ loop, day: e.day, kind: e.kind, text: e.text, i18n: e.i18n });
     }
   };
 
@@ -120,6 +125,7 @@ export function chronicleHighlights(
         day: s.days,
         kind: "record",
         text: `最長生存を更新（${s.days}日）`,
+        i18n: { key: "hlx_record", n: s.days },
       });
     }
   }
@@ -132,6 +138,7 @@ interface Signal {
   weight: number;
   kind: HighlightKind;
   text: string;
+  i18n: HighlightI18n; // 言語別組み立て（loopHighlights は live 再計算なので常に持つ）
 }
 
 /**
@@ -141,7 +148,11 @@ interface Signal {
  * 出会い（同室）＞移動 の順で最も絵になる一点に絞る。詳細（理由つきフル文）は
  * `notable` のまま楽屋ビュー（TickLog）に残す。該当が無ければ空＝シーン化しない。
  */
-function briefScene(t: TickResult): string {
+function briefScene(t: TickResult): {
+  text: string;
+  meets: { placeId: string; names: string[] }[];
+  moves: { name: string; placeId: string }[];
+} {
   const living = t.characters.filter((c) => !c.died);
   // 同じ場所に2人以上いて、その日に誰かが移動してきた＝「居合わせた」瞬間。
   const byPlace = new Map<string, CharacterTickResult[]>();
@@ -150,21 +161,32 @@ function briefScene(t: TickResult): string {
     arr.push(c);
     byPlace.set(c.placeId, arr);
   }
-  const meets: string[] = [];
+  const meetParts: string[] = [];
+  const meets: { placeId: string; names: string[] }[] = [];
   for (const members of byPlace.values()) {
     if (members.length >= 2 && members.some((m) => m.moved)) {
-      meets.push(
+      meetParts.push(
         `${members[0].placeName}で${members.map((m) => m.name).join("と")}が居合わせた`,
       );
+      meets.push({
+        placeId: members[0].placeId,
+        names: members.map((m) => m.name),
+      });
     }
   }
-  if (meets.length) return meets.join("／");
+  if (meetParts.length) {
+    return { text: meetParts.join("／"), meets, moves: [] };
+  }
   // 出会いが無ければ移動だけを簡潔に（「名→行き先」をカンマ区切り）。
-  const moves = living
-    .filter((c) => c.moved)
-    .map((c) => `${c.name}→${c.placeName}`);
-  if (moves.length) return `移動: ${moves.join("、")}`;
-  return "";
+  const movers = living.filter((c) => c.moved);
+  if (movers.length) {
+    return {
+      text: `移動: ${movers.map((c) => `${c.name}→${c.placeName}`).join("、")}`,
+      meets: [],
+      moves: movers.map((c) => ({ name: c.name, placeId: c.placeId })),
+    };
+  }
+  return { text: "", meets: [], moves: [] };
 }
 
 /**
@@ -177,6 +199,7 @@ function tickSignals(
 ): Signal[] {
   const hero = t.characters.find((c) => c.id === heroId);
   const where = hero?.placeName ? hero.placeName : "";
+  const wherePlaceId = hero?.placeId;
   const s: Signal[] = [];
 
   if (t.regressed) {
@@ -184,6 +207,9 @@ function tickSignals(
       weight: 100,
       kind: "regress",
       text: where ? `${where}でハル力尽きる` : "ハル力尽きる",
+      i18n: where
+        ? { key: "hlx_regress_at", placeId: wherePlaceId }
+        : { key: "hlx_regress" },
     });
   }
   // 脇役の力尽き（主役の死は regress として別格で拾うので除外）。
@@ -191,13 +217,19 @@ function tickSignals(
   const fallen = t.characters.filter((c) => c.died && c.id !== heroId);
   if (fallen.length) {
     const names = fallen.map((c) => c.name);
-    s.push({ weight: 50, kind: "death", text: `${names.join("・")}、力尽きる` });
+    s.push({
+      weight: 50,
+      kind: "death",
+      text: `${names.join("・")}、力尽きる`,
+      i18n: { key: "hlx_death", chars: names },
+    });
   }
   if (t.acquiredSkills?.length) {
     s.push({
       weight: 45,
       kind: "skill",
       text: `「${t.acquiredSkills.join("」「")}」を会得`,
+      i18n: { key: "hlx_skill", skills: t.acquiredSkills },
     });
   }
   if (t.unlockedCharacters?.length) {
@@ -205,6 +237,7 @@ function tickSignals(
       weight: 40,
       kind: "unlock",
       text: `${t.unlockedCharacters.join("・")} を解放`,
+      i18n: { key: "hlx_unlock", chars: t.unlockedCharacters },
     });
   }
   if (hero?.stageChanged) {
@@ -212,19 +245,39 @@ function tickSignals(
       weight: 32,
       kind: "stage",
       text: `ハル、${hero.stageBefore}→${hero.stageAfter}へ`,
+      i18n: {
+        key: "hlx_stage",
+        stageBefore: hero.stageBefore,
+        stageAfter: hero.stageAfter,
+      },
     });
   }
   if (t.newWorldEvents?.length) {
     const ev = t.newWorldEvents
       .map((e) => `${e.icon}${e.name}`)
       .join("・");
-    s.push({ weight: 24, kind: "worldEvent", text: `${ev} 起こる` });
+    s.push({
+      weight: 24,
+      kind: "worldEvent",
+      text: `${ev} 起こる`,
+      i18n: {
+        key: "hlx_world_event",
+        events: t.newWorldEvents.map((e) => ({
+          kind: e.kind,
+          icon: e.icon,
+          name: e.name,
+        })),
+      },
+    });
   }
   if (hero?.forageDraw?.taboo) {
     s.push({
       weight: 20,
       kind: "taboo",
       text: where ? `${where}で禁忌に触れる` : "禁忌に触れる",
+      i18n: where
+        ? { key: "hlx_taboo_touch_at", placeId: wherePlaceId }
+        : { key: "hlx_taboo_touch" },
     });
   }
   // 禁忌「奪う」: 誰かが他者から霊を奪った日（hero に限らずカイ等も）。代償付きの大きな決断＝山場。
@@ -235,15 +288,28 @@ function tickSignals(
       weight: 30,
       kind: "taboo",
       text: `${c.name}、${from}霊を奪う（禁忌）`,
+      i18n: c.targetName
+        ? { key: "hlx_steal_from", chars: [c.name], fromName: c.targetName }
+        : { key: "hlx_steal", chars: [c.name] },
     });
   }
   // 荒ぶり（変身）とその鎮め: 半妖カイの暴走とハルの鎮めの術。観客向けの大見せ場。
   for (const c of t.characters) {
     if (c.becameFrenzied) {
-      s.push({ weight: 38, kind: "frenzy", text: `${c.name}、荒ぶりに堕つ（変身）` });
+      s.push({
+        weight: 38,
+        kind: "frenzy",
+        text: `${c.name}、荒ぶりに堕つ（変身）`,
+        i18n: { key: "hlx_frenzy_became", chars: [c.name] },
+      });
     }
     if (c.quelledFrenzy) {
-      s.push({ weight: 36, kind: "frenzy", text: `${c.name}、荒ぶりを鎮める` });
+      s.push({
+        weight: 36,
+        kind: "frenzy",
+        text: `${c.name}、荒ぶりを鎮める`,
+        i18n: { key: "hlx_frenzy_quelled", chars: [c.name] },
+      });
     }
   }
   if (hero && !t.regressed && hero.energyAfter <= 2) {
@@ -251,6 +317,7 @@ function tickSignals(
       weight: 16,
       kind: "peril",
       text: `ハル、餓えの淵（霊力 ${hero.energyAfter}）`,
+      i18n: { key: "hlx_peril", n: hero.energyAfter },
     });
   }
   if (t.dialogue?.length) {
@@ -259,11 +326,22 @@ function tickSignals(
       weight: 12,
       kind: "dialogue",
       text: names.length >= 2 ? `${names.join("と")}の会話` : "会話劇",
+      i18n:
+        names.length >= 2
+          ? { key: "hlx_dialogue", chars: names }
+          : { key: "hlx_dialogue_solo" },
     });
   }
   if (t.tempo === "scene") {
     const brief = briefScene(t);
-    if (brief) s.push({ weight: 8, kind: "scene", text: brief });
+    if (brief.text) {
+      s.push({
+        weight: 8,
+        kind: "scene",
+        text: brief.text,
+        i18n: { key: "hlx_scene", meets: brief.meets, moves: brief.moves },
+      });
+    }
   }
   return s;
 }
@@ -286,7 +364,14 @@ export function loopHighlights(
     if (sigs.length === 0) continue;
     const head = sigs.reduce((a, b) => (b.weight > a.weight ? b : a));
     const score = sigs.reduce((sum, sig) => sum + sig.weight, 0);
-    scored.push({ loop, day: t.day, kind: head.kind, text: head.text, score });
+    scored.push({
+      loop,
+      day: t.day,
+      kind: head.kind,
+      text: head.text,
+      i18n: head.i18n,
+      score,
+    });
   }
   scored.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   const picked = scored.slice(0, topN);

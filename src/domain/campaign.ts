@@ -304,23 +304,35 @@ export class Campaign {
     const heroDied = heroResult?.died ?? !(this.hero()?.alive ?? false);
     if (result.cleared) {
       // 大禍を祓い退けて京を救った。勝利を刻み、次の周（また30日のカウントダウン）を立ち上げる。
-      this.closeLoop("大禍を祓い、京を救った", true);
+      this.closeLoop("大禍を祓い、京を救った", { kind: "cleared" });
     } else if (heroDied) {
       result.regressed = true;
-      this.closeLoop(heroResult ? `${heroResult.placeName}で力尽きた` : "力尽きた");
+      this.closeLoop(heroResult ? `${heroResult.placeName}で力尽きた` : "力尽きた", {
+        kind: "died",
+        placeId: heroResult?.placeId,
+      });
     }
   }
 
-  /** 周回を閉じ、履歴に結末を刻んで次周の世界を立ち上げる。cleared なら勝利の周として記録する。 */
-  private closeLoop(causeOfEnd: string, cleared = false): void {
+  /**
+   * 周回を閉じ、履歴に結末を刻んで次周の世界を立ち上げる。
+   * causeOfEnd は日本語の source of truth（JP フォールバック表示用）。
+   * end は i18n 用の構造化（kind＝クリア/力尽き、placeId＝力尽きた場所）。
+   */
+  private closeLoop(
+    causeOfEnd: string,
+    end: { kind: "cleared" | "died"; placeId?: string },
+  ): void {
     const summary: LoopSummary = {
       loop: this.chronicle.loop,
       days: this.loopDays,
       causeOfEnd,
+      endKind: end.kind,
+      endPlaceId: end.placeId,
       altruismReached: this.loopMaxAltruism,
       stageReached: stageOf(this.loopMaxAltruism),
       acquiredSkills: [...this.chronicle.skills.acquired],
-      cleared: cleared || undefined,
+      cleared: end.kind === "cleared" || undefined,
       // 全周ログを常駐させない設計のため、回帰を超えた年代記用の節目（会得・解放・段階到達）を
       // この周のログから日付付きで焼き付けておく（次周以降は loopLog がリセットされるので今ここで）。
       metaHighlights: loopMetaHighlights(this.loopLog, this.protagonistId),
