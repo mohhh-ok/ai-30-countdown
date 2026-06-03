@@ -15,11 +15,6 @@ const dim = (s: string) => c("2", s); // 薄字（タイムスタンプ）
 const cyan = (s: string) => c("36", s); // scope
 const red = (s: string) => c("31", s); // エラー
 
-function ts(): string {
-  // HH:mm:ss.SSS（固定TZ＝Asia/Tokyo）。サーバ端末用なのでブラウザ追従ではなく固定。
-  return fmtClock();
-}
-
 /** key=value 形式に整える（長い文字列は端折る）。 */
 function fmt(extra?: Record<string, unknown>): string {
   if (!extra) return "";
@@ -38,7 +33,8 @@ export function llog(scope: string, msg: string, extra?: Record<string, unknown>
   if (!ENABLED) return;
   // ✗ や ⚠ で始まる行だけエラー扱い（stderr＝赤）。それ以外は stdout（白）。
   const isError = /^[✗⚠]/.test(msg);
-  const line = `${dim(`[${ts()}]`)} ${cyan(`[${scope}]`)} ${isError ? red(msg) : msg}${fmt(extra)}`;
+  // 時計は HH:mm:ss.SSS の固定TZ（Asia/Tokyo）。サーバ端末用なのでブラウザ追従ではなく固定。
+  const line = `${dim(`[${fmtClock()}]`)} ${cyan(`[${scope}]`)} ${isError ? red(msg) : msg}${fmt(extra)}`;
   if (isError) console.error(line);
   else console.log(line);
 }

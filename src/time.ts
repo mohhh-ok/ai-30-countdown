@@ -22,6 +22,10 @@ export type UtcIso = string & { readonly __utc: unique symbol };
 /** サーバ側ログ/スクリプトの既定TZ。ブラウザが無い環境はこれで固定表示する。 */
 export const SERVER_TZ = "Asia/Tokyo";
 
+// 末尾 Z（＝UTC）の ISO8601。ミリ秒は任意桁。nowISO() の出力（.SSSZ）はこれに一致する。
+// dayjs.isValid() は寛容で "2024-13-99" 等を通すため、構造はここで正規表現で締める。
+const UTC_ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
+
 /** 現在時刻を UTC ISO8601（Z付き）で返す。DB 書き込みの唯一の現在時刻ソース。 */
 export function nowISO(): UtcIso {
   return dayjs.utc().toISOString() as UtcIso;
@@ -29,10 +33,17 @@ export function nowISO(): UtcIso {
 
 /**
  * DB から読んだ素の string を UtcIso に持ち上げる「入口」。
- * 値が UTC ISO8601 である前提を1か所に集約する（握りつぶさず、空なら throw）。
+ * 値が UTC ISO8601（dayjs が解釈可能）である前提をここ1か所で検証する。
+ * 不正値は握りつぶさず throw（CLAUDE.md: 想定外は止める）。
+ *
+ * 注意: 現状この関数を呼ぶ読み出し箇所はまだ無い（loadLatestRun 等は時刻を
+ * 再利用していない）。DB の時刻を UtcIso として使う読み出し層を足すときの入口。
  */
 export function asUtc(s: string): UtcIso {
   if (!s) throw new Error("asUtc: 空文字は UTC ISO として扱えません");
+  if (!UTC_ISO_RE.test(s)) {
+    throw new Error(`asUtc: 末尾Zの UTC ISO8601 として解釈できません: ${JSON.stringify(s)}`);
+  }
   return s as UtcIso;
 }
 
