@@ -71,7 +71,8 @@ export const runChar = sqliteTable(
     antiThrill: real("anti_thrill").notNull(),
     whisper: text("whisper"),
     whisperIgnored: integer("whisper_ignored"),
-    relation: text("relation").notNull(),
+    relation: text("relation").notNull(), // 感情ラベル（日本語＝source of truth。旧データ互換でプレーン文字列のまま）
+    relationEn: text("relation_en").notNull().default(""), // 感情ラベル（英語。未訳/旧データは空→UI が日本語フォールバック）
     episodicJson: text("episodic_json").notNull(), // string[]（直近5件ほど）
     diaryJson: text("diary_json").notNull(), // string[]（現周の一行日記）
     soulCountersJson: text("soul_counters_json"), // ココロ（kind→受領回数のJSON）

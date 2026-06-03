@@ -41,7 +41,7 @@ function normalizeOne(o: Record<string, unknown>, id: string): CharacterDecision
     targetId:
       typeof o.targetId === "string" && o.targetId ? o.targetId : undefined,
     diary: normalizeLocalized(o.diary),
-    relationLabel: typeof o.relationLabel === "string" ? o.relationLabel : "",
+    relationLabel: normalizeLocalized(o.relationLabel),
     paramDeltas: asParamDeltas(o.paramDeltas),
     deltaReason: typeof o.deltaReason === "string" ? o.deltaReason : "",
   };
@@ -84,7 +84,7 @@ function fallbackDecision(id: string): CharacterDecision {
     id,
     action: "forage",
     diary: { ja: "とりまサバイブ最優先っしょ。", en: "Survival first, obvs." },
-    relationLabel: "",
+    relationLabel: { ja: "", en: "" },
     paramDeltas: {},
     deltaReason: "",
   };

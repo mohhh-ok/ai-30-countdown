@@ -185,7 +185,8 @@ function charSaveToRow(runId: number, c: CharSave) {
     antiThrill: c.antibodies.thrill,
     whisper: c.currentWhisper ?? null,
     whisperIgnored: c.whisperIgnored ?? null,
-    relation: c.relationLabel,
+    relation: c.relationLabel.ja, // 日本語（source of truth・旧データ互換でプレーン文字列）
+    relationEn: c.relationLabel.en,
     episodicJson: JSON.stringify(c.episodicMemory),
     diaryJson: JSON.stringify(c.diary),
     soulCountersJson: JSON.stringify(c.soulCounters), // ココロ（kind→受領回数）
@@ -279,7 +280,7 @@ export function saveTick(runId: number, result: TickResult): void {
             diary: c.diary.ja,
             diaryEn: c.diary.en,
             diaryNote: c.diaryNote ?? null,
-            relation: c.relationLabel,
+            relation: c.relationLabel.ja, // 分析用は日本語（char_metrics は表示に使わない）
             deltaReason: c.deltaReason,
             died: c.died ? 1 : 0,
             frenzyActive: c.frenzyActive ? 1 : 0,
@@ -477,7 +478,8 @@ export function loadLatestRun(): {
       },
       currentWhisper: c.whisper ?? undefined,
       whisperIgnored: c.whisperIgnored ?? undefined,
-      relationLabel: c.relation,
+      // 旧データ（relation_en 無し）は en 空→UI が日本語へフォールバック。JSON 化しないのでクラッシュしない。
+      relationLabel: { ja: c.relation, en: c.relationEn ?? "" },
       episodicMemory: JSON.parse(c.episodicJson),
       diary: JSON.parse(c.diaryJson),
       soulCounters: c.soulCountersJson ? JSON.parse(c.soulCountersJson) : {}, // ココロ（kind→受領回数）

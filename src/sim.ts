@@ -133,7 +133,7 @@ function newCharacterTemplate(id: string, state: WorldState, patch: object): Cha
     episodicMemory: [],
     diary: [],
     soulCounters: {},
-    relationLabel: "",
+    relationLabel: { ja: "", en: "" },
   };
   return deepMerge(base, patch);
 }

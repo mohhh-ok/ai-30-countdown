@@ -663,7 +663,7 @@ export async function runTick(
       };
     }
 
-    if (d.relationLabel) actor.relationLabel = d.relationLabel;
+    if (d.relationLabel.ja || d.relationLabel.en) actor.relationLabel = d.relationLabel;
     if (d.diary.ja || d.diary.en) actor.diary.push(d.diary);
   }
 

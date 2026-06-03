@@ -47,7 +47,7 @@ export function createInitialCharacters(): Character[] {
       episodicMemory: ["かつて資源の独占争いで家族を失った。"],
       diary: [],
       soulCounters: {},
-      relationLabel: "警戒",
+      relationLabel: { ja: "警戒", en: "Wary" },
     },
     {
       id: "nagi",
@@ -84,7 +84,7 @@ export function createInitialCharacters(): Character[] {
       episodicMemory: ["かつて所属していた集団から追放された。"],
       diary: [],
       soulCounters: {},
-      relationLabel: "慕う",
+      relationLabel: { ja: "慕う", en: "Fond" },
     },
     {
       id: "kai",
@@ -120,7 +120,7 @@ export function createInitialCharacters(): Character[] {
       episodicMemory: ["略奪と飢餓の世界を、奪うことで生き抜いてきた。"],
       diary: [],
       soulCounters: {},
-      relationLabel: "値踏み",
+      relationLabel: { ja: "値踏み", en: "Sizing up" },
       // 荒ぶり（変身）の周内状態。半妖カイだけが持つ。孤立・裏切りが募ると level が溜まり、
       // FRENZY_ONSET で active=true へ変身する（engine が蓄積・判定する）。
       frenzy: { level: 0, active: false, pendingBurden: 0 },
@@ -160,7 +160,7 @@ export function createInitialCharacters(): Character[] {
       episodicMemory: ["焼けた里をただ一人、風に乗って逃げた。"],
       diary: [],
       soulCounters: {},
-      relationLabel: "気まぐれ",
+      relationLabel: { ja: "気まぐれ", en: "Whimsical" },
     },
     {
       id: "shiori",
@@ -197,7 +197,7 @@ export function createInitialCharacters(): Character[] {
       episodicMemory: ["守ると誓った社が朽ち、主は去った。"],
       diary: [],
       soulCounters: {},
-      relationLabel: "礼節",
+      relationLabel: { ja: "礼節", en: "Courteous" },
     },
   ];
 }

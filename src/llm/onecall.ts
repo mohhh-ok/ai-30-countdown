@@ -74,7 +74,7 @@ function normalizeOne(o: Record<string, unknown>, id: string): CharacterDecision
     moveTarget: typeof o.moveTarget === "string" && o.moveTarget ? o.moveTarget : undefined,
     targetId: typeof o.targetId === "string" && o.targetId ? o.targetId : undefined,
     diary: normalizeLocalized(o.diary),
-    relationLabel: typeof o.relationLabel === "string" ? o.relationLabel : "",
+    relationLabel: normalizeLocalized(o.relationLabel),
     paramDeltas: asParamDeltas(o.paramDeltas),
     deltaReason: typeof o.deltaReason === "string" ? o.deltaReason : "",
   };
@@ -85,7 +85,7 @@ function fallbackDecision(id: string): CharacterDecision {
     id,
     action: "forage",
     diary: { ja: "とりまサバイブ最優先っしょ。", en: "Survival first, obvs." },
-    relationLabel: "",
+    relationLabel: { ja: "", en: "" },
     paramDeltas: {},
     deltaReason: "",
   };
@@ -114,7 +114,7 @@ function directorContext(state: WorldState, tension: Tension, recentLog: TickRes
   const cast = living
     .map((c) => {
       const place = findPlace(state.places, c.currentPlaceId)?.name ?? c.currentPlaceId;
-      return `- ${c.name}(id:${c.id}): 霊力${c.energy} @${place} ｜ 気分(高揚${c.mood.elation}/温${c.mood.warmth}/安${c.mood.calm}/ストレス${c.mood.stress}) ｜ 相手への感情:${c.relationLabel}`;
+      return `- ${c.name}(id:${c.id}): 霊力${c.energy} @${place} ｜ 気分(高揚${c.mood.elation}/温${c.mood.warmth}/安${c.mood.calm}/ストレス${c.mood.stress}) ｜ 相手への感情:${c.relationLabel.ja}`;
     })
     .join("\n");
   const placeList = state.places
@@ -177,7 +177,7 @@ function characterSubPrompt(state: WorldState, self: Character, others: Characte
   "moveTarget": "action が \\"move\\" のときだけ移ろう先の場所id。それ以外は空文字",
   "targetId": "action が talk/share/steal のときは同じ地の相手の id、follow のときは寄り添う相手の id（離れていても可）。それ以外は空文字",
   "diary": { "ja": "一人称・一行の内省（日本語・pop口調。タメ口で軽快に、記号や絵文字も可）", "en": "the same reflection as a first-person one-liner in natural casual English (same pop voice; emojis ok)" },
-  "relationLabel": "相手への現在の感情ラベル（pop口調の口語ひと言。例: ガチ警戒 / なんか好き / マジ無理 など）",
+  "relationLabel": { "ja": "相手への現在の感情ラベル（pop口調の口語ひと言。例: ガチ警戒 / なんか好き / マジ無理 など）", "en": "the same feeling as a short casual English tag (e.g. Super wary / Kinda like them / Hard no)" },
   "paramDeltas": { "altruism": 整数(-5〜5), "independence": 整数(-5〜5), "trust": 整数(-5〜5) },
   "deltaReason": "パラメータを動かした理由を一行で。動かさないなら空文字"
 }`;
@@ -225,7 +225,7 @@ export function buildOrchestratorUserPrompt(
   },
   "whispers": [ { "id": "対象キャラid", "whisper": "そのキャラ視点の一人称の囁き" } ],
   "characters": [
-    { "id": "キャラid", "action": "...", "moveTarget": "", "targetId": "", "diary": { "ja": "一行日記(日本語)", "en": "same one-liner in casual English" }, "relationLabel": "...", "paramDeltas": { "altruism": 0, "independence": 0, "trust": 0 }, "deltaReason": "" }
+    { "id": "キャラid", "action": "...", "moveTarget": "", "targetId": "", "diary": { "ja": "一行日記(日本語)", "en": "same one-liner in casual English" }, "relationLabel": { "ja": "感情タグ(日本語)", "en": "same tag in casual English" }, "paramDeltas": { "altruism": 0, "independence": 0, "trust": 0 }, "deltaReason": "" }
   ],
   "dialogue": [ { "speakerId": "キャラid", "text": { "ja": "セリフ本文(一文〜二文)", "en": "same line in natural casual English" } } ]
 }`;

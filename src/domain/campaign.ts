@@ -43,7 +43,7 @@ export interface CharSave {
   antibodies: ChannelMap;
   currentWhisper?: string;
   whisperIgnored?: number;
-  relationLabel: string;
+  relationLabel: LocalizedText;
   episodicMemory: string[];
   diary: LocalizedText[];
   /** ココロ（kind.id→受領回数）。周またぎ持ち越しはハルだけ（freshWorldFor 参照）。 */

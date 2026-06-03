@@ -62,7 +62,7 @@ export function createDirectorProvider(): DirectorProvider {
     const cast = living
       .map((c) => {
         const place = findPlace(state.places, c.currentPlaceId)?.name ?? c.currentPlaceId;
-        return `- ${c.name}: 霊力${c.energy} @${place} ｜ 気分(高揚${c.mood.elation}/温${c.mood.warmth}/安${c.mood.calm}/ストレス${c.mood.stress}) ｜ 相手への感情:${c.relationLabel}`;
+        return `- ${c.name}: 霊力${c.energy} @${place} ｜ 気分(高揚${c.mood.elation}/温${c.mood.warmth}/安${c.mood.calm}/ストレス${c.mood.stress}) ｜ 相手への感情:${c.relationLabel.ja}`;
       })
       .join("\n");
 

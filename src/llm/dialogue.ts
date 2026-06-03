@@ -36,7 +36,7 @@ function speakerProfile(c: Character, action: string, places: WorldState["places
 固定の口調（不変・必ずこの喋り方で。他キャラと混ざらないこと）: ${c.voice}
 今日の行動: ${action}
 気質: 利他=${t.altruism} / 自立=${t.independence} / 信頼=${t.trust}
-相手への感情: ${c.relationLabel}
+相手への感情: ${c.relationLabel.ja}
 いまの胸の内: 「${lastDiary}」
 現在地: ${place} ｜ エネルギー: ${c.energy}${
     c.frenzy?.active

@@ -19,13 +19,20 @@ import { SoulsPage } from "./pages/SoulsPage.tsx";
 import { CharAvatar } from "./components/CharAvatar.tsx";
 import { type Route, useHashRoute } from "./router.ts";
 import { allCharIds, nameOfId, ticksOfLoop, unlockOf } from "./util.ts";
-import { type Lang, useDomainNames, useLang, useT } from "./i18n.tsx";
+import { type Lang, useDomainNames, useLang, useLocalized, useT } from "./i18n.tsx";
 
 // サーバ側ワーカーが自走で世界を進める。UI は進行操作を持たず、一定間隔で最新状態を取りに行くだけ。
 const POLL_INTERVAL_MS = 3000;
 
 // ホーム配下のビュー切替（表＝main / 裏＝status / デバッグ＝debug）。
 type View = "main" | "status" | "debug";
+
+// デバッグ（楽屋ビュー＝ログ TickLog）はローカル開発時のみ表示する。
+// 公開（Railway）では誰でも裏側ログを覗ける状態にしたくないので、ブラウザの
+// hostname が localhost/ループバックのときだけタブとビューを出す。
+const IS_LOCALHOST =
+  typeof window !== "undefined" &&
+  ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
 
 /** ページ切り替えのナビ。回帰一覧と各キャラへの入口を常設する。 */
 function SiteNav({
@@ -68,13 +75,15 @@ function SiteNav({
       >
         {t("nav_status")}
       </a>
-      <a
-        className={route.name === "home" && view === "debug" ? "nav-on" : ""}
-        href="#/"
-        onClick={() => setView("debug")}
-      >
-        {t("nav_debug")}
-      </a>
+      {IS_LOCALHOST && (
+        <a
+          className={route.name === "home" && view === "debug" ? "nav-on" : ""}
+          href="#/"
+          onClick={() => setView("debug")}
+        >
+          {t("nav_debug")}
+        </a>
+      )}
       <a className={onLoop ? "nav-on" : ""} href="#/loops">
         {t("nav_loops")}
         {loopParen}
@@ -171,6 +180,7 @@ export function App() {
   const route = useHashRoute();
   const t = useT();
   const dn = useDomainNames();
+  const loc = useLocalized();
   const { lang } = useLang();
   const nameSep = lang === "en" ? ", " : "・";
 
@@ -326,7 +336,7 @@ export function App() {
                     <div key={c.id} className="rel-line">
                       <span className="rel-name">{dn.char(c.id, c.name)}</span>
                       <span className="arrow">→</span>
-                      <strong>{c.relationLabel || t("rel_none")}</strong>
+                      <strong>{loc(c.relationLabel, "relation") || t("rel_none")}</strong>
                     </div>
                   ))}
                 </div>
@@ -346,7 +356,7 @@ export function App() {
               </section>
             </>
           )}
-          {view === "debug" && (
+          {IS_LOCALHOST && view === "debug" && (
             <section className="log-section">
               <h3>{t("log_title")}</h3>
               <TickLog log={currentLoopLog} />

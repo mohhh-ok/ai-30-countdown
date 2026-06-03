@@ -208,7 +208,7 @@ export interface Character {
   // --- 記憶（plan.md 第8節・軽量3層） ---
   episodicMemory: string[]; // エピソード記憶（直近5件ほど）
   diary: LocalizedText[]; // 毎ティックの一行日記（日英）
-  relationLabel: string; // 相手への現在の感情ラベル
+  relationLabel: LocalizedText; // 相手への現在の感情ラベル（LLM 生成・日英）
   /**
    * ココロ。他者から「された経験」が積もって芽生える内面の傾き（soul.ts の SOUL_KINDS）。
    * kind.id（"altruism"/"wariness"/"bond" 等）→ 累計受領回数 の疎な Record。
@@ -266,7 +266,7 @@ export interface CharacterTickResult {
   diary: LocalizedText; // 一行日記（LLM 生成・日英）
   // engine が決定的に上書きした行動の理由注記（衝動／分与）。表示は UI が言語別に前置する。
   diaryNote?: "impulse" | "gift";
-  relationLabel: string;
+  relationLabel: LocalizedText;
   stageBefore: Stage;
   stageAfter: Stage;
   stageChanged: boolean;
@@ -444,7 +444,7 @@ export interface CharacterDecision {
   diary: LocalizedText; // 一行日記（LLM 生成・日英）
   // 行動上書きの理由注記。LLM 応答には含まれず、engine だけが衝動／分与の上書き時にセットする。
   diaryNote?: "impulse" | "gift";
-  relationLabel: string;
+  relationLabel: LocalizedText; // 相手への感情ラベル（LLM 生成・日英）
   paramDeltas: Partial<Params>;
   deltaReason: string;
 }
