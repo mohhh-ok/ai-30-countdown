@@ -256,7 +256,7 @@ export function TickLog({ log }: { log: TickResult[] }) {
                     <span className="speaker">
                       {dn.char(line.speakerId, line.speakerName)}
                     </span>
-                    <span className="bubble-text">{line.text}</span>
+                    <span className="bubble-text">{loc(line.text, "dialogue")}</span>
                   </div>
                 );
               })}

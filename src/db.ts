@@ -303,7 +303,8 @@ export function saveTick(runId: number, result: TickResult): void {
             seq: i,
             speakerId: line.speakerId,
             speakerName: line.speakerName,
-            text: line.text,
+            text: line.text.ja,
+            textEn: line.text.en,
           })),
         )
         .run();

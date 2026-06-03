@@ -1055,12 +1055,11 @@ export async function runTick(
             history,
             speaker.id,
           );
-          const line = text?.trim();
-          if (!line) break; // 言葉が出なければ打ち切り
+          if (!text.ja && !text.en) break; // 言葉が出なければ打ち切り
           history.push({
             speakerId: speaker.id,
             speakerName: speaker.name,
-            text: line,
+            text: { ja: text.ja.trim(), en: text.en.trim() },
           });
           // 自然な締めの合図が出たら（最低 DIALOGUE_MIN_TURNS は続けたうえで）終える
           if (end && history.length >= DIALOGUE_MIN_TURNS) break;

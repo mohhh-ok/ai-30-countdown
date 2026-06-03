@@ -227,7 +227,7 @@ export function buildOrchestratorUserPrompt(
   "characters": [
     { "id": "キャラid", "action": "...", "moveTarget": "", "targetId": "", "diary": { "ja": "一行日記(日本語)", "en": "same one-liner in casual English" }, "relationLabel": "...", "paramDeltas": { "altruism": 0, "independence": 0, "trust": 0 }, "deltaReason": "" }
   ],
-  "dialogue": [ { "speakerId": "キャラid", "text": "セリフ本文（一文〜二文）" } ]
+  "dialogue": [ { "speakerId": "キャラid", "text": { "ja": "セリフ本文(一文〜二文)", "en": "same line in natural casual English" } } ]
 }`;
 
   return `=== Day ${state.day} の進行 ===
@@ -337,11 +337,11 @@ function parseTickPlan(raw: string, state: WorldState): TickPlan {
         .map((x) => {
           const o = (x ?? {}) as Record<string, unknown>;
           const id = typeof o.speakerId === "string" ? o.speakerId : "";
-          const text = typeof o.text === "string" ? o.text.trim() : "";
+          const text = normalizeLocalized(o.text);
           const name = living.find((c) => c.id === id)?.name ?? id;
           return { speakerId: id, speakerName: name, text };
         })
-        .filter((l) => l.text)
+        .filter((l) => l.text.ja || l.text.en)
         .slice(0, MAX_DIALOGUE_LINES)
     : [];
 
@@ -431,7 +431,7 @@ export function createOneCallProviders(): {
   const dialogue: DialogueProvider = async (_state, _weather, _speakers, history) => {
     const lines = current?.dialogue ?? [];
     const i = history.length;
-    if (i >= lines.length) return { text: "", end: true };
+    if (i >= lines.length) return { text: { ja: "", en: "" }, end: true };
     return { text: lines[i].text, end: i + 1 >= lines.length };
   };
 

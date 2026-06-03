@@ -202,7 +202,8 @@ export const dialogues = sqliteTable(
     seq: integer("seq").notNull(),
     speakerId: text("speaker_id").notNull(),
     speakerName: text("speaker_name").notNull(),
-    text: text("text").notNull(),
+    text: text("text").notNull(), // セリフ本文（日本語＝source of truth）
+    textEn: text("text_en").notNull().default(""), // セリフ本文（英語。表示は resultJson 由来だが分析用に保持）
   },
   (t) => [unique().on(t.runId, t.loop, t.day, t.seq)],
 );

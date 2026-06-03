@@ -219,8 +219,8 @@ export function createMockDialogueProvider(): DialogueProvider {
   return async (state, _weather, _speakers, history, nextSpeakerId) => {
     const name = state.characters.find((c) => c.id === nextSpeakerId)?.name ?? nextSpeakerId;
     const turn = history.length;
-    const text = `（mock）${name}「${lines[turn % lines.length]}」`;
+    const ja = `（mock）${name}「${lines[turn % lines.length]}」`;
     const end = turn >= 3; // 4発言で締める
-    return { text, end };
+    return { text: { ja, en: `(mock) ${name}: "${lines[turn % lines.length]}"` }, end };
   };
 }

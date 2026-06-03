@@ -237,7 +237,7 @@ function Scene({ t, primary }: { t: TickResult; primary: boolean }) {
                   />
                   {dn.char(line.speakerId, line.speakerName)}
                 </span>
-                <span className="stage-bubble-text">{line.text}</span>
+                <span className="stage-bubble-text">{loc(line.text, "dialogue")}</span>
               </div>
             );
           })}

@@ -300,7 +300,7 @@ export interface CharacterTickResult {
 export interface DialogueLine {
   speakerId: string;
   speakerName: string;
-  text: string;
+  text: LocalizedText; // セリフ本文（LLM 生成・日英）
 }
 
 /** 物語の緊張度（演出家の判断材料） */
@@ -471,7 +471,7 @@ export type DialogueProvider = (
   speakers: DialogueSpeaker[],
   history: DialogueLine[],
   nextSpeakerId: string,
-) => Promise<{ text: string; end: boolean }>;
+) => Promise<{ text: LocalizedText; end: boolean }>;
 
 // ============================================================
 // 回帰（ローグライク）構造とスキル（plan.md「終わらなさ」の仕組み）
