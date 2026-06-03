@@ -485,6 +485,7 @@ export interface SkillEffectRaw {
   wardPower?: number; // 結界力 +n（30日目の大禍を祓い退けるための備え。これが猛威度に届けばクリア）
   stealResist?: number; // 奪われたときの霊力喪失・ストレスを軽くする割合（0〜1、0.5=半減）
   quellPower?: number; // 鎮めの力 +n（荒ぶる半妖をハルが祓い鎮めるための備え。これが荒ぶり度に届けば鎮静）
+  shareReflect?: number; // 返霊 +n（ハルが分与を受けたとき、削って分けてくれた相手＝share元に霊力を返し救う）
 }
 
 /** 全習得スキルを合算した実効効果（engine / freshWorldFor が読む） */
@@ -498,6 +499,7 @@ export interface SkillEffects {
   wardPower: number; // 結界力の総和（30日目の大禍の猛威度に届けば回避＝クリア）
   stealResist: number; // 奪われ被害の軽減割合の総和（0〜1にクランプして使う）
   quellPower: number; // 鎮めの力の総和（荒ぶる半妖の荒ぶり度に届けば鎮静できる）
+  shareReflect: number; // 返霊の総和（ハルが分与を受けたとき share元へ返す霊力）
 }
 
 /**

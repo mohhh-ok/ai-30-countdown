@@ -77,16 +77,6 @@ export const SKILLS: SkillDef[] = [
     measure: ({ hero }) => (hero.wasStolenFrom ? 1 : 0),
     effect: { stealResist: 0.5 },
   },
-  {
-    id: "pathfinder",
-    icon: "🧭",
-    name: "道を知る者",
-    description: "通算20度、足で移動すると会得（周をまたいで蓄積）。独りの渓を出て他者へ向かう歩みに体が慣れ、日々の負荷が1軽くなる。",
-    scope: "career",
-    threshold: 20,
-    measure: ({ hero }) => (hero.action === "move" ? 1 : 0),
-    effect: { loadReduction: 1 },
-  },
   // --- 結界スキル（30日目の大禍を祓い退けるための「結界力 wardPower」を積む）---
   // 単独（ハルひとり）の周でも、祓い×8 と 休む×10 だけで wardPower 18+14=32 ≥ 猛威度30 に届く設計。
   // 仲間が解放されれば、分与・寄り添いの道でも結界を編める。
@@ -145,6 +135,24 @@ export const SKILLS: SkillDef[] = [
     // 鎮めた日も含めて数えるため、鎮め判定で active=false になっても進捗を取りこぼさない。
     measure: ({ hero }) => (hero.facedFrenzy ? 1 : 0),
     effect: { quellPower: 14 },
+  },
+  // --- 涸らさぬ手（分与で自らを削る者を涸れさせない「返霊 shareReflect」。鎮めの術の双子）---
+  // ナギは利他が成熟すると弱った者（最優先はハル）へ霊力を分け与え、自己消費(-10)で枯れていく。
+  // ハルが分与をその身に受けた経験が術となり、会得後は分けてくれた相手（share元＝主にナギ）へ
+  // 霊力を返し、与え手の身を涸らさない。荒ぶりを完全に解く鎮めの術と対をなす「完全救済」。
+  {
+    id: "never_dry",
+    icon: "🤲",
+    name: "涸らさぬ手",
+    description:
+      "誰かの分け与えをその身に通算5度受けると会得（周をまたいで蓄積）。以後、ハルが霊力を分けてもらったとき、削って分けてくれた相手にも霊力を返し（返霊+10）、その身を涸らさない。",
+    scope: "career",
+    threshold: 5,
+    // ハルが share の受け手になった日に進む。share元の記録（action==="share" かつ targetId がハル）で判定し、
+    // ハル自身の行動に依らず「分けてもらった経験」だけを糧にする（鎮めの術 facedFrenzy と同じ作法）。
+    measure: ({ hero, result }) =>
+      result.characters.some((c) => c.action === "share" && c.targetId === hero.id) ? 1 : 0,
+    effect: { shareReflect: 10 },
   },
 ];
 
@@ -208,6 +216,7 @@ export function noSkillEffects(): SkillEffects {
     wardPower: 0,
     stealResist: 0,
     quellPower: 0,
+    shareReflect: 0,
   };
 }
 
@@ -227,6 +236,7 @@ export function aggregateEffects(acquired: SkillId[]): SkillEffects {
     if (e.wardPower) eff.wardPower += e.wardPower;
     if (e.stealResist) eff.stealResist += e.stealResist;
     if (e.quellPower) eff.quellPower += e.quellPower;
+    if (e.shareReflect) eff.shareReflect += e.shareReflect;
   }
   // 奪われ被害の軽減割合は 0〜1 に収める（将来複数スキルが重なっても全損化させない）
   eff.stealResist = Math.min(1, eff.stealResist);

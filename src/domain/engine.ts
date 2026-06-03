@@ -432,20 +432,28 @@ export async function runTick(
     }
   }
 
-  // 2.6 利他の贈与（ココロの起点づくり）。利他が成熟し霊力に余裕のある者が、同室に弱った相手
-  //  （特にハル）を見ているのに rest/forage で済ませようとしているなら、その一手を「分け与え」へ向ける。
+  // 2.6 利他の贈与（ココロの起点づくり）。利他が成熟した者が、同室に弱った相手（特にハル）を
+  //  見ているのに rest/forage で済ませようとしているなら、その一手を「分け与え」へ向ける。
   //  これが無いと誰も最初の贈与をせず、受け手にココロ（利他の心）が芽生える種が生まれない
-  //  （実測: 全周で share がほぼ 0。利他87のナギすら余裕を rest/follow に流して share を選ばなかった）。
+  //  （実測: 全周で share がほぼ 0。満腹基準のガードが、慢性的に飢えるナギの分与を永遠に阻んでいた）。
   //  衝動と同じく決定論の一手であり、上書きしたぶんは日記にも理由を滲ませて可視化する（握りつぶさない）。
   const GIFT_ALTRUISM = 60; // 利他が「成熟」域（弱者を見過ごせなくなる閾値）
-  const GIFT_SURPLUS = 15; // 分与(-10)しても自分は飢えない余裕
+  // 分け与え後もこの霊力を保てるなら分ける「死なない最低線(survival floor)」。
+  //  かつては「満腹(satiety)+余裕」基準だったが、ナギは利他が成熟する瞬間ほぼ常に自分も飢えており
+  //  (energy < satiety)、満腹基準では分与が永遠に発火しなかった（実測: 全周 share 0%。利他100のナギすら
+  //  弱者の隣で満腹を超えていたのは 17手中1手）。満腹でなく「死なない最低線」を基準にして share を起こす。
+  //  深く分けて枯れる与え手（主にナギ）は、ハルの会得スキル「涸らさぬ手」(返霊+10) が受け止めて救う。
+  const GIFT_FLOOR = 5;
   for (const actor of living) {
     const d = decisionById.get(actor.id);
     if (!d) continue;
     if (impulseIds.has(actor.id)) continue; // 衝動で動く者はそちらを優先
     if (actor.params.altruism < GIFT_ALTRUISM) continue;
-    if (actor.energy < actor.satiety + GIFT_SURPLUS) continue; // 余裕がなければ無理しない
     if (d.action !== "rest" && d.action !== "forage") continue; // 切迫した／意味のある一手は奪わない
+    // 分け与えても「死なない最低線」を割らないこと（満腹基準でなく survival floor）。
+    //  share の自己消費は推測でハードコードせず actionEffect から取る。
+    const shareCost = -actionEffect("share", weather, findPlace(state.places, actor.currentPlaceId)!).self;
+    if (actor.energy - shareCost < GIFT_FLOOR) continue;
     // 同室の弱った生存者（自分以外）。ハルを最優先、次いで最も弱い者へ。
     const weak = living
       .filter(
@@ -603,6 +611,11 @@ export async function runTick(
         partner = Math.round(partner * (1 - skillEffects.stealResist));
       }
       target.energy += partner;
+      // 主人公のスキル「涸らさぬ手」: ハルが分与を受けたとき、削って分けてくれた相手（share元＝主にナギ）に
+      // 霊力を返し、与え手の身を涸らさない。share の自己消費(-10)をほぼ相殺する「完全救済」。
+      if (action === "share" && isHero(target.id) && skillEffects.shareReflect > 0) {
+        actor.energy += skillEffects.shareReflect;
+      }
     }
     // 禁忌「奪う」を犯すと、奪った側自身の日次負荷が恒久的に増す（旨味 energy +12 の代償）。
     // 以後ずっと毎ティックの消耗が重くなり、回帰内では戻らない。奪い続ければ自滅へ向かう。
