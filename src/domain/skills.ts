@@ -87,16 +87,6 @@ export const SKILLS: SkillDef[] = [
     measure: ({ hero }) => (hero.action === "move" ? 1 : 0),
     effect: { loadReduction: 1 },
   },
-  {
-    id: "quiet_awakening",
-    icon: "🧘",
-    name: "静かな悟り",
-    description: "通算10度、身を鎮めて休むと会得（周をまたいで蓄積）。独りの静けさの中で芯が澄み、次周以降は利他+8で目覚める。",
-    scope: "career",
-    threshold: 10,
-    measure: ({ hero }) => (hero.action === "rest" ? 1 : 0),
-    effect: { startAltruismBonus: 8 },
-  },
   // --- 結界スキル（30日目の大禍を祓い退けるための「結界力 wardPower」を積む）---
   // 単独（ハルひとり）の周でも、祓い×8 と 休む×10 だけで wardPower 18+14=32 ≥ 猛威度30 に届く設計。
   // 仲間が解放されれば、分与・寄り添いの道でも結界を編める。
