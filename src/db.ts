@@ -532,6 +532,7 @@ export function loadLoopTicks(runId: number, loop: number): TickResult[] {
 export interface CharTraceRow {
   loop: number;
   day: number;
+  place_id: string; // 地名の英訳用（UI で place を解決。place_name は日本語フォールバック）
   place_name: string;
   diary: string;
   died: number;
@@ -547,6 +548,7 @@ export function loadCharacterTrace(runId: number, charId: string): CharTraceRow[
     .select({
       loop: charMetrics.loop,
       day: charMetrics.day,
+      place_id: charMetrics.placeId,
       place_name: charMetrics.placeName,
       diary: charMetrics.diary,
       died: charMetrics.died,

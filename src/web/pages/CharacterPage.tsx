@@ -11,6 +11,7 @@ import { useDomainNames, useT } from "../i18n.tsx";
 interface CharTrace {
   loop: number;
   day: number;
+  place_id: string;
   place_name: string;
   diary: string;
   died: number;
@@ -54,8 +55,9 @@ function LoopTrace({ loop, rows }: { loop: number; rows: CharTrace[] }) {
             className={`char-day${r.died ? " char-day-died" : ""}`}
           >
             <span className="char-day-num">Day {r.day}</span>
-            {/* char_metrics の trace は place_id を持たないため日本語地名のまま表示 */}
-            <span className="char-day-place">＠{r.place_name}</span>
+            <span className="char-day-place">
+              ＠{dn.place(r.place_id, r.place_name)}
+            </span>
             {r.became_frenzied ? (
               <span className="char-day-frenzy">{t("char_day_transform")}</span>
             ) : r.frenzy_active ? (
