@@ -21,6 +21,7 @@ export function PlacesMap({
           <div
             key={p.id}
             className={`map-place${here.length ? " occupied" : ""}`}
+            // TODO(i18n): 場所の説明はドメイン定義の日本語固定文（issue #8 で翻訳予定）
             title={p.description}
           >
             <img

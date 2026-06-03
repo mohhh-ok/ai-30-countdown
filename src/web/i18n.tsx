@@ -14,6 +14,7 @@ import {
   type ReactNode,
 } from "react";
 import type { CharacterTickResult } from "../domain/types.ts";
+import { charIdByName, skillIdByName } from "./util.ts";
 
 export type Lang = "ja" | "en";
 
@@ -515,6 +516,10 @@ const SOUL_STAGE_EN: Record<string, string> = {
   満ちる: "Full",
 };
 
+// 警告済みキーの記録。ポーリングで毎レンダリング走るので、同じ未登録キーを
+// 何度も warn して devtools を溢れさせない（可視化は1回で十分）。
+const warnedKeys = new Set<string>();
+
 // id→英語ラベルの引き当て。未登録なら warn して日本語フォールバック（黙って既定化しない）。
 function pickEn(
   table: Record<string, string>,
@@ -523,8 +528,12 @@ function pickEn(
   kind: string,
 ): string {
   const en = table[id];
-  if (en) return en;
-  console.warn(`[i18n] 英訳が未登録です: ${kind}.${id}（日本語表示にフォールバック）`);
+  if (en !== undefined) return en;
+  const wk = `${kind}.${id}`;
+  if (!warnedKeys.has(wk)) {
+    warnedKeys.add(wk);
+    console.warn(`[i18n] 英訳が未登録です: ${wk}（日本語表示にフォールバック）`);
+  }
   return jaFallback;
 }
 
@@ -617,6 +626,27 @@ export function useDomainNames() {
       lang === "en" ? pickEn(SOUL_SOURCE_EN, id, jaSource, "soulSource") : jaSource,
     soulStage: (jaStage: string) =>
       lang === "en" ? pickEn(SOUL_STAGE_EN, jaStage, jaStage, "soulStage") : jaStage,
+    // 表示名（日本語）しか手元に無いとき用（TickResult の acquiredSkills/unlockedCharacters は
+    // 表示名で載る）。名前→id 逆引きしてから英訳テーブルへ橋渡しする。
+    skillByName: (jaName: string) => {
+      if (lang !== "en") return jaName;
+      const id = skillIdByName(jaName);
+      return id ? pickEn(SKILL_EN, id, jaName, "skill") : jaName;
+    },
+    charByName: (jaName: string) => {
+      if (lang !== "en") return jaName;
+      const id = charIdByName(jaName);
+      return id ? pickEn(CHAR_EN, id, jaName, "char") : jaName;
+    },
+  };
+}
+
+/** リスト連結の区切り。汎用リストとスキル名（日本語は「」で括る）で分ける。 */
+export function useSep() {
+  const { lang } = useLang();
+  return {
+    list: lang === "en" ? ", " : "・",
+    skills: lang === "en" ? ", " : "」「",
   };
 }
 

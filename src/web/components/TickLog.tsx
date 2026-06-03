@@ -2,8 +2,7 @@
 import type { CSSProperties } from "react";
 import type { LlmCallTiming, TickResult } from "../../domain/types.ts";
 import { charColor } from "../charTheme.ts";
-import { useDomainNames, useLang, useT } from "../i18n.tsx";
-import { charIdByName, skillIdByName } from "../util.ts";
+import { useDomainNames, useSep, useT } from "../i18n.tsx";
 
 /** ミリ秒を読みやすく（1秒以上は「1.2s」、未満は「840ms」）。 */
 function fmtMs(ms: number): string {
@@ -61,8 +60,7 @@ function TimingBlock({ timings }: { timings: LlmCallTiming[] }) {
 export function TickLog({ log }: { log: TickResult[] }) {
   const tr = useT();
   const dn = useDomainNames();
-  const { lang } = useLang();
-  const sep = lang === "en" ? ", " : "・";
+  const sep = useSep();
   if (log.length === 0) {
     return <p className="log-empty">{tr("tlog_empty")}</p>;
   }
@@ -105,24 +103,14 @@ export function TickLog({ log }: { log: TickResult[] }) {
               {t.acquiredSkills?.length ? (
                 <span className="mark mark-skill">
                   {tr("tlog_mark_skill", {
-                    skills: t.acquiredSkills
-                      .map((n) => {
-                        const id = skillIdByName(n);
-                        return id ? dn.skill(id, n) : n;
-                      })
-                      .join(lang === "en" ? ", " : "」「"),
+                    skills: t.acquiredSkills.map(dn.skillByName).join(sep.skills),
                   })}
                 </span>
               ) : null}
               {t.unlockedCharacters?.length ? (
                 <span className="mark mark-unlock">
                   {tr("tlog_mark_unlock", {
-                    names: t.unlockedCharacters
-                      .map((n) => {
-                        const id = charIdByName(n);
-                        return id ? dn.char(id, n) : n;
-                      })
-                      .join(sep),
+                    names: t.unlockedCharacters.map(dn.charByName).join(sep.list),
                   })}
                 </span>
               ) : null}
@@ -262,6 +250,7 @@ export function TickLog({ log }: { log: TickResult[] }) {
           )}
           <div className="log-notable">
             {tr("tlog_notable_label")}
+            {/* TODO(i18n): notable は engine 生成の日本語文（issue #8 で翻訳予定） */}
             {t.notable}
           </div>
         </div>

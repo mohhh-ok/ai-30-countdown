@@ -4,7 +4,7 @@
 // （進行中の経過日数だけは現周ログの長さを currentDays として受け取る）。
 import type { Chronicle, LoopSummary } from "../../domain/types.ts";
 import { skillName } from "../util.ts";
-import { useDomainNames, useLang, useT } from "../i18n.tsx";
+import { useDomainNames, useSep, useT } from "../i18n.tsx";
 
 export function LoopsPage({
   chronicle,
@@ -15,8 +15,7 @@ export function LoopsPage({
 }) {
   const t = useT();
   const dn = useDomainNames();
-  const { lang } = useLang();
-  const sep = lang === "en" ? ", " : "・";
+  const sep = useSep();
   const current = chronicle?.loop ?? 1;
   const summaries = new Map<number, LoopSummary>(
     (chronicle?.history ?? []).map((s) => [s.loop, s]),
@@ -53,6 +52,7 @@ export function LoopsPage({
                   </div>
                   {sum ? (
                     <>
+                      {/* TODO(i18n): causeOfEnd は campaign.ts 生成の日本語固定文（issue #8 で翻訳予定） */}
                       <p className="loop-card-end">{sum.causeOfEnd}</p>
                       <p className="loop-card-meta">
                         {t("loops_reached", {
@@ -65,7 +65,7 @@ export function LoopsPage({
                           {t("loops_skills", {
                             skills: sum.acquiredSkills
                               .map((sid) => dn.skill(sid, skillName(sid)))
-                              .join(sep),
+                              .join(sep.list),
                           })}
                         </p>
                       )}

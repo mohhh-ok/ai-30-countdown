@@ -136,6 +136,7 @@ export function CharacterPage({
           <h3>{t("unlock_cond")}</h3>
           {unlock ? (
             <>
+              {/* TODO(i18n): 解放条件の文言はドメイン定義の日本語固定文（issue #8 で翻訳予定） */}
               <p className="unlock-req">{unlock.requirement}</p>
               <p className="unlock-hint">{unlock.describe}</p>
             </>
@@ -190,6 +191,7 @@ export function CharacterPage({
             }}
           />
           <div className="char-profile-text">
+            {/* TODO(i18n): core と initialLesson はドメイン定義の日本語固定文（issue #8 で翻訳予定） */}
             <p className="char-core">{def.core}</p>
             <p className="char-traits">
               <span>{t("char_talent", { label: talentLabel[def.talent] })}</span>

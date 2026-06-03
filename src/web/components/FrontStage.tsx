@@ -12,8 +12,7 @@ import { useState } from "react";
 import { charColor } from "../charTheme.ts";
 import { CharAvatar } from "./CharAvatar.tsx";
 import { SceneFX } from "./SceneFX.tsx";
-import { useDomainNames, useLang, useStory, useT } from "../i18n.tsx";
-import { charIdByName, skillIdByName } from "../util.ts";
+import { useDomainNames, useSep, useStory, useT } from "../i18n.tsx";
 
 /** 主役枠の地に敷く「今いる場所」の背景絵。object-fit でフィットさせ、未生成(404)なら消えて地色に落ちる。 */
 function HeroBackground({ placeId, placeName }: { placeId?: string; placeName?: string }) {
@@ -35,7 +34,7 @@ function HeroBackground({ placeId, placeName }: { placeId?: string; placeName?: 
 function SceneMarks({ t }: { t: TickResult }) {
   const tr = useT();
   const dn = useDomainNames();
-  const { lang } = useLang();
+  const sep = useSep();
   const becamer = t.characters.find((c) => c.becameFrenzied);
   const queller = t.characters.find((c) => c.quelledFrenzy);
   const wild = t.characters.find((c) => c.frenzyLevel !== undefined);
@@ -49,19 +48,9 @@ function SceneMarks({ t }: { t: TickResult }) {
   ) {
     return null;
   }
-  // 表示名（日本語）で載るので id へ逆引きしてから言語別に解決。区切りも言語で変える。
-  const skillsStr = t.acquiredSkills
-    ?.map((n) => {
-      const id = skillIdByName(n);
-      return id ? dn.skill(id, n) : n;
-    })
-    .join(lang === "en" ? ", " : "」「");
-  const unlockStr = t.unlockedCharacters
-    ?.map((n) => {
-      const id = charIdByName(n);
-      return id ? dn.char(id, n) : n;
-    })
-    .join(lang === "en" ? ", " : "・");
+  // 表示名（日本語）で載るので id へ逆引きしてから言語別に解決（dn.*ByName）。区切りも言語で変える。
+  const skillsStr = t.acquiredSkills?.map(dn.skillByName).join(sep.skills);
+  const unlockStr = t.unlockedCharacters?.map(dn.charByName).join(sep.list);
   return (
     <div className="scene-marks">
       {t.climax ? (

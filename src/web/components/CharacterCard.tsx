@@ -66,6 +66,7 @@ export function CharacterCard({
           {paramName[c.growthAxis]}: {dn.stage(stage)}
         </span>
       </div>
+      {/* TODO(i18n): キャラの core はドメイン定義の日本語固定文（issue #8 で翻訳予定） */}
       <p className="core">{c.core}</p>
       {(c.frenzy?.active || last?.becameFrenzied || last?.quelledFrenzy) && (
         <div className={`card-frenzy${last?.quelledFrenzy && !c.frenzy?.active ? " quelled" : ""}`}>
