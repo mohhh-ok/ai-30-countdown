@@ -263,7 +263,8 @@ export interface CharacterTickResult {
   placeId: string; // この日の終わりの現在地
   placeName: string;
   moved: boolean; // この日に移動したか
-  fromPlaceName?: string; // 移動した場合の出発地名
+  fromPlaceId?: string; // 移動した場合の出発地 id（表示の英訳引き当て用）
+  fromPlaceName?: string; // 移動した場合の出発地名（日本語表示・旧データ互換）
   withPartner: boolean; // 日の終わりに誰か（生存者）と同じ場所にいるか
   targetId?: string; // 対人行動を向けた相手の id（talk/share/steal 時）
   targetName?: string; // 同上・表示用の名前

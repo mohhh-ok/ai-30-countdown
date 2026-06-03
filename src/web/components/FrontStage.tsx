@@ -12,6 +12,8 @@ import { useState } from "react";
 import { charColor } from "../charTheme.ts";
 import { CharAvatar } from "./CharAvatar.tsx";
 import { SceneFX } from "./SceneFX.tsx";
+import { useDomainNames, useLang, useStory, useT } from "../i18n.tsx";
+import { charIdByName, skillIdByName } from "../util.ts";
 
 /** 主役枠の地に敷く「今いる場所」の背景絵。object-fit でフィットさせ、未生成(404)なら消えて地色に落ちる。 */
 function HeroBackground({ placeId, placeName }: { placeId?: string; placeName?: string }) {
@@ -29,13 +31,11 @@ function HeroBackground({ placeId, placeName }: { placeId?: string; placeName?: 
   );
 }
 
-const WEATHER_WORD: Record<string, string> = {
-  normal: "穏やかな日",
-  lean: "実りの薄い日",
-};
-
 /** 回帰の節目（スキル会得・キャラ解放・巻き戻り）を物語の言葉で添える */
 function SceneMarks({ t }: { t: TickResult }) {
+  const tr = useT();
+  const dn = useDomainNames();
+  const { lang } = useLang();
   const becamer = t.characters.find((c) => c.becameFrenzied);
   const queller = t.characters.find((c) => c.quelledFrenzy);
   const wild = t.characters.find((c) => c.frenzyLevel !== undefined);
@@ -49,134 +49,55 @@ function SceneMarks({ t }: { t: TickResult }) {
   ) {
     return null;
   }
+  // 表示名（日本語）で載るので id へ逆引きしてから言語別に解決。区切りも言語で変える。
+  const skillsStr = t.acquiredSkills
+    ?.map((n) => {
+      const id = skillIdByName(n);
+      return id ? dn.skill(id, n) : n;
+    })
+    .join(lang === "en" ? ", " : "」「");
+  const unlockStr = t.unlockedCharacters
+    ?.map((n) => {
+      const id = charIdByName(n);
+      return id ? dn.char(id, n) : n;
+    })
+    .join(lang === "en" ? ", " : "・");
   return (
     <div className="scene-marks">
       {t.climax ? (
         <span className={`mark mark-climax${t.climax.averted ? " mark-climax-saved" : ""}`}>
-          {t.climax.averted
-            ? "☄️ 大禍、来たる——ハルの結界が京を護り抜いた。京は救われた"
-            : "☄️ 大禍、来たる——結界は及ばず、京は呑まれた"}
+          {tr(t.climax.averted ? "mark_climax_saved" : "mark_climax_lost")}
         </span>
       ) : null}
       {becamer ? (
         <span className="mark mark-frenzy">
-          🔥 {becamer.name}の眼の色が変わる——餓えと猛りが理性を呑み、荒ぶり（変身）に堕ちた
+          {tr("mark_frenzy", { name: dn.char(becamer.id, becamer.name) })}
         </span>
       ) : null}
       {queller ? (
         <span className="mark mark-quell">
-          🕊️ ハルの祓いが{wild ? `荒ぶる${wild.name}` : "荒ぶる者"}の猛りを鎮めた——静けさが戻る
+          {tr("mark_quell", {
+            wild: wild
+              ? tr("mark_quell_wild", { name: dn.char(wild.id, wild.name) })
+              : tr("mark_quell_someone"),
+          })}
         </span>
       ) : null}
       {t.acquiredSkills?.length ? (
         <span className="mark mark-skill">
-          ✨ ハルは「{t.acquiredSkills.join("」「")}」を会得した
+          {tr("mark_skill", { skills: skillsStr ?? "" })}
         </span>
       ) : null}
       {t.unlockedCharacters?.length ? (
         <span className="mark mark-unlock">
-          🆕 {t.unlockedCharacters.join("・")} が次の回帰から京に現れる
+          {tr("mark_unlock", { names: unlockStr ?? "" })}
         </span>
       ) : null}
       {t.regressed ? (
-        <span className="mark mark-regress">↻ ハルは力尽き、時は巻き戻る——</span>
+        <span className="mark mark-regress">{tr("mark_regress")}</span>
       ) : null}
     </div>
   );
-}
-
-/** エネルギーを観客向けのざっくりした言葉に（数値は見せない） */
-function vigorWord(e: number): string {
-  if (e <= 10) return "限界が近い";
-  if (e <= 25) return "疲れている";
-  if (e <= 55) return "落ち着いている";
-  return "元気";
-}
-
-/** その日その人が「何をしたか」を物語の言葉にする（荒ぶり継続印は下の actStory が添える） */
-function actStoryBase(c: CharacterTickResult): string {
-  if (c.died) return `${c.name}は、ここで消え去った…`;
-  if (c.moved)
-    return c.action === "follow" && c.targetName
-      ? `${c.name}は${c.targetName}を慕って${c.placeName}へ近づいた`
-      : `${c.name}は${c.fromPlaceName}から${c.placeName}へ移ろった`;
-  switch (c.action) {
-    case "forage": {
-      const dr = c.forageDraw;
-      if (dr?.taboo) return `${c.name}は${c.placeName}で和みさえ喰らった——禁忌`;
-      if (dr && dr.daku > 0 && dr.sei === 0) return `${c.name}は${c.placeName}で荒びを喰らった`;
-      if (dr && dr.gain === 0) return `${c.name}は霊を集めたが、この地は枯れていた`;
-      return `${c.name}は${c.placeName}で霊を集めた`;
-    }
-    case "rest":
-      return `${c.name}は静かに気を鎮めた`;
-    case "talk":
-      return c.targetName
-        ? `${c.name}は${c.targetName}に語りかけた`
-        : `${c.name}はひとり言ちた`;
-    case "share":
-      return c.targetName
-        ? `${c.name}は${c.targetName}に霊力を分けた`
-        : `${c.name}は霊力を分けようとした`;
-    case "steal": {
-      const base = c.targetName
-        ? `${c.name}は${c.targetName}から霊を奪った`
-        : `${c.name}は霊を奪った`;
-      return c.stealBurden > 1
-        ? `${base}——業が重くなり、日々の消耗がさらに増した`
-        : `${base}——禁忌を犯した代償に、日々の消耗が重くなった`;
-    }
-    case "follow":
-      return c.targetName
-        ? `${c.name}は${c.targetName}の傍に寄り添った`
-        : `${c.name}は寄り添う相手を探した`;
-    case "purify":
-      return (c.purifyCleansed ?? 1) > 0
-        ? `${c.name}は${c.placeName}の荒びを鎮めた`
-        : `${c.name}は${c.placeName}で静かに祈った`;
-    default:
-      return `${c.name}はその日を過ごした`;
-  }
-}
-
-/**
- * 行動の物語に「荒ぶり（変身）」の気配を添える。
- * 変身した当日は SceneMarks が大きく告げるので、ここでは継続中の日だけ末尾に印を置く。
- * 死した者には付けない（消えた者に荒ぶりは続かない）。
- */
-function actStory(c: CharacterTickResult): string {
-  const story = actStoryBase(c);
-  if (!c.died && c.frenzyActive && !c.becameFrenzied) {
-    return `${story}——荒ぶりは鎮まらぬまま`;
-  }
-  return story;
-}
-
-/** 早回し用の短い行為ラベル（名前は別に出すので動詞句だけ） */
-function briefAct(c: CharacterTickResult): string {
-  if (c.died) return "力尽きた…";
-  if (c.moved)
-    return c.action === "follow" && c.targetName
-      ? `${c.targetName}を追って${c.placeName}へ`
-      : `${c.placeName}へ`;
-  switch (c.action) {
-    case "forage":
-      return c.forageDraw?.taboo ? "禁忌の業" : "霊を集めた";
-    case "rest":
-      return "気を鎮めた";
-    case "talk":
-      return c.targetName ? `${c.targetName}に語りかけ` : "ひとり言ちた";
-    case "share":
-      return c.targetName ? `${c.targetName}に分けた` : "分けようとした";
-    case "steal":
-      return c.targetName ? `${c.targetName}から奪った——業が重くなる` : "奪った——業が重くなる";
-    case "follow":
-      return c.targetName ? `${c.targetName}に寄り添い` : "寄り添う相手を探し";
-    case "purify":
-      return (c.purifyCleansed ?? 1) > 0 ? "荒びを鎮めた" : "静かに祈った";
-    default:
-      return "日を過ごした";
-  }
 }
 
 /**
@@ -184,21 +105,29 @@ function briefAct(c: CharacterTickResult): string {
  * 数値は見せないが、霊力が細った者にはそっと気配を添え、生存のヒリつきだけは残す。
  */
 function MontageLine({ t }: { t: TickResult }) {
+  const tr = useT();
+  const dn = useDomainNames();
+  const story = useStory();
   return (
     <div className="montage-line">
-      <span className="montage-day">第 {t.day} 日</span>
-      <span className="montage-weather">{WEATHER_WORD[t.weather] ?? ""}</span>
+      <span className="montage-day">{tr("scene_day", { n: t.day })}</span>
+      <span className="montage-weather">{story.weatherWord(t.weather)}</span>
       <span className="montage-acts">
         {t.characters.map((c) => {
           const low = !c.died && c.energyAfter <= 25;
           return (
             <span key={c.id} className={`montage-act${low ? " montage-low" : ""}`}>
-              <span className="montage-act-name">{c.name}</span>
-              {briefAct(c)}
+              <span className="montage-act-name">{dn.char(c.id, c.name)}</span>
+              {story.briefAct(c)}
               {!c.died && c.frenzyActive && !c.becameFrenzied && (
-                <span className="montage-frenzy">🔥荒ぶり</span>
+                <span className="montage-frenzy">{tr("brief_frenzy")}</span>
               )}
-              {low && <span className="montage-warn">…{vigorWord(c.energyAfter)}</span>}
+              {low && (
+                <span className="montage-warn">
+                  {tr("montage_low_sep")}
+                  {story.vigor(c.energyAfter)}
+                </span>
+              )}
             </span>
           );
         })}
@@ -210,15 +139,20 @@ function MontageLine({ t }: { t: TickResult }) {
 
 /** 1日ぶんの「場面」。primary=最新の場面は大きく、過去はやや控えめに。 */
 function Scene({ t, primary }: { t: TickResult; primary: boolean }) {
+  const tr = useT();
+  const dn = useDomainNames();
+  const story = useStory();
   const hero = t.characters.find((c) => c.id === t.spotlightId);
   const others = t.characters.filter((c) => c.id !== t.spotlightId);
 
   return (
     <div className={`scene${primary ? "" : " scene-past"}`}>
       <div className="scene-head">
-        {t.loop != null && <span className="scene-loop">第 {t.loop} 回帰</span>}
-        <span className="scene-day">第 {t.day} 日</span>
-        <span className="scene-weather">{WEATHER_WORD[t.weather] ?? ""}</span>
+        {t.loop != null && (
+          <span className="scene-loop">{tr("loop_label", { n: t.loop })}</span>
+        )}
+        <span className="scene-day">{tr("scene_day", { n: t.day })}</span>
+        <span className="scene-weather">{story.weatherWord(t.weather)}</span>
       </div>
 
       <SceneMarks t={t} />
@@ -239,7 +173,7 @@ function Scene({ t, primary }: { t: TickResult; primary: boolean }) {
             <SceneFX key={`fx-${hero.placeId ?? "none"}`} tone={hero.died ? "cool" : "warm"} />
             <CharAvatar
               id={hero.id}
-              name={hero.name}
+              name={dn.char(hero.id, hero.name)}
               size={120}
               square
               className="hero-portrait"
@@ -247,21 +181,23 @@ function Scene({ t, primary }: { t: TickResult; primary: boolean }) {
             <div className="hero-body">
               <div className="hero-top">
                 <span className="hero-cam">🎥</span>
-                <span className="hero-name">{hero.name}</span>
+                <span className="hero-name">{dn.char(hero.id, hero.name)}</span>
                 {!hero.died && (
-                  <span className="hero-vigor">{vigorWord(hero.energyAfter)}</span>
+                  <span className="hero-vigor">{story.vigor(hero.energyAfter)}</span>
                 )}
-                <span className="hero-place">＠{hero.placeName}</span>
+                <span className="hero-place">
+                  ＠{dn.place(hero.placeId, hero.placeName)}
+                </span>
               </div>
-              <p className="hero-act">{actStory(hero)}</p>
+              <p className="hero-act">{story.actStory(hero)}</p>
               {hero.diary && <p className="hero-diary">「{hero.diary}」</p>}
             </div>
           </div>
         ) : (
           <div className={`hero-line${hero.died ? " hero-dead" : ""}`}>
             <span className="hero-cam">🎥</span>
-            <span className="hero-line-name">{hero.name}</span>
-            <span className="hero-line-act">{actStory(hero)}</span>
+            <span className="hero-line-name">{dn.char(hero.id, hero.name)}</span>
+            <span className="hero-line-act">{story.actStory(hero)}</span>
             {hero.diary && <span className="hero-line-diary">「{hero.diary}」</span>}
           </div>
         ))}
@@ -286,8 +222,12 @@ function Scene({ t, primary }: { t: TickResult; primary: boolean }) {
                 }
               >
                 <span className="stage-speaker">
-                  <CharAvatar id={line.speakerId} name={line.speakerName} size={42} />
-                  {line.speakerName}
+                  <CharAvatar
+                    id={line.speakerId}
+                    name={dn.char(line.speakerId, line.speakerName)}
+                    size={42}
+                  />
+                  {dn.char(line.speakerId, line.speakerName)}
                 </span>
                 <span className="stage-bubble-text">{line.text}</span>
               </div>
@@ -298,10 +238,10 @@ function Scene({ t, primary }: { t: TickResult; primary: boolean }) {
 
       {others.length > 0 && (
         <div className="scene-others">
-          <span className="others-label">その頃——</span>
+          <span className="others-label">{tr("others_label")}</span>
           {others.map((c) => (
             <span key={c.id} className="other-line">
-              {actStory(c)}
+              {story.actStory(c)}
             </span>
           ))}
         </div>
@@ -319,15 +259,15 @@ export function FrontStage({
   log: TickResult[];
   chronicle?: Chronicle | null;
 }) {
+  const tr = useT();
+  const dn = useDomainNames();
   if (log.length === 0) {
     const solo = chronicle && chronicle.roster.length <= 1;
     return (
       <div className="stage-empty">
-        <p>幕が上がるのを待っています。</p>
+        <p>{tr("stage_empty")}</p>
         <p className="stage-empty-sub">
-          {solo
-            ? "第一の回帰——京にはまだハルひとり。「次の1日 ▶」で物語を始めましょう。"
-            : "「次の1日 ▶」で物語を始めましょう。"}
+          {solo ? tr("stage_empty_solo") : tr("stage_empty_sub")}
         </p>
       </div>
     );
@@ -347,10 +287,10 @@ export function FrontStage({
       {state && (
       <div className="kyo-gauge">
         <div className="kyo-head">
-          <span className="kyo-title">⛩ 京の気</span>
+          <span className="kyo-title">{tr("kyo_title")}</span>
           <span className="kyo-legend">
-            <span className="kyo-leg"><i className="kyo-dot kyo-dot-sei" />和み</span>
-            <span className="kyo-leg"><i className="kyo-dot kyo-dot-daku" />荒び</span>
+            <span className="kyo-leg"><i className="kyo-dot kyo-dot-sei" />{tr("kyo_sei")}</span>
+            <span className="kyo-leg"><i className="kyo-dot kyo-dot-daku" />{tr("kyo_daku")}</span>
           </span>
         </div>
         <div className="kyo-places">
@@ -367,7 +307,7 @@ export function FrontStage({
               const dakuFill = (p.populace.daku / Math.max(1, p.populaceMax.daku)) * 100;
               return (
                 <div key={p.id} className="kyo-place">
-                  <span className="kyo-name">{p.name}</span>
+                  <span className="kyo-name">{dn.place(p.id, p.name)}</span>
                   <div className="kyo-bars">
                     <div className="kyo-bar">
                       <div className="kyo-vessel kyo-vessel-sei" style={{ width: `${seiVessel}%` }}>
@@ -391,7 +331,7 @@ export function FrontStage({
       {/* これまでの物語（新しい順）。早回しの日は1行で流し、見せ場の日だけ場面として開く。 */}
       {past.length > 0 && (
         <div className="story-feed">
-          <h3 className="story-title">これまでの物語</h3>
+          <h3 className="story-title">{tr("story_title")}</h3>
           {past.map((t, i) =>
             // tempo 無し（旧データ）は場面扱いで後方互換。回帰で day が重複するので複合キー。
             t.tempo === "montage" ? (

@@ -970,6 +970,7 @@ export async function runTick(
       placeId: actor.currentPlaceId,
       placeName: placeLabel,
       moved: r.moved,
+      fromPlaceId: r.moved ? r.fromPlaceId : undefined,
       fromPlaceName: r.moved ? placeName(r.fromPlaceId!) : undefined,
       withPartner,
       targetId: isPersonal ? personalTarget?.id : undefined,

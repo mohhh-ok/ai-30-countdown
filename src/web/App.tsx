@@ -19,6 +19,7 @@ import { SoulsPage } from "./pages/SoulsPage.tsx";
 import { CharAvatar } from "./components/CharAvatar.tsx";
 import { type Route, useHashRoute } from "./router.ts";
 import { allCharIds, nameOfId, ticksOfLoop, unlockOf } from "./util.ts";
+import { type Lang, useDomainNames, useLang, useT } from "./i18n.tsx";
 
 // サーバ側ワーカーが自走で世界を進める。UI は進行操作を持たず、一定間隔で最新状態を取りに行くだけ。
 const POLL_INTERVAL_MS = 3000;
@@ -38,12 +39,17 @@ function SiteNav({
   view: View;
   setView: (v: View) => void;
 }) {
+  const t = useT();
+  const dn = useDomainNames();
+  const { lang } = useLang();
   // 周の総数は現在の回帰番号（chronicle.loop）そのもの。全周ログは持たない。
   const loopCount = chronicle?.loop ?? 1;
   // ナビは全キャラを定義順で並べる。まだ登場（解放）していない子は名前を伏せて「???」に。
   const appeared = new Set<string>(chronicle?.roster ?? []);
   const charIds = allCharIds();
   const onLoop = route.name === "loops" || route.name === "loop";
+  const loopParen =
+    loopCount > 0 ? (lang === "en" ? ` (${loopCount})` : `（${loopCount}）`) : "";
   return (
     <nav className="site-nav">
       {/* ホーム配下のビュー切替（表/裏/デバッグ）をナビ行に統合。ホーム以外のページから
@@ -53,32 +59,33 @@ function SiteNav({
         href="#/"
         onClick={() => setView("main")}
       >
-        ホーム
+        {t("nav_home")}
       </a>
       <a
         className={route.name === "home" && view === "status" ? "nav-on" : ""}
         href="#/"
         onClick={() => setView("status")}
       >
-        ステータス
+        {t("nav_status")}
       </a>
       <a
         className={route.name === "home" && view === "debug" ? "nav-on" : ""}
         href="#/"
         onClick={() => setView("debug")}
       >
-        デバッグ
+        {t("nav_debug")}
       </a>
       <a className={onLoop ? "nav-on" : ""} href="#/loops">
-        回帰一覧{loopCount > 0 ? `（${loopCount}）` : ""}
+        {t("nav_loops")}
+        {loopParen}
       </a>
       <a className={route.name === "skills" ? "nav-on" : ""} href="#/skills">
-        スキル一覧
+        {t("nav_skills")}
       </a>
       <a className={route.name === "souls" ? "nav-on" : ""} href="#/souls">
-        ココロ一覧
+        {t("nav_souls")}
       </a>
-      <span className="nav-sep">登場人物</span>
+      <span className="nav-sep">{t("nav_characters")}</span>
       {charIds.map((id) =>
         appeared.has(id) ? (
           <a
@@ -88,8 +95,8 @@ function SiteNav({
             }`}
             href={`#/char/${id}`}
           >
-            <CharAvatar id={id} name={nameOfId(id)} size={26} />
-            {nameOfId(id)}
+            <CharAvatar id={id} name={dn.char(id, nameOfId(id))} size={26} />
+            {dn.char(id, nameOfId(id))}
           </a>
         ) : (
           // まだ登場していない（解放前）キャラ。名前は伏せるが、開放条件は見られるようにリンクを張る
@@ -99,7 +106,7 @@ function SiteNav({
               route.name === "char" && route.id === id ? " nav-on" : ""
             }`}
             href={`#/char/${id}`}
-            title={unlockOf(id)?.requirement ?? "まだ登場していません"}
+            title={unlockOf(id)?.requirement ?? t("nav_locked_title")}
           >
             🔒 ???
           </a>
@@ -117,17 +124,33 @@ interface StatePayload {
 }
 
 function TitleBlock() {
+  const t = useT();
+  const { lang, setLang } = useLang();
   return (
     <div className="title">
-      <h1 className="title-logo">
-        <img src="/assets/title.webp" alt="30日のカウントダウン" />
-      </h1>
+      <div className="title-bar">
+        <h1 className="title-logo">
+          <img src="/assets/title.webp" alt={t("title_alt")} />
+        </h1>
+        <span className="lang-pick">
+          <span className="lang-icon" aria-hidden="true">🌐</span>
+          <select
+            className="lang-select"
+            value={lang}
+            onChange={(e) => setLang(e.target.value as Lang)}
+            aria-label="Language / 言語"
+          >
+            <option value="ja">日本語</option>
+            <option value="en">English</option>
+          </select>
+        </span>
+      </div>
       <p className="subtitle">
-        30日で終わる世界。
+        {t("subtitle_1")}
         <br />
-        回帰の中で成長するハルは何を成し遂げるのか？
+        {t("subtitle_2")}
         <br />
-        AIが紡ぐ物語。
+        {t("subtitle_3")}
       </p>
     </div>
   );
@@ -143,6 +166,10 @@ export function App() {
   const [backend, setBackend] = useState<string>("");
   const [view, setView] = useState<View>("main");
   const route = useHashRoute();
+  const t = useT();
+  const dn = useDomainNames();
+  const { lang } = useLang();
+  const nameSep = lang === "en" ? ", " : "・";
 
   async function loadState() {
     try {
@@ -154,7 +181,7 @@ export function App() {
       if (typeof data.running === "boolean") setRunning(data.running);
       setError("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "通信エラー");
+      setError(e instanceof Error ? e.message : t("comm_error"));
     }
   }
 
@@ -176,14 +203,16 @@ export function App() {
       .catch(() => setOllamaOk(false));
   }, []);
 
-  if (!state) return <div className="loading">読み込み中…</div>;
+  if (!state) return <div className="loading">{t("loading")}</div>;
 
   const lastTick = log.length ? log[log.length - 1] : undefined;
   const lastById = new Map(
     (lastTick?.characters ?? []).map((c) => [c.id, c] as const),
   );
-  const placeNameOf = (id: string) =>
-    state.places.find((p) => p.id === id)?.name ?? id;
+  const placeNameOf = (id: string) => {
+    const p = state.places.find((pl) => pl.id === id);
+    return p ? dn.place(p.id, p.name) : id;
+  };
 
   // 同じ場所にいる生存者のまとまり（「一緒にいる」表示用）
   const placeGroups = new Map<string, Character[]>();
@@ -239,27 +268,31 @@ export function App() {
       />
       <header className="topbar">
         <div className="day-box">
-          {chronicle && <span className="loop-num">第 {chronicle.loop} 回帰</span>}
-          <span className="day-num">Day {state.day}</span>
-          {state.day > 0 && state.day < DEADLINE_DAY && (
-            <span className="countdown">大禍まで {DEADLINE_DAY - state.day} 日</span>
+          {chronicle && (
+            <span className="loop-num">{t("loop_label", { n: chronicle.loop })}</span>
           )}
-          {state.day >= DEADLINE_DAY && <span className="countdown countdown-now">大禍の日</span>}
+          <span className="day-num">{t("day_label", { n: state.day })}</span>
+          {state.day > 0 && state.day < DEADLINE_DAY && (
+            <span className="countdown">
+              {t("countdown", { n: DEADLINE_DAY - state.day })}
+            </span>
+          )}
+          {state.day >= DEADLINE_DAY && (
+            <span className="countdown countdown-now">{t("calamity_day")}</span>
+          )}
           {state.day > 0 && (
             <span className={`weather weather-${state.weather}`}>
-              {state.weather === "normal" ? "通常日" : "不作日"}
+              {state.weather === "normal" ? t("weather_normal") : t("weather_lean")}
             </span>
           )}
         </div>
       </header>
 
       <div className="status-line">
-        {running && <span className="auto-badge">● 自動進行中</span>}
+        {running && <span className="auto-badge">{t("auto_badge")}</span>}
         {ollamaOk === false && (
           <span className="warn">
-            {backend === "ollama"
-              ? "⚠ Ollama に接続できません（ollama serve を起動）"
-              : "⚠ Claude Code に接続できません（claude CLI のログインを確認）"}
+            {backend === "ollama" ? t("warn_ollama") : t("warn_claude")}
           </span>
         )}
         {error && <span className="warn">{error}</span>}
@@ -288,28 +321,31 @@ export function App() {
                 <div className="rel-lines">
                   {state.characters.map((c) => (
                     <div key={c.id} className="rel-line">
-                      <span className="rel-name">{c.name}</span>
+                      <span className="rel-name">{dn.char(c.id, c.name)}</span>
                       <span className="arrow">→</span>
-                      <strong>{c.relationLabel || "—"}</strong>
+                      <strong>{c.relationLabel || t("rel_none")}</strong>
                     </div>
                   ))}
                 </div>
                 {togetherGroups.map(([placeId, g]) => (
                   <div key={placeId} className="together">
-                    {placeNameOf(placeId)}に {g.map((x) => x.name).join("・")} が一緒にいる
+                    {t("together", {
+                      place: placeNameOf(placeId),
+                      names: g.map((x) => dn.char(x.id, x.name)).join(nameSep),
+                    })}
                   </div>
                 ))}
               </section>
 
               <section className="map-section">
-                <h3>京都の地図</h3>
+                <h3>{t("map_title")}</h3>
                 <PlacesMap places={state.places} characters={state.characters} />
               </section>
             </>
           )}
           {view === "debug" && (
             <section className="log-section">
-              <h3>ログ</h3>
+              <h3>{t("log_title")}</h3>
               <TickLog log={currentLoopLog} />
             </section>
           )}

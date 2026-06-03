@@ -119,6 +119,35 @@ h3 {
   font-size: 12px;
   color: var(--muted);
 }
+/* タイトル行: ロゴを左、言語セレクトを右（margin-left:auto）に並べる flex バー。 */
+.title-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+/* 言語ピッカー（🌐 アイコン＋セレクト）。.title-bar 内で margin-left:auto により右端へ寄せる。 */
+.lang-pick {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.lang-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+/* 言語セレクト本体。 */
+.lang-select {
+  align-self: center;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+}
 .day-box {
   margin-left: auto;
   display: flex;
