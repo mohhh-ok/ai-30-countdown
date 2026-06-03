@@ -239,6 +239,17 @@ const server = Bun.serve({
       },
     },
 
+    // 英語版タイトルロゴ（assets/title-en.webp）。lang=en のとき UI が参照する。
+    "/assets/title-en.webp": {
+      GET: async () => {
+        const f = Bun.file("assets/title-en.webp");
+        if (!(await f.exists())) return new Response("not found", { status: 404 });
+        return new Response(f, {
+          headers: { "Cache-Control": DEV ? "no-store" : "public, max-age=86400" },
+        });
+      },
+    },
+
   },
   development: DEV,
 });

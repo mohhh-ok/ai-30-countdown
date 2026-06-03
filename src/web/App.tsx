@@ -133,7 +133,7 @@ function TitleBlock() {
     <div className="title">
       <div className="title-bar">
         <h1 className="title-logo">
-          <img src="/assets/title.webp" alt={t("title_alt")} />
+          <img src={lang === "en" ? "/assets/title-en.webp" : "/assets/title.webp"} alt={t("title_alt")} />
         </h1>
         <span className="lang-pick">
           <span className="lang-icon" aria-hidden="true">🌐</span>
