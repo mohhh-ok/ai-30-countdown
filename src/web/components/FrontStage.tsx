@@ -46,13 +46,16 @@ function SceneMarks({ t }: { t: TickResult }) {
   const becamer = t.characters.find((c) => c.becameFrenzied);
   const queller = t.characters.find((c) => c.quelledFrenzy);
   const wild = t.characters.find((c) => c.frenzyLevel !== undefined);
+  // 九死の灯が燈った日（力尽きるはずを霊力1で踏みとどまった）。ハル専用スキルだが探し方は他と揃える。
+  const warded = t.characters.some((c) => c.deathWarded);
   if (
     !t.acquiredSkills?.length &&
     !t.unlockedCharacters?.length &&
     !t.regressed &&
     !t.climax &&
     !becamer &&
-    !queller
+    !queller &&
+    !warded
   ) {
     return null;
   }
@@ -64,6 +67,12 @@ function SceneMarks({ t }: { t: TickResult }) {
       {t.climax ? (
         <span className={`mark mark-climax${t.climax.averted ? " mark-climax-saved" : ""}`}>
           {tr(t.climax.averted ? "mark_climax_saved" : "mark_climax_lost")}
+        </span>
+      ) : null}
+      {warded ? (
+        // 蝋燭の暖色。新規スタイルは方針どおり Tailwind ユーティリティで（.mark の形状だけ既存を借りる）
+        <span className="mark font-bold tracking-[0.03em] text-[#ffe3a3] bg-[rgba(214,158,66,0.18)] border-[rgba(214,158,66,0.55)]">
+          {tr("mark_deathward")}
         </span>
       ) : null}
       {becamer ? (

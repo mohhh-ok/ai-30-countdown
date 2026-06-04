@@ -79,6 +79,8 @@ const UI = {
     mark_quell: "🕊️ ハルの祓いが{wild}の猛りを鎮めた——静けさが戻る",
     mark_quell_wild: "荒ぶる{name}",
     mark_quell_someone: "荒ぶる者",
+    mark_deathward:
+      "🕯️ 九死の灯が燈る——力尽きる刹那、ハルは死の淵で踏みとどまった",
     mark_skill: "✨ ハルは「{skills}」を会得した",
     mark_unlock: "🆕 {names} が次の回帰から京に現れる",
     mark_regress: "↻ ハルは力尽き、時は巻き戻る——",
@@ -359,6 +361,8 @@ const UI = {
       "🕊️ Haru’s purification quelled the fury of {wild}—stillness returns",
     mark_quell_wild: "the frenzied {name}",
     mark_quell_someone: "the frenzied one",
+    mark_deathward:
+      "🕯️ The Ember of Nine Deaths kindles—at the brink of death, Haru held on",
     mark_skill: "✨ Haru mastered {skills}",
     mark_unlock: "🆕 {names} will appear in Kyoto from the next loop",
     mark_regress: "↻ Haru’s strength fails, and time rewinds—",
