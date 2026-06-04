@@ -702,7 +702,7 @@ const SKILL_DESC_EN: Record<string, string> = {
   binding_hands:
     "Acquired when speaking touches another's heart 5 times in total (accumulates across loops). From the next loop on, you awaken with +10 trust.",
   sever_solitude:
-    "Acquired by reaching, even once, a loop where altruism attains “Maturity” (70 or above). No longer alone—the weight of solitude unravels, and the daily toll is lighter by 1 thereafter.",
+    "Acquired by reaching, even once, a loop where altruism attains “Maturity” (70 or above). No longer alone—that bond becomes a thin ward over the capital, easing the toll of calamities by 30% for everyone thereafter.",
   warded_heart:
     "Acquired when your spirit power is stolen 3 times in total (accumulates across loops). A core inured to being robbed repels defilement, so thereafter the loss of spirit power and stress from being stolen from are halved.",
   ward_basics:

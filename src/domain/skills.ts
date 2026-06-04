@@ -1,7 +1,7 @@
 // スキル＝回帰（ローグライク）をまたいで持ち越す唯一のもの（plan.md「終わらなさ」）。
 // 記憶・成長値・異能は周回ごとにリセットされるが、ここで定義する「獲得式スキル」だけが
 // 永続する。ハルが経験で条件を満たした瞬間に習得し、以後は全周にわたり効き続ける。
-// 効果はすべて主人公（ハル）にのみ適用される。
+// 効果は原則として主人公（ハル）にのみ適用される（例外: 「独りを断つ」の disasterMitigation は生者全員に効く）。
 import type {
   Chronicle,
   SkillDef,
@@ -75,20 +75,23 @@ export const SKILLS: SkillDef[] = [
       hero.action === "talk" && hero.rewardEvents.some((e) => e.channel === "bond") ? 1 : 0,
     effect: { startTrustBonus: 10 },
   },
-  // 旧効果は開始霊力+10（startEnergyBonus）。周全体で固定+10にしかならず、生存14〜23日の
-  // 実測では11日目以降つねに負荷-1が勝つ（+4〜13差）ため、30日到達を支える持続効果へ載せ替えた。
-  // loadReduction は base 負荷(6)にのみ効き、終盤の災害激化・大禍・業には効かない（engine の
-  // 負荷式参照）ので、ジリ貧を一段緩めつつ緊張感の源泉は保たれる。
+  // 旧効果は自分の日次負荷-1（loadReduction、その前は開始霊力+10）。ハルだけが生存スキルを
+  // 重ねた結果、終盤の災害逓増（disasterIntensity ×1.8・creepingLoad +3）を裸で受ける他キャラが
+  // 軒並み力尽きる偏りが出たため、唯一の「全体に効く」スキルへ改装した。
+  // disasterMitigation は災害由来負荷（extraLoad+creepLoad）を生者全員ぶん 30% 軽減する。
+  // 30% は終盤の逓増上乗せ（疫病 extra 7+creep 3 → -3）をほぼ相殺し「終盤を中盤並みに戻す」
+  // 大きさ。固定値でなく割合なのは、災害が苛烈になるほど軽減も増え逓増対策として腐らないため。
+  // base 負荷(6)・業(stealBurden)・大禍(climaxBlow)には効かず、緊張感の源泉は保たれる。
   {
     id: "sever_solitude",
     icon: "💞",
     name: "独りを断つ",
     description:
-      "利他が「成熟」（70以上）に届いた周を一度でも達成すると会得。もう独りではない——孤独の重さがほどけ、以後は日々の負荷が1軽くなる。",
+      "利他が「成熟」（70以上）に届いた周を一度でも達成すると会得。もう独りではない——その絆が京を覆う薄い結界となり、以後は災いの消耗が皆まとめて3割軽くなる。",
     scope: "career",
     threshold: 1,
     measure: ({ hero }) => (hero.paramsAfter.altruism >= 70 ? 1 : 0),
-    effect: { loadReduction: 1 },
+    effect: { disasterMitigation: 0.3 },
   },
   {
     id: "warded_heart",
@@ -245,6 +248,7 @@ export function resetLoopScopedProgress(chronicle: Chronicle): void {
 export function noSkillEffects(): SkillEffects {
   return {
     loadReduction: 0,
+    disasterMitigation: 0,
     forageMult: 1,
     shareSelfReduction: 0,
     startEnergyBonus: 0,
@@ -266,6 +270,7 @@ export function aggregateEffects(acquired: SkillId[]): SkillEffects {
     if (!skill) continue;
     const e = skill.effect;
     if (e.loadReduction) eff.loadReduction += e.loadReduction;
+    if (e.disasterMitigation) eff.disasterMitigation += e.disasterMitigation;
     if (e.forageBonus) eff.forageMult += e.forageBonus;
     if (e.shareSelfReduction) eff.shareSelfReduction += e.shareSelfReduction;
     if (e.startEnergyBonus) eff.startEnergyBonus += e.startEnergyBonus;
@@ -279,5 +284,7 @@ export function aggregateEffects(acquired: SkillId[]): SkillEffects {
   }
   // 奪われ被害の軽減割合は 0〜1 に収める（将来複数スキルが重なっても全損化させない）
   eff.stealResist = Math.min(1, eff.stealResist);
+  // 災害軽減も同様にクランプ（将来重なっても災害負荷をゼロ化＝無効化させない）
+  eff.disasterMitigation = Math.min(1, eff.disasterMitigation);
   return eff;
 }

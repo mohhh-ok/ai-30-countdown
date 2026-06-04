@@ -327,6 +327,13 @@ export async function runTick(
     findPlace(state.places, id)?.name ?? id;
 
   // 1. 負荷（−6）を生者全員に適用
+  // 災害由来負荷（イベント追加消耗＋地脈の乱れ）。スキル「独りを断つ」（disasterMitigation）は
+  // ハル個人でなく生者全員のこの部分を割合軽減する（唯一の全体効果スキル）。
+  // base 負荷・業（stealBurden）・大禍（climaxBlow）には効かせない: 業は禁忌の代償で帳消し不可、
+  // 大禍は結界力（wardPower）勝負のまま残す。
+  const disasterLoad = Math.round(
+    (eventEffects.extraLoad + creepLoad) * (1 - skillEffects.disasterMitigation),
+  );
   const energyBefore = new Map<string, number>();
   for (const c of living) {
     energyBefore.set(c.id, c.energy);
@@ -342,7 +349,7 @@ export async function runTick(
     //   （loadReduction の「最低1」と同じ思想。徳で負荷ゼロ＝不死にはさせない）。
     c.energy -= Math.max(
       1,
-      baseLoad + eventEffects.extraLoad + creepLoad + climaxBlow + c.stealBurden - c.shareGrace,
+      baseLoad + disasterLoad + climaxBlow + c.stealBurden - c.shareGrace,
     );
   }
 

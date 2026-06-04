@@ -518,10 +518,11 @@ export type SkillId = string;
 
 /**
  * スキルが効かせる効果の生の値（1スキル分）。aggregateEffects が全習得分を合算する。
- * 効果はすべて主人公（ハル）にのみ適用される。
+ * 効果は原則として主人公（ハル）にのみ適用される（例外: disasterMitigation は生者全員に効く）。
  */
 export interface SkillEffectRaw {
   loadReduction?: number; // 日次負荷を軽くする（−n）
+  disasterMitigation?: number; // 災害由来の日次負荷（extraLoad+creepLoad）を生者全員ぶん軽減する割合（0〜1、0.3=30%減）
   forageBonus?: number; // 集霊の取れ高に乗る割合ボーナス（例 0.15 = +15%）
   shareSelfReduction?: number; // 「霊力を分ける」の自己消費を軽くする（+n で消費減）
   startEnergyBonus?: number; // 周開始時のエネルギー +n
@@ -537,6 +538,7 @@ export interface SkillEffectRaw {
 /** 全習得スキルを合算した実効効果（engine / freshWorldFor が読む） */
 export interface SkillEffects {
   loadReduction: number;
+  disasterMitigation: number; // 災害由来負荷の軽減割合の総和（0〜1にクランプして使う。ハルだけでなく生者全員に効く）
   forageMult: number; // 集霊倍率（1.0 が基準。forageBonus の総和を足す）
   shareSelfReduction: number;
   startEnergyBonus: number;
