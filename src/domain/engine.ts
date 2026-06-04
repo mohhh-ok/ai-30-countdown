@@ -579,12 +579,6 @@ export async function runTick(
     if (action === "share" && isHero(actor.id)) {
       self = Math.min(0, self + skillEffects.shareSelfReduction);
     }
-    // 主人公のスキル「静坐の澄み」: 休むときの回復量が増す。
-    // 相手不在で rest に倒されたフォールバック日も対象（「実際に休んだ日」基準。
-    // ward_vigil の measure も同じく実行後 action を数えるので意味論を揃えている）。
-    if (action === "rest" && isHero(actor.id)) {
-      self += skillEffects.restBonus;
-    }
     // forage（集霊）は民の霊力プールから引く。それ以外は固定効果。
     actor.energy += action === "forage" ? doForage(actor, place) : self;
     // 相手への害/恵み（partner 増減）を相手に適用する。
@@ -960,6 +954,21 @@ export async function runTick(
 
     // 大禍を祓い退けた日（averted）は、結界を成したハルはその日倒れない（通常負荷で力尽きてクリアを取りこぼさない）。
     if (climax?.averted && isHero(actor.id) && actor.energy <= 0) actor.energy = 1;
+    // 主人公のスキル「九死の灯」(deathWard): 一周に一度だけ、力尽きるはずの日を霊力1で踏みとどまる。
+    // ただし大禍に呑まれた日（climaxBlow>0＝結界が及ばず京ごと呑まれる）は灯ごと呑まれる。
+    // ここで踏みとどまれてしまうと「全滅・回帰すべき周」が続行してしまうため、飢えの死にだけ効かせる。
+    let deathWarded = false;
+    if (
+      isHero(actor.id) &&
+      actor.energy <= 0 &&
+      skillEffects.deathWard > 0 &&
+      !actor.deathWardSpent &&
+      climaxBlow === 0
+    ) {
+      actor.energy = 1;
+      actor.deathWardSpent = true; // 周内で一度きり（run_char に永続化。回帰で false に戻る）
+      deathWarded = true;
+    }
     const died = actor.energy <= 0;
     if (died) actor.alive = false;
 
@@ -1009,6 +1018,7 @@ export async function runTick(
         memo = base + ACTION_LABELS[action];
       }
       if (died) memo += "（力尽きた）";
+      if (deathWarded) memo += "（死の淵で踏みとどまった）";
     }
     pushEpisodic(actor, memo);
 
@@ -1037,6 +1047,8 @@ export async function runTick(
       stageAfter,
       stageChanged,
       died,
+      deathWarded: deathWarded || undefined, // 燈った日だけ true（他キャラ・平時は undefined）
+      deathWardSpent: actor.deathWardSpent || undefined, // 使い切った周は翌日以降もログから読めるように
       placeId: actor.currentPlaceId,
       placeName: placeLabel,
       moved: r.moved,
@@ -1096,6 +1108,8 @@ export async function runTick(
       );
     }
     if (r.died) notableParts.push(`${r.name} が力尽きた。`);
+    if (r.deathWarded)
+      notableParts.push(`${r.name} は力尽きる刹那、九死の灯に守られ踏みとどまった。`);
     if (r.forageDraw?.taboo) {
       notableParts.unshift(`${r.name} が${r.placeName}の和みさえ喰らった——禁忌の業。`);
     }

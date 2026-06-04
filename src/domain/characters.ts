@@ -40,6 +40,7 @@ export function createInitialCharacters(): Character[] {
       energy: 70,
       stealBurden: 0,
       shareGrace: 0,
+      deathWardSpent: false,
       params: { altruism: 25, independence: 80, trust: 40 },
       alive: true,
       // 殻に閉じこもる芯どおり、人里離れた山奥から始める
@@ -79,6 +80,7 @@ export function createInitialCharacters(): Character[] {
       energy: 70,
       stealBurden: 0,
       shareGrace: 0,
+      deathWardSpent: false,
       params: { altruism: 85, independence: 20, trust: 30 },
       alive: true,
       // 人を求める芯どおり、人の気配のある街なかの河原から始める
@@ -116,6 +118,7 @@ export function createInitialCharacters(): Character[] {
       energy: 70,
       stealBurden: 0,
       shareGrace: 0,
+      deathWardSpent: false,
       params: { altruism: 10, independence: 75, trust: 8 },
       alive: true,
       // 人と妖が交わり濁霊も濃い鴨川の河原から始める（喰らう者の狩り場＝実りを巡る緊張の火種）
@@ -157,6 +160,7 @@ export function createInitialCharacters(): Character[] {
       energy: 70,
       stealBurden: 0,
       shareGrace: 0,
+      deathWardSpent: false,
       params: { altruism: 40, independence: 90, trust: 20 },
       alive: true,
       // 風来の旅人が、人里離れた静寂の渓（貴船）をふらりと通り過ぎる図から始める
@@ -195,6 +199,7 @@ export function createInitialCharacters(): Character[] {
       energy: 70,
       stealBurden: 0,
       shareGrace: 0,
+      deathWardSpent: false,
       params: { altruism: 70, independence: 25, trust: 55 },
       alive: true,
       // 祈りと暮らしの澄んだ里・大原から始める

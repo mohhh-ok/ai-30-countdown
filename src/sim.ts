@@ -128,6 +128,7 @@ function newCharacterTemplate(id: string, state: WorldState, patch: object): Cha
     energy: 60,
     stealBurden: 0,
     shareGrace: 0,
+    deathWardSpent: false,
     params: { altruism: 50, independence: 50, trust: 50 },
     alive: true,
     currentPlaceId: state.places[0]?.id ?? "kamogawa",

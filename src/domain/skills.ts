@@ -75,15 +75,20 @@ export const SKILLS: SkillDef[] = [
       hero.action === "talk" && hero.rewardEvents.some((e) => e.channel === "bond") ? 1 : 0,
     effect: { startTrustBonus: 10 },
   },
+  // 旧効果は開始霊力+10（startEnergyBonus）。周全体で固定+10にしかならず、生存14〜23日の
+  // 実測では11日目以降つねに負荷-1が勝つ（+4〜13差）ため、30日到達を支える持続効果へ載せ替えた。
+  // loadReduction は base 負荷(6)にのみ効き、終盤の災害激化・大禍・業には効かない（engine の
+  // 負荷式参照）ので、ジリ貧を一段緩めつつ緊張感の源泉は保たれる。
   {
     id: "sever_solitude",
     icon: "💞",
     name: "独りを断つ",
-    description: "利他が「成熟」（70以上）に届いた周を一度でも達成すると会得。次周以降、霊力+10で目覚める。",
+    description:
+      "利他が「成熟」（70以上）に届いた周を一度でも達成すると会得。もう独りではない——孤独の重さがほどけ、以後は日々の負荷が1軽くなる。",
     scope: "career",
     threshold: 1,
     measure: ({ hero }) => (hero.paramsAfter.altruism >= 70 ? 1 : 0),
-    effect: { startEnergyBonus: 10 },
+    effect: { loadReduction: 1 },
   },
   {
     id: "warded_heart",
@@ -110,17 +115,20 @@ export const SKILLS: SkillDef[] = [
     measure: ({ hero }) => (hero.action === "purify" ? 1 : 0),
     effect: { wardPower: 14 },
   },
-  // 旧「守りの静坐」。結界が4スキルに偏重していたため結界力を外し、休息の質を高める
-  // 生存スキルへ改装した（id は DB の進捗・i18n キーとの互換のため据え置き）。
+  // 旧「静坐の澄み」（さらに旧「守りの静坐」）。rest 条件＋restBonus は実データで完全な死に
+  // スキルだった（18周・延べ約270日でハルが rest を選んだ日が一度も無く進捗 0/10）。
+  // 毎周必ず起きている「死」そのものを糧にする生存スキルへ再改装した
+  // （id は DB の進捗・i18n キーとの互換のため据え置き）。
   {
     id: "ward_vigil",
-    icon: "🪷",
-    name: "静坐の澄み",
-    description: "通算10度、身を鎮めて休むと会得（周をまたいで蓄積）。澄んだ静けさが身に染みつき、以後は休むたびの回復が+4増す。",
+    icon: "🕯️",
+    name: "九死の灯",
+    description:
+      "通算5度、力尽きると会得（周をまたいで蓄積）。幾度もの死の記憶が魂に灯を残し、以後は一周に一度だけ、力尽きるその刹那を霊力1で踏みとどまる。",
     scope: "career",
-    threshold: 10,
-    measure: ({ hero }) => (hero.action === "rest" ? 1 : 0),
-    effect: { restBonus: 4 },
+    threshold: 5,
+    measure: ({ hero }) => (hero.died ? 1 : 0),
+    effect: { deathWard: 1 },
   },
   // 旧「守りの絆」。同じく結界力を外し、分かち合いの記憶が次の生へ宿る成長スキルへ改装
   // （startAltruismBonus は freshWorldFor が周開始時に適用する。利他はココロ・カイ解放・
@@ -242,7 +250,7 @@ export function noSkillEffects(): SkillEffects {
     startEnergyBonus: 0,
     startTrustBonus: 0,
     startAltruismBonus: 0,
-    restBonus: 0,
+    deathWard: 0,
     wardPower: 0,
     stealResist: 0,
     quellPower: 0,
@@ -263,7 +271,7 @@ export function aggregateEffects(acquired: SkillId[]): SkillEffects {
     if (e.startEnergyBonus) eff.startEnergyBonus += e.startEnergyBonus;
     if (e.startTrustBonus) eff.startTrustBonus += e.startTrustBonus;
     if (e.startAltruismBonus) eff.startAltruismBonus += e.startAltruismBonus;
-    if (e.restBonus) eff.restBonus += e.restBonus;
+    if (e.deathWard) eff.deathWard += e.deathWard;
     if (e.wardPower) eff.wardPower += e.wardPower;
     if (e.stealResist) eff.stealResist += e.stealResist;
     if (e.quellPower) eff.quellPower += e.quellPower;

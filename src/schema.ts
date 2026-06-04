@@ -58,6 +58,8 @@ export const runChar = sqliteTable(
     stealBurden: integer("steal_burden").notNull(),
     // 「分け与える」で積もる徳（日次負荷の軽減・周内のみ）。旧データは 0 で扱う
     shareGrace: integer("share_grace").notNull().default(0),
+    // 九死の灯（deathWard スキル）をこの周で使ったか（0/1・周内のみ）。旧データは 0=未使用で扱う
+    deathWardSpent: integer("death_ward_spent").notNull().default(0),
     altruism: integer("altruism").notNull(),
     independence: integer("independence").notNull(),
     trust: integer("trust").notNull(),

@@ -146,6 +146,7 @@ const UI = {
     act_purify_pray: "{name}は{place}で静かに祈った",
     act_default: "{name}はその日を過ごした",
     act_frenzy_suffix: "{story}——荒ぶりは鎮まらぬまま",
+    act_death_ward: "{story}——力尽きる刹那、九死の灯が燈り、踏みとどまった",
     brief_died: "力尽きた…",
     brief_follow_move: "{target}を追って{place}へ",
     brief_move: "{place}へ",
@@ -221,6 +222,7 @@ const UI = {
     diary_mark: "日記",
     diary_empty: "（まだない）",
     dead_banner: "力尽きた",
+    death_ward_banner: "🕯️ 九死の灯——死の淵で踏みとどまった",
     back_home: "← ホーム",
     talent_insight: "観の眼（霊脈を読む）",
     talent_bond: "結の力（地を癒す）",
@@ -296,6 +298,8 @@ const UI = {
     tlog_burden_title: "禁忌「奪う」で積もった業。日々の霊力消耗が +{n}（この周のあいだ）",
     tlog_grace_badge: "徳−{n}",
     tlog_grace_title: "分け与えで積もった徳。日々の霊力消耗が −{n}（この周のあいだ・上限3）",
+    tlog_deathward_spent_badge: "🕯️灯・尽",
+    tlog_deathward_spent_title: "九死の灯はこの周で使い切った（次に力尽きれば回帰する）",
     tlog_notable_label: "注目の変化: ",
     tlog_timing_head: "⏱ LLM {n}回 / 述べ {total}",
     tlog_timing_slow: "最長 {label} {ms}",
@@ -426,6 +430,8 @@ const UI = {
     act_purify_pray: "{name} prayed quietly at {place}",
     act_default: "{name} passed the day",
     act_frenzy_suffix: "{story}—the frenzy unquelled still",
+    act_death_ward:
+      "{story}—at the brink of collapse, the Ember of Nine Deaths flared, and they held on",
     brief_died: "spent the last of their strength…",
     brief_follow_move: "to {place}, after {target}",
     brief_move: "to {place}",
@@ -500,6 +506,7 @@ const UI = {
     diary_mark: "Diary",
     diary_empty: "(none yet)",
     dead_banner: "Spent their strength",
+    death_ward_banner: "🕯️ Ember of Nine Deaths—held on at death's brink",
     back_home: "← Home",
     talent_insight: "Insight (reads spirit veins)",
     talent_bond: "Bond (heals the land)",
@@ -575,6 +582,9 @@ const UI = {
     tlog_burden_title: "Karma from the taboo of stealing: daily toll +{n} (this loop)",
     tlog_grace_badge: "grace−{n}",
     tlog_grace_title: "Grace from sharing: daily toll −{n} (this loop, max 3)",
+    tlog_deathward_spent_badge: "🕯️ ember spent",
+    tlog_deathward_spent_title:
+      "The Ember of Nine Deaths is spent for this loop (the next fall regresses)",
     tlog_notable_label: "Notable: ",
     tlog_timing_head: "⏱ LLM {n} calls / total {total}",
     tlog_timing_slow: "slowest {label} {ms}",
@@ -625,7 +635,7 @@ const SKILL_EN: Record<string, string> = {
   sever_solitude: "Sever Solitude",
   warded_heart: "Unyielding Core",
   ward_basics: "Ward Basics",
-  ward_vigil: "Clarity of Stillness",
+  ward_vigil: "Ember of Nine Deaths",
   ward_bonds: "Warmth of Bonds",
   ward_resolve: "Selfless Guard",
   quell_art: "Art of Quelling",
@@ -688,13 +698,13 @@ const SKILL_DESC_EN: Record<string, string> = {
   binding_hands:
     "Acquired when speaking touches another's heart 5 times in total (accumulates across loops). From the next loop on, you awaken with +10 trust.",
   sever_solitude:
-    "Acquired by reaching, even once, a loop where altruism attains “Maturity” (70 or above). From the next loop on, you awaken with +10 spirit power.",
+    "Acquired by reaching, even once, a loop where altruism attains “Maturity” (70 or above). No longer alone—the weight of solitude unravels, and the daily toll is lighter by 1 thereafter.",
   warded_heart:
     "Acquired when your spirit power is stolen 3 times in total (accumulates across loops). A core inured to being robbed repels defilement, so thereafter the loss of spirit power and stress from being stolen from are halved.",
   ward_basics:
     "Acquired by purifying 8 times in total (accumulates across loops). The hand that quells troubled land becomes the basis of a ward: +14 ward power against the Calamity.",
   ward_vigil:
-    "Acquired by stilling yourself and resting 10 times in total (accumulates across loops). Clear stillness settles into the body: recovery from resting is +4 thereafter.",
+    "Acquired by falling 5 times in total (accumulates across loops). The memory of many deaths leaves an ember in the soul: thereafter, once per loop, the day you would fall is held at 1 spirit power.",
   ward_bonds:
     "Acquired by sharing spirit power 12 times in total (accumulates across loops). The warmth of what was shared lodges in the soul: from the next loop on, you awaken with +5 altruism.",
   ward_resolve:
@@ -1183,7 +1193,9 @@ export function useStory() {
 
   // 荒ぶり継続中の日だけ末尾に印を添える（変身当日は SceneMarks が大きく告げる）。
   const actStory = (c: CharacterTickResult): string => {
-    const story = actStoryBase(c);
+    let story = actStoryBase(c);
+    // 九死の灯が燈った日（力尽きるはずを霊力1で踏みとどまった）は見せ場として一言添える。
+    if (c.deathWarded) story = t("act_death_ward", { story });
     if (!c.died && c.frenzyActive && !c.becameFrenzied) {
       return t("act_frenzy_suffix", { story });
     }

@@ -236,6 +236,20 @@ export function TickLog({ log }: { log: TickResult[] }) {
                 </span>
               )}
               {c.died && <span className="log-died">{tr("dead_banner")}</span>}
+              {c.deathWarded && (
+                <span className="text-[11px] font-bold text-[color:var(--up)]">
+                  {tr("death_ward_banner")}
+                </span>
+              )}
+              {/* 使い切った周は翌日以降も「もう二度目はない」状態が読めるように出す（燈った当日はバナーが兼ねる） */}
+              {c.deathWardSpent && !c.deathWarded && (
+                <span
+                  className="text-[11px] font-bold text-[color:var(--muted)]"
+                  title={tr("tlog_deathward_spent_title")}
+                >
+                  {tr("tlog_deathward_spent_badge")}
+                </span>
+              )}
               {c.frenzyLevel !== undefined && (c.frenzyLevel > 0 || c.frenzyActive) && (
                 <span className="log-frenzy">
                   {tr("tlog_frenzy", { n: c.frenzyLevel })}

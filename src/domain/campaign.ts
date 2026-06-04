@@ -38,6 +38,8 @@ export interface CharSave {
   stealBurden: number;
   /** 徳（share で積もる日次負荷の軽減）。周内のみ・回帰でリセット。 */
   shareGrace: number;
+  /** 九死の灯（deathWard）をこの周で使ったか。周内のみ・回帰でリセット。 */
+  deathWardSpent: boolean;
   params: Params;
   alive: boolean;
   currentPlaceId: string;
@@ -176,6 +178,7 @@ export class Campaign {
         energy: c.energy,
         stealBurden: c.stealBurden,
         shareGrace: c.shareGrace,
+        deathWardSpent: c.deathWardSpent,
         params: c.params,
         alive: c.alive,
         currentPlaceId: c.currentPlaceId,
@@ -215,6 +218,8 @@ export class Campaign {
       ch.stealBurden = cs.stealBurden;
       // 徳（share_grace）。旧DB は列 default 0 → そのまま採用
       ch.shareGrace = cs.shareGrace;
+      // 九死の灯の周内消費フラグ（death_ward_spent）。旧DB は列 default 0 → 未使用扱い
+      ch.deathWardSpent = cs.deathWardSpent;
       ch.params = cs.params;
       ch.alive = cs.alive;
       // 居場所が（マップ縮小などで）消えていたら、黙って壊さずコード既定の初期地へ戻して警告する

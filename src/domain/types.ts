@@ -197,6 +197,12 @@ export interface Character {
    * 上限 SHARE_GRACE_MAX（rules.ts）。周（回帰）をまたぐと createInitialCharacters で 0 に戻る（一代限りの徳）。
    */
   shareGrace: number;
+  /**
+   * 九死の灯（deathWard スキル）をこの周で既に使ったか。効果は主人公ハルにのみ意味を持つが、
+   * shareGrace と同じ作法で全キャラが持つ（他キャラは常に false のまま）。
+   * 周（回帰）をまたぐと createInitialCharacters で false に戻る。周内の再起動に耐えるため run_char に永続化する。
+   */
+  deathWardSpent: boolean;
   params: Params;
   alive: boolean;
   currentPlaceId: string; // 現在地（Place.id）
@@ -297,6 +303,10 @@ export interface CharacterTickResult {
   stealBurden: number; // 禁忌「奪う」で積もった業（日次消耗の上乗せ）
   shareGrace: number; // 「分け与える」で積もった徳（日次消耗の軽減・周内のみ）
   wasStolenFrom: boolean; // この日、他者に霊力を奪われたか（steal の標的にされたか。耐性スキルの会得判定に使う）
+  /** 九死の灯（deathWard）が燈り、力尽きるはずの日を霊力1で踏みとどまった（演出の見せ場・ハルのみ） */
+  deathWarded?: boolean;
+  /** 九死の灯をこの周で既に使い切っているか。燈った翌日以降も楽屋ビューで読めるよう常時持つ（ハルのみ） */
+  deathWardSpent?: boolean;
   impulse: boolean; // 衝動（募った囁き）に突き動かされて動いたか
   // --- 報酬・気分 ---
   rewardEvents: RewardEvent[]; // この日に起きた報酬/ストレスのイベント
@@ -517,7 +527,7 @@ export interface SkillEffectRaw {
   startEnergyBonus?: number; // 周開始時のエネルギー +n
   startTrustBonus?: number; // 周開始時の信頼 +n
   startAltruismBonus?: number; // 周開始時の利他 +n
-  restBonus?: number; // 休む(rest)ときの回復量 +n
+  deathWard?: number; // 九死の灯 +n（一周にn度だけ、力尽きるはずの日を霊力1で踏みとどまる）
   wardPower?: number; // 結界力 +n（30日目の大禍を祓い退けるための備え。これが猛威度に届けばクリア）
   stealResist?: number; // 奪われたときの霊力喪失・ストレスを軽くする割合（0〜1、0.5=半減）
   quellPower?: number; // 鎮めの力 +n（荒ぶる半妖をハルが祓い鎮めるための備え。これが荒ぶり度に届けば鎮静）
@@ -532,7 +542,7 @@ export interface SkillEffects {
   startEnergyBonus: number;
   startTrustBonus: number;
   startAltruismBonus: number;
-  restBonus: number; // 休む(rest)ときの回復量の上乗せ総和
+  deathWard: number; // 九死の灯の総和（一周にこの回数だけ、力尽きるはずの日を霊力1で踏みとどまる）
   wardPower: number; // 結界力の総和（30日目の大禍の猛威度に届けば回避＝クリア。クリア＝輪を断つ＝fin）
   stealResist: number; // 奪われ被害の軽減割合の総和（0〜1にクランプして使う）
   quellPower: number; // 鎮めの力の総和（荒ぶる半妖の荒ぶり度に届けば鎮静できる）
