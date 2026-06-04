@@ -296,9 +296,7 @@ export function FrontStage({
     return (
       <div className="stage-empty">
         <p>{tr("stage_empty")}</p>
-        <p className="stage-empty-sub">
-          {solo ? tr("stage_empty_solo") : tr("stage_empty_sub")}
-        </p>
+        {solo && <p className="stage-empty-sub">{tr("stage_empty_solo")}</p>}
       </div>
     );
   }
