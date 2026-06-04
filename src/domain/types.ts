@@ -191,6 +191,12 @@ export interface Character {
    * 周（回帰）をまたぐと createInitialCharacters で 0 に戻る（一代限りの業）。
    */
   stealBurden: number;
+  /**
+   * 徳。「分け与える(share)」が成立するたびに積もる、本人だけの周内恒久の日次負荷軽減。
+   * stealBurden（業）の対称で、毎ティックの日次負荷からこの値が差し引かれる＝分けるほど身が軽くなる。
+   * 上限 SHARE_GRACE_MAX（rules.ts）。周（回帰）をまたぐと createInitialCharacters で 0 に戻る（一代限りの徳）。
+   */
+  shareGrace: number;
   params: Params;
   alive: boolean;
   currentPlaceId: string; // 現在地（Place.id）
@@ -289,6 +295,7 @@ export interface CharacterTickResult {
   /** 祓い清める(purify)で実際に祓った濁霊量。0 は濁りが無く「静かに祈った」だけの日 */
   purifyCleansed?: number;
   stealBurden: number; // 禁忌「奪う」で積もった業（日次消耗の上乗せ）
+  shareGrace: number; // 「分け与える」で積もった徳（日次消耗の軽減・周内のみ）
   wasStolenFrom: boolean; // この日、他者に霊力を奪われたか（steal の標的にされたか。耐性スキルの会得判定に使う）
   impulse: boolean; // 衝動（募った囁き）に突き動かされて動いたか
   // --- 報酬・気分 ---

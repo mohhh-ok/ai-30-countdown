@@ -22,6 +22,15 @@ export const DAILY_LOAD = 6;
  */
 export const STEAL_DRAIN_INCREASE = 1;
 
+/**
+ * 「分け与える(share)」が成立する（相手に渡る）ごとに積もる「徳」の量と上限。
+ * 徳は STEAL_DRAIN_INCREASE（業）の対称で、本人の日次負荷をその値ぶん軽くする（周内のみ・回帰でリセット）。
+ * 上限3は creepingLoad の最大値(+3)を相殺する設計（分け続ければ後半の逓増圧を打ち消せるが、
+ * 基礎負荷6そのものは消せない＝緊張感は残す）。
+ */
+export const SHARE_GRACE_GAIN = 1;
+export const SHARE_GRACE_MAX = 3;
+
 // --- 荒ぶり（変身）: 半妖カイが孤立・裏切りに呑まれて豹変するためのしきい値群（周内状態） ---
 /** 荒ぶりが募るのは信頼がこの値を下回るとき（地に落ちた信頼が前提）。 */
 export const FRENZY_TRUST_CEILING = 30;

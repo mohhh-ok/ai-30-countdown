@@ -56,6 +56,8 @@ export const runChar = sqliteTable(
     energy: integer("energy").notNull(),
     // 禁忌「奪う」で積もる本人だけの恒久日次負荷の上乗せ（奪うほど重い）
     stealBurden: integer("steal_burden").notNull(),
+    // 「分け与える」で積もる徳（日次負荷の軽減・周内のみ）。旧データは 0 で扱う
+    shareGrace: integer("share_grace").notNull().default(0),
     altruism: integer("altruism").notNull(),
     independence: integer("independence").notNull(),
     trust: integer("trust").notNull(),

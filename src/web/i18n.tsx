@@ -134,6 +134,7 @@ const UI = {
     act_talk: "{name}は{target}に語りかけた",
     act_talk_solo: "{name}はひとり言ちた",
     act_share: "{name}は{target}に霊力を分けた",
+    act_share_grace: "{base}——分けた情けが徳となり、日々の消耗が軽くなる",
     act_share_solo: "{name}は霊力を分けようとした",
     act_steal: "{name}は{target}から霊を奪った",
     act_steal_solo: "{name}は霊を奪った",
@@ -406,6 +407,8 @@ const UI = {
     act_talk: "{name} spoke to {target}",
     act_talk_solo: "{name} murmured alone",
     act_share: "{name} shared spirit power with {target}",
+    act_share_grace:
+      "{base}—the kindness became grace, easing the daily toll",
     act_share_solo: "{name} tried to share spirit power",
     act_steal: "{name} devoured spirit from {target}",
     act_steal_solo: "{name} devoured spirit",
@@ -1139,10 +1142,16 @@ export function useStory() {
         return c.targetName
           ? t("act_talk", { name, target })
           : t("act_talk_solo", { name });
-      case "share":
-        return c.targetName
+      case "share": {
+        const base = c.targetName
           ? t("act_share", { name, target })
           : t("act_share_solo", { name });
+        // 徳が積もった日は業（act_steal_burden）と対称に一言添える。
+        // 旧データ（shareGrace 未記録の tick）は ?? 0 で素の文のまま。
+        return c.targetName && (c.shareGrace ?? 0) > 0
+          ? t("act_share_grace", { base })
+          : base;
+      }
       case "steal": {
         const base = c.targetName
           ? t("act_steal", { name, target })

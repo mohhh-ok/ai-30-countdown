@@ -52,6 +52,8 @@ import {
   LEAN_PROBABILITY,
   NEEDS_PARTNER,
   REWARD,
+  SHARE_GRACE_GAIN,
+  SHARE_GRACE_MAX,
   STEAL_DRAIN_INCREASE,
   type RawRewardEvent,
   actionEffect,
@@ -336,7 +338,12 @@ export async function runTick(
     // stealBurden: 禁忌「奪う」を犯すたび積もった、本人だけの恒久的な日次負荷の上乗せ（奪うほど重い）。
     //   ※ loadReduction（飢えを和らげるスキル）は baseLoad にのみ効かせ、stealBurden には意図的に効かせない。
     //     これは「業＝禁忌の代償」であり、飢え対策スキルで帳消しにできない別軸のペナルティとして残す。
-    c.energy -= baseLoad + eventEffects.extraLoad + creepLoad + climaxBlow + c.stealBurden;
+    // shareGrace: 「分け与える」で積もった徳（周内のみ）。日次負荷を軽くするが、負荷は最低1残す
+    //   （loadReduction の「最低1」と同じ思想。徳で負荷ゼロ＝不死にはさせない）。
+    c.energy -= Math.max(
+      1,
+      baseLoad + eventEffects.extraLoad + creepLoad + climaxBlow + c.stealBurden - c.shareGrace,
+    );
   }
 
   // 2. LLM に行動・移動先・対人相手・日記・関係・パラメータ変動を決めさせる（囁きはプロンプトに乗る）
@@ -598,6 +605,12 @@ export async function runTick(
     // 以後ずっと毎ティックの消耗が重くなり、回帰内では戻らない。奪い続ければ自滅へ向かう。
     if (action === "steal") {
       actor.stealBurden += STEAL_DRAIN_INCREASE;
+    }
+    // 「分け与える」が成立する（相手に渡る）と、分けた側に「徳」が積もる（業の対称）。
+    // 以後その周のあいだ毎ティックの日次負荷が SHARE_GRACE_GAIN ぶん軽くなる（上限 SHARE_GRACE_MAX）。
+    // 利他が自己消費(-10)だけの損な行いにならず、分け続ける者ほど身が軽くなる。
+    if (action === "share" && target) {
+      actor.shareGrace = Math.min(SHARE_GRACE_MAX, actor.shareGrace + SHARE_GRACE_GAIN);
     }
     // ナギ（結の力）が気を鎮める（休む）と、その地の清霊を癒し戻す
     if (actor.talent === "bond" && action === "rest") {
@@ -1035,6 +1048,7 @@ export async function runTick(
       forageDraw: action === "forage" ? forageDrawById.get(actor.id) : undefined,
       purifyCleansed: action === "purify" ? (purifyCleansedById.get(actor.id) ?? 0) : undefined,
       stealBurden: actor.stealBurden,
+      shareGrace: actor.shareGrace,
       wasStolenFrom: stolenFromById.get(actor.id) ?? false,
       impulse: impulseIds.has(actor.id),
       rewardEvents: rewardEventsById.get(actor.id) ?? [],

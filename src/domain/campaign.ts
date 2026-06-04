@@ -36,6 +36,8 @@ export interface CharSave {
   id: string;
   energy: number;
   stealBurden: number;
+  /** 徳（share で積もる日次負荷の軽減）。周内のみ・回帰でリセット。 */
+  shareGrace: number;
   params: Params;
   alive: boolean;
   currentPlaceId: string;
@@ -173,6 +175,7 @@ export class Campaign {
         id: c.id,
         energy: c.energy,
         stealBurden: c.stealBurden,
+        shareGrace: c.shareGrace,
         params: c.params,
         alive: c.alive,
         currentPlaceId: c.currentPlaceId,
@@ -210,6 +213,8 @@ export class Campaign {
       ch.energy = cs.energy;
       // 旧DB（steal_burden 列が無い周）は移行で 0 に backfill 済み → そのまま採用
       ch.stealBurden = cs.stealBurden;
+      // 徳（share_grace）。旧DB は列 default 0 → そのまま採用
+      ch.shareGrace = cs.shareGrace;
       ch.params = cs.params;
       ch.alive = cs.alive;
       // 居場所が（マップ縮小などで）消えていたら、黙って壊さずコード既定の初期地へ戻して警告する
