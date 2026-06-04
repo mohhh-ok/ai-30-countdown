@@ -126,18 +126,7 @@ h3 {
   gap: 12px;
   width: 100%;
 }
-/* 言語ピッカー（🌐 アイコン＋セレクト）。.title-bar 内で margin-left:auto により右端へ寄せる。 */
-.lang-pick {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.lang-icon {
-  font-size: 15px;
-  line-height: 1;
-}
-/* 言語セレクト本体。 */
+/* 言語セレクト（🌐 は option ラベルに含める）。GitHub リンク（App.tsx 側で ml-auto）に続けて右端へ並ぶ。 */
 .lang-select {
   align-self: center;
   padding: 4px 8px;

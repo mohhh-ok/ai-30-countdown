@@ -10,6 +10,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useState,
   type ReactNode,
 } from "react";
@@ -748,34 +749,30 @@ interface LangCtx {
 
 const LangContext = createContext<LangCtx>({ lang: "ja", setLang: () => {} });
 
-const STORAGE_KEY = "ai-sim-lang";
-
 function isLang(v: string | null): v is Lang {
   return v === "en" || v === "ja";
 }
 
 function readInitialLang(): Lang {
   if (typeof window === "undefined") return "ja";
-  // 優先順位: URL(?lang) > localStorage > 既定(ja)。共有リンクで言語を固定できるよう URL を最優先。
-  const q = new URLSearchParams(window.location.search).get("lang");
+  // 優先順位: URL(?lang) > ブラウザ言語（ja 系なら ja、それ以外は en）。localStorage は使わない。
+  // 副作用なしの純粋な判定のみ。URL への書き込みは LangProvider の useEffect が行う。
+  const q = new URL(window.location.href).searchParams.get("lang");
   if (isLang(q)) return q;
-  const saved = window.localStorage.getItem(STORAGE_KEY);
-  return isLang(saved) ? saved : "ja";
+  return (navigator.language ?? "").toLowerCase().startsWith("ja") ? "ja" : "en";
 }
 
 export function LangProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(readInitialLang);
-  const setLang = useCallback((l: Lang) => {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, l);
-      // URL の ?lang も同期する。現在ページ（ハッシュ）は保ったままクエリだけ書き換え、
-      // 履歴は汚さない（replaceState）。リロードや共有時にこの言語で開ける。
-      const url = new URL(window.location.href);
-      url.searchParams.set("lang", l);
-      window.history.replaceState(null, "", url.toString());
-    }
-    setLangState(l);
-  }, []);
+  // URL の ?lang を現在言語に同期する。?lang 未指定で開かれた初回も、ここでブラウザ言語の
+  // 判定結果が書き込まれて「リダイレクト」相当になる。現在ページ（ハッシュ）は保ったまま
+  // クエリだけ書き換え、履歴は汚さない（replaceState）。リロードや共有時にこの言語で開ける。
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("lang", lang);
+    window.history.replaceState(null, "", url.toString());
+  }, [lang]);
+  const setLang = useCallback((l: Lang) => setLangState(l), []);
   return (
     <LangContext.Provider value={{ lang, setLang }}>
       {children}
