@@ -241,8 +241,12 @@ export async function runTick(
   // 地脈の乱れ（決定論の逓増圧）。イベントの有無に関わらず日が進むほど全員の消耗が増す。
   const creepLoad = creepingLoad(state.day);
 
-  // 0.06 30日目の大禍（確定災害）。ハルが持ち越した結界力で祓い退けられれば回避＝クリア。
-  //   足りねば京は呑まれ、全員が打ち倒される（→ ハル死で回帰）。
+  // 0.06 30日目の大禍（確定災害）。ハルが持ち越した結界力で祓い退けられるか（averted）。
+  //   ただし結界はハル独りしか護れない——averted でも大禍の一撃（climaxBlow）は仲間に通り、
+  //   ハル以外は必ず呑まれる（ハルだけは後段 step6 の床上げで霊力1を残し耐える）。
+  //   「暁の迎え火」（dawnRevival）会得済みなら、祓った朝に散った仲間が全員蘇って fin＝クリア。
+  //   未会得なら「独りの暁」＝ fin せず、campaign.recordTick がもう一度だけ輪へ戻す（solo_dawn）。
+  //   結界力が足りねば京ごと呑まれ、ハルも倒れて回帰。
   let climax: { menace: number; wardPower: number; averted: boolean } | undefined;
   let climaxBlow = 0;
   if (state.day === DEADLINE_DAY) {
@@ -252,7 +256,7 @@ export async function runTick(
     const calamity = makeCalamity();
     state.activeEvents.push(calamity); // 表示（worldEvents）に乗せる。世界は周末で作り直されるので残らない。
     newWorldEvents.push(calamity); // 幕開けで必ず告げる
-    if (!averted) climaxBlow = 9999; // 結界が及ばねば京は呑まれる
+    climaxBlow = 9999; // 大禍は必ず吹き荒れる。averted ならハルだけが結界の芯で生き残る
   }
 
   // 0.1 演出家の介入（環境＋守護神への指示）。緊張度を読む。
@@ -581,7 +585,9 @@ export async function runTick(
     }
     const place = findPlace(state.places, placeBefore.get(actor.id)!)!;
     const eff = actionEffect(action, weather, place);
-    // 主人公のスキル「分かち合いの味」で、分け与えるときの自己消費が軽くなる（self は負値なので加算で軽減）
+    // 分け与えの自己消費軽減（self は負値なので加算で軽減）。付与スキルだった「分かち合いの味」は
+    // 「暁の迎え火」追加と引き換えに廃止済みで、現状 shareSelfReduction を持つスキルは無い＝この行は
+    // 常に 0 加算。効果系の配線（types/skills/engine の4点セット）として温存し、将来のスキルが使う。
     let self = eff.self;
     if (action === "share" && isHero(actor.id)) {
       self = Math.min(0, self + skillEffects.shareSelfReduction);
@@ -959,7 +965,9 @@ export async function runTick(
     // 表示・記憶用の相手。follow は離れた相手も追うため followTargetById から取る。
     const personalTarget = action === "follow" ? followTargetById.get(actor.id) : target;
 
-    // 大禍を祓い退けた日（averted）は、結界を成したハルはその日倒れない（通常負荷で力尽きてクリアを取りこぼさない）。
+    // 大禍を祓い退けた日（averted）、結界の芯にいるハルだけは倒れない（霊力1で踏みとどまる）。
+    // climaxBlow は averted でも全員に乗る（結界はハル独りしか護れない）ため、この床上げが
+    // ハルの生死を分ける唯一の護りになる。仲間はここを通らず、必ず散る。
     if (climax?.averted && isHero(actor.id) && actor.energy <= 0) actor.energy = 1;
     // 主人公のスキル「九死の灯」(deathWard): 一周に一度だけ、力尽きるはずの日を霊力1で踏みとどまる。
     // ただし大禍に呑まれた日（climaxBlow>0＝結界が及ばず京ごと呑まれる）は灯ごと呑まれる。
@@ -1083,6 +1091,21 @@ export async function runTick(
     });
   }
 
+  // 6.5 暁の迎え火（dawnRevival）。大禍を祓い退けた朝、力尽きていた仲間が全員息を吹き返す。
+  //   結界はハル独りしか護れず大禍で仲間は必ず散るため、fin＝クリアはこの蘇生とだけ同時に起きる
+  //   ＝エピローグは構造的に必ず全員生存の絵になる。周の途中で力尽きた者も、たった今大禍に
+  //   呑まれた者も、まとめて迎え火が呼び戻す。
+  const revivedNames: string[] = [];
+  if (climax?.averted && skillEffects.dawnRevival > 0) {
+    for (const c of state.characters) {
+      if (c.alive || isHero(c.id)) continue;
+      c.alive = true;
+      c.energy = skillEffects.dawnRevival;
+      pushEpisodic(c, `Day${state.day}: 迎え火に呼ばれ、息を吹き返した`);
+      revivedNames.push(c.name);
+    }
+  }
+
   // （旧 v1 の「生者1人以下で finished」判定はここにあったが除去した。回帰モデルでは
   //   ハル単独の周が常態で、毎ティック finished=true になる無意味なフラグ汚染だった。
   //   現在の finished は「大禍を祓い輪を断った＝fin」専用で、campaign.recordTick だけが立てる。）
@@ -1099,9 +1122,11 @@ export async function runTick(
   }
   if (climax) {
     notableParts.unshift(
-      climax.averted
-        ? `——大禍、来たる。ハルの結界が京を護り抜いた（結界力${climax.wardPower}≧猛威${climax.menace}）。京は救われた。`
-        : `——大禍、来たる。結界は及ばず（結界力${climax.wardPower}＜猛威${climax.menace}）、京は呑まれた。`,
+      !climax.averted
+        ? `——大禍、来たる。結界は及ばず（結界力${climax.wardPower}＜猛威${climax.menace}）、京は呑まれた。`
+        : revivedNames.length > 0
+          ? `——大禍、来たる。ハルの結界が祓い退け（結界力${climax.wardPower}≧猛威${climax.menace}）、暁の迎え火が散った皆——${revivedNames.join("・")}を呼び戻した。京は救われた。`
+          : `——大禍、来たる。結界はハル独りを護り抜いた（結界力${climax.wardPower}≧猛威${climax.menace}）。大禍は祓われた——だが、独りの暁だった。`,
     );
   }
   for (const r of results) {
@@ -1247,7 +1272,10 @@ export async function runTick(
     if (e.kind === "calamity") continue; // 大禍は下で専用の理由を立てる
     tempoReasons.push(e.kind === "bounty" ? `${e.name}が京を潤す` : `${e.name}が京を襲う`);
   }
-  if (climax) tempoReasons.push(climax.averted ? "大禍を祓い退けた" : "大禍が京を呑んだ");
+  if (climax)
+    tempoReasons.push(
+      !climax.averted ? "大禍が京を呑んだ" : revivedNames.length > 0 ? "大禍を祓い退けた" : "独りの暁",
+    );
   for (const r of results) {
     if (r.died) tempoReasons.push(`${r.name}が力尽きた`);
     else if (r.energyAfter <= DANGER_ENERGY) tempoReasons.push(`${r.name}が餓死寸前`);
@@ -1269,7 +1297,10 @@ export async function runTick(
     tempoReasons,
     notable,
     climax,
-    cleared: climax?.averted === true ? true : undefined,
+    // クリア＝fin は「祓い退け＋迎え火の蘇生」が揃った朝だけ。迎え火未会得の祓いは「独りの暁」
+    // （cleared を立てず、campaign.recordTick が solo_dawn としてもう一度だけ輪へ戻す）。
+    cleared: climax?.averted && skillEffects.dawnRevival > 0 ? true : undefined,
+    revivedCharacters: revivedNames.length > 0 ? revivedNames : undefined,
     dialogue,
     director: director
       ? {

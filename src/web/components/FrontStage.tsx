@@ -65,8 +65,21 @@ function SceneMarks({ t }: { t: TickResult }) {
   return (
     <div className="scene-marks">
       {t.climax ? (
+        // 祓い退け方は2通り: 迎え火つき（cleared=fin・大団円）と、独りの暁（仲間は皆呑まれ、fin は一周先送り）。
         <span className={`mark mark-climax${t.climax.averted ? " mark-climax-saved" : ""}`}>
-          {tr(t.climax.averted ? "mark_climax_saved" : "mark_climax_lost")}
+          {tr(
+            !t.climax.averted
+              ? "mark_climax_lost"
+              : t.cleared
+                ? "mark_climax_saved"
+                : "mark_climax_solo",
+          )}
+        </span>
+      ) : null}
+      {t.revivedCharacters?.length ? (
+        // 迎え火の灯（蘇生）。提灯の暖色。新規スタイルは方針どおり Tailwind ユーティリティで。
+        <span className="mark font-bold tracking-[0.03em] text-[#ffd9c9] bg-[rgba(214,108,66,0.18)] border-[rgba(214,108,66,0.55)]">
+          {tr("mark_revival")}
         </span>
       ) : null}
       {warded ? (

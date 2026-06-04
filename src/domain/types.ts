@@ -428,8 +428,11 @@ export interface TickResult {
    * averted なら cleared、足りねば京は呑まれて全滅→回帰。
    */
   climax?: { menace: number; wardPower: number; averted: boolean };
-  /** この日にハルが大禍を祓い退けて京を救ったか（クリア）。engine が付与する。 */
+  /** この日にハルが大禍を祓い退けて京を救ったか（クリア＝fin）。engine が付与する。
+   *  結界はハル独りしか護れないため、クリアは「暁の迎え火」会得後の祓い（蘇生つき）でのみ成立する。 */
   cleared?: boolean;
+  /** 「暁の迎え火」が灯った朝に息を吹き返した仲間の表示名。engine が付与する（クリア日のみ）。 */
+  revivedCharacters?: string[];
   characters: CharacterTickResult[];
   /** その日の見せ方の密度（montage=早回し / scene=カメラ寄り）。CLI/UI が出し分ける。 */
   tempo: Tempo;
@@ -533,6 +536,7 @@ export interface SkillEffectRaw {
   stealResist?: number; // 奪われたときの霊力喪失・ストレスを軽くする割合（0〜1、0.5=半減）
   quellPower?: number; // 鎮めの力 +n（荒ぶる半妖をハルが祓い鎮めるための備え。これが荒ぶり度に届けば鎮静）
   shareReflect?: number; // 返霊 +n（ハルが分与を受けたとき、削って分けてくれた相手＝share元に霊力を返し救う）
+  dawnRevival?: number; // 迎え火（暁の迎え火）。大禍を祓った朝、力尽きていた仲間全員を霊力nで蘇生させる
 }
 
 /** 全習得スキルを合算した実効効果（engine / freshWorldFor が読む） */
@@ -549,6 +553,7 @@ export interface SkillEffects {
   stealResist: number; // 奪われ被害の軽減割合の総和（0〜1にクランプして使う）
   quellPower: number; // 鎮めの力の総和（荒ぶる半妖の荒ぶり度に届けば鎮静できる）
   shareReflect: number; // 返霊の総和（ハルが分与を受けたとき share元へ返す霊力）
+  dawnRevival: number; // 迎え火の蘇生霊力（>0 なら、大禍を祓った朝に力尽きていた仲間全員がこの霊力で蘇る）
 }
 
 /**
@@ -582,6 +587,11 @@ export interface SkillDef {
   /** その日の進捗増分を返す（0 なら寄与なし） */
   measure: (ctx: SkillTickContext) => number;
   effect: SkillEffectRaw; // 習得後に効く効果
+  /**
+   * 隠しスキル。会得するまでスキル一覧に一切出さない（総数にも数えない）。
+   * 「暁の迎え火」のように、会得の瞬間そのものをサプライズとして見せるためのフラグ。
+   */
+  secret?: boolean;
 }
 
 /** スキルの保有・進捗状態（Chronicle が持つ） */
@@ -629,7 +639,8 @@ export interface LoopSummary {
   days: number; // ハルが生きた日数
   causeOfEnd: string; // 終わり方（死因・状況。日本語が source of truth＝表示の JP フォールバック）
   // 終わり方の構造化（i18n 用）。endKind が無い旧 run は causeOfEnd（日本語）へフォールバックする。
-  endKind?: "cleared" | "died"; // クリア（大禍を祓った）か、力尽きたか
+  // solo_dawn = 大禍は祓ったが独りの暁（結界はハルしか護れない）。fin せず「暁の迎え火」を得て輪へ戻った周。
+  endKind?: "cleared" | "died" | "solo_dawn"; // クリア（大禍を祓った）か、力尽きたか、独りの暁か
   endPlaceId?: string; // 力尽きた場所の id（場所が分かる死のときのみ。英訳は UI で解決）
   altruismReached: number; // その周でハルの利他が届いた最大値
   stageReached: Stage; // その周で届いた最高段階（成長軸）

@@ -56,7 +56,12 @@ function SkillCard({
 export function SkillsPage({ chronicle }: { chronicle: Chronicle | null }) {
   const t = useT();
   const prof = chronicle?.skills;
-  const acquiredCount = prof?.acquired.length ?? 0;
+  // 隠しスキル（secret: 暁の迎え火）は会得の瞬間まで存在ごと伏せる（総数 n/total にも数えない）。
+  const visible = SKILLS.filter(
+    (s) => !s.secret || (prof?.acquired.includes(s.id) ?? false),
+  );
+  // 廃止スキル（旧 share_taste 等）の会得が古い run に残っていても件数を膨らませない。
+  const acquiredCount = visible.filter((s) => prof?.acquired.includes(s.id)).length;
 
   return (
     <div className="page">
@@ -67,7 +72,7 @@ export function SkillsPage({ chronicle }: { chronicle: Chronicle | null }) {
         <h2 className="page-title">
           {t("skills_title")}
           <span className="loop-badge">
-            {t("skills_count", { n: acquiredCount, total: SKILLS.length })}
+            {t("skills_count", { n: acquiredCount, total: visible.length })}
           </span>
         </h2>
       </div>
@@ -75,7 +80,7 @@ export function SkillsPage({ chronicle }: { chronicle: Chronicle | null }) {
       <p className="skill-lead">{t("skills_lead")}</p>
 
       <div className="skill-grid">
-        {SKILLS.map((skill) => (
+        {visible.map((skill) => (
           <SkillCard
             key={skill.id}
             skill={skill}

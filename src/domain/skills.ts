@@ -34,16 +34,9 @@ function finKeyConditionMet(chronicle: Chronicle): boolean {
  * measure はその日の主人公の結果を見て「進捗の増分」を返す。
  */
 export const SKILLS: SkillDef[] = [
-  {
-    id: "share_taste",
-    icon: "🍵",
-    name: "分かち合いの味",
-    description: "1周のうちに霊力を3度分け与えると会得。以後、分けるときの自己消費が軽くなる。",
-    scope: "loop",
-    threshold: 3,
-    measure: ({ hero }) => (hero.action === "share" && hero.targetId ? 1 : 0),
-    effect: { shareSelfReduction: 3 },
-  },
+  // （旧「分かち合いの味」share_taste は「暁の迎え火」追加と引き換えに廃止。発動条件が
+  //   「絆の温もり」と丸被り（どちらも share で進む）で、効果も分与の自己消費-3の小粒QoLだった。
+  //   share→利他→ココロの本線は「絆の温もり」「涸らさぬ手」が担う。）
   {
     id: "insight_edge",
     icon: "👁️",
@@ -194,6 +187,26 @@ export const SKILLS: SkillDef[] = [
       result.characters.some((c) => c.action === "share" && c.targetId === hero.id) ? 1 : 0,
     effect: { shareReflect: 10 },
   },
+  // --- 暁の迎え火（隠しスキル。fin を一周ずらし、幕引きを必ず大団円にする仕掛け）---
+  // ハルの結界は己一人しか護れない。だから30日目の大禍を初めて祓い退けても、仲間は皆呑まれ
+  // 「独りの暁」になる（engine が averted でも climaxBlow を仲間に通す）。その暁にこのスキルを
+  // 会得し（secret: 会得の瞬間まで一覧に出ない）、fin はせずもう一度だけ輪へ戻る
+  // （campaign.recordTick の solo_dawn 分岐）。会得後に再び大禍を祓った朝は迎え火が灯り、
+  // その周で力尽きた仲間全員が蘇って fin ＝ エピローグは構造的に必ず全員生存の絵になる。
+  {
+    id: "dawn_beacon",
+    icon: "🏮",
+    name: "暁の迎え火",
+    description:
+      "大禍を初めて祓い退けた、独りの暁に会得する。結界はハル独りしか護れない——だがその朝の悔いが迎え火となり、以後、大禍を祓った暁には散った仲間がみな息を吹き返す。皆で迎える朝だけが、輪を断つ。",
+    scope: "career",
+    threshold: 1,
+    // 大禍を祓い退けた日（averted）に進む。会得は recordTick（tick の後）なので、初回の祓いでは
+    // まだ効果が無く「独りの暁」になり、次に祓った朝から迎え火が灯る＝fin が一周後ろへずれる。
+    measure: ({ result }) => (result.climax?.averted ? 1 : 0),
+    effect: { dawnRevival: 20 },
+    secret: true,
+  },
 ];
 
 const SKILL_BY_ID = new Map<SkillId, SkillDef>(SKILLS.map((s) => [s.id, s]));
@@ -259,6 +272,7 @@ export function noSkillEffects(): SkillEffects {
     stealResist: 0,
     quellPower: 0,
     shareReflect: 0,
+    dawnRevival: 0,
   };
 }
 
@@ -281,6 +295,7 @@ export function aggregateEffects(acquired: SkillId[]): SkillEffects {
     if (e.stealResist) eff.stealResist += e.stealResist;
     if (e.quellPower) eff.quellPower += e.quellPower;
     if (e.shareReflect) eff.shareReflect += e.shareReflect;
+    if (e.dawnRevival) eff.dawnRevival += e.dawnRevival;
   }
   // 奪われ被害の軽減割合は 0〜1 に収める（将来複数スキルが重なっても全損化させない）
   eff.stealResist = Math.min(1, eff.stealResist);

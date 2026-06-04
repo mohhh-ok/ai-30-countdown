@@ -311,16 +311,25 @@ export class Campaign {
       if (unlocked.length > 0) result.unlockedCharacters = unlocked.map((u) => u.name);
     }
 
-    // 周末判定: 30日目の大禍を祓い退けたら fin、主人公が力尽きたら回帰。
-    //  クリアを死亡より先に見る（結界が届けば、同じ日に通常負荷で倒れていても勝ちを取りこぼさない）。
+    // 周末判定: 30日目の大禍を「迎え火つきで」祓い退けたら fin、迎え火無しの祓いは独りの暁＝回帰、
+    //  主人公が力尽きたら回帰。クリアを死亡より先に見る（結界が届けば勝ちを取りこぼさない）。
     const heroDied = heroResult?.died ?? !(this.hero()?.alive ?? false);
     if (result.cleared) {
-      // fin: 大禍を祓い退けた＝回帰は「ハルが力尽きる」ことで起きるのだから、祓って生き延びた
-      // この周にはもう巻き戻る理由がない。輪はここで断たれ、物語は完結する。
+      // fin: 大禍を祓い、迎え火が散った仲間を呼び戻した＝もう巻き戻る理由がない。
+      // 輪はここで断たれ、物語は必ず全員生存の絵で完結する（engine 6.5 が蘇生済み）。
       // 年代記に最終周を刻むが、closeLoop（次周の立ち上げ）はせず世界をこのまま閉じる。
       // ワーカー（server.ts）と CLI（sim.ts）は finished を見て進行を止める。
-      this.pushLoopSummary("大禍を祓い、回帰の輪を断った", { kind: "cleared" });
+      this.pushLoopSummary("大禍を祓い、迎え火が皆を呼び戻し、回帰の輪を断った", { kind: "cleared" });
       this.world.finished = true;
+    } else if (result.climax?.averted) {
+      // 独りの暁: 大禍は祓った。だが結界はハル独りしか護れず、仲間は皆呑まれた。
+      // この日「暁の迎え火」を会得する（advanceSkills が上で処理済み・一覧に初めて現れる）が、
+      // 効果は次の祓いから＝fin は構造的に一周後ろへずれる。散った仲間を残して輪は断てない——
+      // ハルはもう一度だけ、始まりの朝へ戻ることを選ぶ。
+      result.regressed = true;
+      this.closeLoop("大禍を祓った。だが、独りの暁だった——散った仲間を残して、輪は断てない", {
+        kind: "solo_dawn",
+      });
     } else if (heroDied) {
       result.regressed = true;
       this.closeLoop(heroResult ? `${heroResult.placeName}で力尽きた` : "力尽きた", {
@@ -338,7 +347,7 @@ export class Campaign {
    */
   private pushLoopSummary(
     causeOfEnd: string,
-    end: { kind: "cleared" | "died"; placeId?: string },
+    end: { kind: "cleared" | "died" | "solo_dawn"; placeId?: string },
   ): void {
     const summary: LoopSummary = {
       loop: this.chronicle.loop,
@@ -357,10 +366,10 @@ export class Campaign {
     this.chronicle.history.push(summary);
   }
 
-  /** 周回を閉じ、履歴に結末を刻んで次周の世界を立ち上げる（回帰＝ハルが力尽きたときだけ）。 */
+  /** 周回を閉じ、履歴に結末を刻んで次周の世界を立ち上げる（回帰＝ハルの力尽き or 独りの暁）。 */
   private closeLoop(
     causeOfEnd: string,
-    end: { kind: "cleared" | "died"; placeId?: string },
+    end: { kind: "cleared" | "died" | "solo_dawn"; placeId?: string },
   ): void {
     this.pushLoopSummary(causeOfEnd, end);
 

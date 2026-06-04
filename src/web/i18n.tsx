@@ -73,7 +73,10 @@ const UI = {
     vigor_well: "元気",
     mark_climax_saved:
       "☄️ 大禍、来たる——ハルの結界が京を護り抜いた。京は救われた",
+    mark_climax_solo:
+      "☄️ 大禍、来たる——結界はハル独りを護り抜いた。祓われた、だが独りの暁だった",
     mark_climax_lost: "☄️ 大禍、来たる——結界は及ばず、京は呑まれた",
+    mark_revival: "🏮 暁の迎え火が灯る——散った皆が、息を吹き返した",
     mark_frenzy:
       "🔥 {name}の眼の色が変わる——餓えと猛りが理性を呑み、荒ぶり（変身）に堕ちた",
     mark_quell: "🕊️ ハルの祓いが{wild}の猛りを鎮めた——静けさが戻る",
@@ -87,7 +90,7 @@ const UI = {
     // fin（大禍を祓い、回帰の輪が断たれた）。観客ビューの幕引き。
     fin_title: "—— 結 ——",
     fin_text:
-      "大禍は祓われた。ハルが力尽きる未来は、もうどこにもない。回帰の輪は断たれ、京の長い三十日は、ここに結ばれた。",
+      "大禍は祓われた。迎え火に呼ばれ、散った仲間もみな暁の中にいる。ハルが力尽きる未来は、もうどこにもない。回帰の輪は断たれ、京の長い三十日は、ここに結ばれた。",
     fin_sub: "この物語は完結しました。これまでの回帰は、上の「第N回帰」からいつでも読み返せます。",
     // 変身・鎮静の地の文（決定的ルール文。LLM ナレーションの後に UI が言語別に添える）。
     narr_frenzy_became:
@@ -254,6 +257,8 @@ const UI = {
     loop_survived: "生存 {n} 日",
     loop_no_record: "この回帰の記録はありません。",
     loop_end_cleared: "大禍を祓い、回帰の輪を断った",
+    loop_end_solo_dawn:
+      "大禍を祓った。だが、独りの暁だった——散った仲間を残して、輪は断てない",
     loop_end_died: "力尽きた",
     loop_end_died_at: "{place}で力尽きた",
     scope_loop: "周回内",
@@ -353,8 +358,12 @@ const UI = {
     vigor_well: "in good spirits",
     mark_climax_saved:
       "☄️ The Calamity comes—Haru’s ward held, and Kyoto was protected. Kyoto is saved",
+    mark_climax_solo:
+      "☄️ The Calamity comes—the ward shielded Haru alone. It was repelled, but the dawn came to him alone",
     mark_climax_lost:
       "☄️ The Calamity comes—the ward could not hold, and Kyoto was swallowed",
+    mark_revival:
+      "🏮 The Beacon of Dawn is lit—the fallen all draw breath again",
     mark_frenzy:
       "🔥 {name}’s eyes change color—hunger and fury devour reason, falling into frenzy (transformation)",
     mark_quell:
@@ -369,7 +378,7 @@ const UI = {
     // fin (the Calamity was purified and the cycle of regression is severed). Final curtain of the stage view.
     fin_title: "—— Fin ——",
     fin_text:
-      "The Calamity has been purified. There is no future left in which Haru’s strength fails. The cycle of regression is severed, and Kyoto’s long thirty days come, at last, to a close.",
+      "The Calamity has been purified. Called back by the beacon of dawn, the fallen companions all stand in the morning light. There is no future left in which Haru’s strength fails. The cycle of regression is severed, and Kyoto’s long thirty days come, at last, to a close.",
     fin_sub:
       "This story is complete. You can revisit every loop anytime from the “Loop N” selector above.",
     narr_frenzy_became:
@@ -540,6 +549,8 @@ const UI = {
     loop_survived: "Survived {n} days",
     loop_no_record: "No records for this loop.",
     loop_end_cleared: "Warded off the Calamity and severed the cycle of regression",
+    loop_end_solo_dawn:
+      "Repelled the Calamity—but the dawn came to Haru alone. He could not sever the cycle and leave the fallen behind",
     loop_end_died: "Fell, strength spent",
     loop_end_died_at: "Fell at {place}, strength spent",
     scope_loop: "Per loop",
@@ -632,7 +643,6 @@ const ACTION_EN: Record<string, string> = {
 };
 
 const SKILL_EN: Record<string, string> = {
-  share_taste: "Taste of Sharing",
   insight_edge: "Keen Sight",
   beyond_hunger: "Beyond Hunger",
   binding_hands: "Binding Hands",
@@ -644,6 +654,7 @@ const SKILL_EN: Record<string, string> = {
   ward_resolve: "Selfless Guard",
   quell_art: "Art of Quelling",
   never_dry: "Unfailing Hands",
+  dawn_beacon: "Beacon of Dawn",
 };
 
 const EVENT_EN: Record<string, string> = {
@@ -693,8 +704,6 @@ const PLACE_DESC_EN: Record<string, string> = {
 };
 
 const SKILL_DESC_EN: Record<string, string> = {
-  share_taste:
-    "Acquired by sharing spirit power 3 times within a single loop. Thereafter, the self-cost of sharing is lighter.",
   insight_edge:
     "Acquired by gathering spirit 30 times in total (accumulates across loops). The eye that reads spirit veins sharpens, raising the harvest from gathering by +15%.",
   beyond_hunger:
@@ -717,6 +726,8 @@ const SKILL_DESC_EN: Record<string, string> = {
     "Acquired by facing the frenzied half-spirit in the same sacred land and purifying it 5 times in total (accumulates across loops; days you fail to quell still count). Grants +14 quelling power to undo a frenzy.",
   never_dry:
     "Acquired by receiving another's sharing 5 times in total (accumulates across loops). Thereafter, when Haru is given spirit power, he returns spirit power to the one who gave at their own expense (+10 spirit return), so they never run dry.",
+  dawn_beacon:
+    "Acquired at the lonely dawn when the Calamity is first repelled. The ward can shield Haru alone—but the regret of that morning becomes a beacon, and thereafter, at every dawn the Calamity is repelled, the fallen companions all draw breath again. Only a morning greeted together can sever the cycle.",
 };
 
 const CHAR_CORE_EN: Record<string, string> = {
@@ -910,7 +921,7 @@ export function useLoopEnd() {
   const dn = useDomainNames();
   return (sum: {
     causeOfEnd: string;
-    endKind?: "cleared" | "died";
+    endKind?: "cleared" | "died" | "solo_dawn";
     endPlaceId?: string;
   }): string => {
     if (lang !== "en") return sum.causeOfEnd;
@@ -924,6 +935,7 @@ export function useLoopEnd() {
       return sum.causeOfEnd;
     }
     if (sum.endKind === "cleared") return t("loop_end_cleared");
+    if (sum.endKind === "solo_dawn") return t("loop_end_solo_dawn");
     return sum.endPlaceId
       ? t("loop_end_died_at", { place: dn.place(sum.endPlaceId, sum.endPlaceId) })
       : t("loop_end_died");
