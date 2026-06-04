@@ -1335,14 +1335,6 @@ button.ghost {
   font-size: 14px;
 }
 
-.stage-finished {
-  margin-top: 24px;
-  text-align: center;
-  color: var(--accent);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-}
-
 /* 京の気（各霊地の和み/荒びゲージ）— 上＝和み・下＝荒びの2本バー。
    器（薄い背景）＝地の性格、明るい塗り＝現在値（枯れ具合）。全地で共有スケール。 */
 .kyo-gauge {

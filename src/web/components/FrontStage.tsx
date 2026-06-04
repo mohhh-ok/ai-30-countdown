@@ -286,6 +286,17 @@ export function FrontStage({
 
   return (
     <div className="stage">
+      {/* fin — 大禍を祓い、回帰の輪が断たれた。世界はもう進まないので、幕引きを最上段に掲げる。 */}
+      {state?.finished && (
+        <div className="rounded-xl border border-[color:var(--accent)] bg-[color:var(--panel)] px-6 py-8 text-center">
+          <p className="text-2xl tracking-[0.4em] text-[color:var(--accent)] [font-family:var(--title-font)]">
+            {tr("fin_title")}
+          </p>
+          <p className="mt-4 leading-relaxed text-[color:var(--text)]">{tr("fin_text")}</p>
+          <p className="mt-3 text-sm text-[color:var(--muted)]">{tr("fin_sub")}</p>
+        </div>
+      )}
+
       {/* いちばん新しい1日を主役の場面として大きく見せる */}
       <Scene t={latest} primary />
 

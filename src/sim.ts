@@ -277,6 +277,11 @@ if (!values.json) {
 }
 
 for (let i = 0; i < days; i++) {
+  // fin: 大禍を祓い回帰の輪が断たれた世界は、もう進めない（指定日数が残っていても終わる）
+  if (campaign.world.finished) {
+    if (!values.json) console.log("\n🏯 fin — 大禍は祓われ、回帰の輪は断たれた。物語はここに結ばれた。");
+    break;
+  }
   const world = campaign.world; // この日の世界（recordTick で回帰すると次周へ差し替わる）
   beginTickTiming(); // この tick の LLM 呼び出し時間を集める（mock 時は空）
   const result = await runTick(world, campaign.weatherHistory, provider, {
@@ -351,8 +356,7 @@ for (let i = 0; i < days; i++) {
       );
     }
     if (result.cleared) {
-      const sk = campaign.chronicle.skills.acquired.length;
-      console.log(`   🎉 Loop ${result.loop} クリア！ 30日を越え京を救った → 次の30日へ（持ち越しスキル ${sk}）`);
+      console.log(`   🎉 Loop ${result.loop} で大禍を祓い切った！ 回帰の輪は断たれ、物語は完結（fin）`);
     }
     if (result.regressed) {
       const sk = campaign.chronicle.skills.acquired.length;

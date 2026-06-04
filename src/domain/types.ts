@@ -245,7 +245,11 @@ export interface WorldState {
   weather: Weather;
   characters: Character[];
   places: Place[]; // 世界の場所（静的・京都）
-  finished: boolean; // 全員死亡などで終了したか
+  /**
+   * fin（物語の完結）。30日目の大禍を祓い退けた＝回帰する理由が消えた周で true になる。
+   * 以後は世界を巻き戻さず、サーバの自走ワーカーも停止する（campaign.ts / server.ts 参照）。
+   */
+  finished: boolean;
   /** いま京に起きている災い/恵み（複数同時可・数日持続）。回帰でリセット。 */
   activeEvents: WorldEvent[];
 }
@@ -506,6 +510,7 @@ export interface SkillEffectRaw {
   startEnergyBonus?: number; // 周開始時のエネルギー +n
   startTrustBonus?: number; // 周開始時の信頼 +n
   startAltruismBonus?: number; // 周開始時の利他 +n
+  restBonus?: number; // 休む(rest)ときの回復量 +n
   wardPower?: number; // 結界力 +n（30日目の大禍を祓い退けるための備え。これが猛威度に届けばクリア）
   stealResist?: number; // 奪われたときの霊力喪失・ストレスを軽くする割合（0〜1、0.5=半減）
   quellPower?: number; // 鎮めの力 +n（荒ぶる半妖をハルが祓い鎮めるための備え。これが荒ぶり度に届けば鎮静）
@@ -520,7 +525,8 @@ export interface SkillEffects {
   startEnergyBonus: number;
   startTrustBonus: number;
   startAltruismBonus: number;
-  wardPower: number; // 結界力の総和（30日目の大禍の猛威度に届けば回避＝クリア）
+  restBonus: number; // 休む(rest)ときの回復量の上乗せ総和
+  wardPower: number; // 結界力の総和（30日目の大禍の猛威度に届けば回避＝クリア。クリア＝輪を断つ＝fin）
   stealResist: number; // 奪われ被害の軽減割合の総和（0〜1にクランプして使う）
   quellPower: number; // 鎮めの力の総和（荒ぶる半妖の荒ぶり度に届けば鎮静できる）
   shareReflect: number; // 返霊の総和（ハルが分与を受けたとき share元へ返す霊力）
@@ -534,6 +540,11 @@ export interface SkillTickContext {
   hero: CharacterTickResult;
   result: TickResult;
   state: WorldState;
+  /**
+   * 年代記（周またぎのメタ進行）。「捨て身の守り」のような、全キャラ解放・ココロの段階など
+   * 物語の到達度を会得条件に編み込むスキルが参照する（campaign.recordTick が渡す）。
+   */
+  chronicle: Chronicle;
 }
 
 /** スキル定義（skills.ts のレジストリ要素） */

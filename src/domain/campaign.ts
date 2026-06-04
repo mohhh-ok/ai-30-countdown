@@ -293,6 +293,7 @@ export class Campaign {
         hero: heroResult,
         result,
         state: this.world,
+        chronicle: this.chronicle,
       });
       if (newly.length > 0) result.acquiredSkills = newly.map((s) => s.name);
       // キャラ解放（ハルの成長・スキル達成で恒久ロスターに加わる。登場は次周 Day1 から）
@@ -300,12 +301,16 @@ export class Campaign {
       if (unlocked.length > 0) result.unlockedCharacters = unlocked.map((u) => u.name);
     }
 
-    // 周末判定: 30日目の大禍を祓い退けたらクリア、主人公が力尽きたら回帰。どちらも周を閉じて次周へ。
+    // 周末判定: 30日目の大禍を祓い退けたら fin、主人公が力尽きたら回帰。
     //  クリアを死亡より先に見る（結界が届けば、同じ日に通常負荷で倒れていても勝ちを取りこぼさない）。
     const heroDied = heroResult?.died ?? !(this.hero()?.alive ?? false);
     if (result.cleared) {
-      // 大禍を祓い退けて京を救った。勝利を刻み、次の周（また30日のカウントダウン）を立ち上げる。
-      this.closeLoop("大禍を祓い、京を救った", { kind: "cleared" });
+      // fin: 大禍を祓い退けた＝回帰は「ハルが力尽きる」ことで起きるのだから、祓って生き延びた
+      // この周にはもう巻き戻る理由がない。輪はここで断たれ、物語は完結する。
+      // 年代記に最終周を刻むが、closeLoop（次周の立ち上げ）はせず世界をこのまま閉じる。
+      // ワーカー（server.ts）と CLI（sim.ts）は finished を見て進行を止める。
+      this.pushLoopSummary("大禍を祓い、回帰の輪を断った", { kind: "cleared" });
+      this.world.finished = true;
     } else if (heroDied) {
       result.regressed = true;
       this.closeLoop(heroResult ? `${heroResult.placeName}で力尽きた` : "力尽きた", {
@@ -316,11 +321,12 @@ export class Campaign {
   }
 
   /**
-   * 周回を閉じ、履歴に結末を刻んで次周の世界を立ち上げる。
+   * 周回の結末を年代記（chronicle.history）に刻む。
    * causeOfEnd は日本語の source of truth（JP フォールバック表示用）。
    * end は i18n 用の構造化（kind＝クリア/力尽き、placeId＝力尽きた場所）。
+   * 回帰（died）は続けて closeLoop が次周を立ち上げるが、fin（cleared）はこれだけで終わる。
    */
-  private closeLoop(
+  private pushLoopSummary(
     causeOfEnd: string,
     end: { kind: "cleared" | "died"; placeId?: string },
   ): void {
@@ -339,6 +345,14 @@ export class Campaign {
       metaHighlights: loopMetaHighlights(this.loopLog, this.protagonistId),
     };
     this.chronicle.history.push(summary);
+  }
+
+  /** 周回を閉じ、履歴に結末を刻んで次周の世界を立ち上げる（回帰＝ハルが力尽きたときだけ）。 */
+  private closeLoop(
+    causeOfEnd: string,
+    end: { kind: "cleared" | "died"; placeId?: string },
+  ): void {
+    this.pushLoopSummary(causeOfEnd, end);
 
     resetLoopScopedProgress(this.chronicle);
     this.chronicle.loop += 1;

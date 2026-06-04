@@ -10,6 +10,24 @@ import type {
   SkillProfile,
   SkillTickContext,
 } from "./types.ts";
+import { CHARACTER_UNLOCKS } from "./characters.ts";
+import { findSoulKind, soulStageOf } from "./soul.ts";
+
+/**
+ * fin への鍵条件（「捨て身の守り」の進捗ゲート）。
+ * 全キャラが解放済みで、かつハルのココロ（利他の心）が最終段階「満ちる」に達しているか。
+ * 大禍を祓えること＝物語が完成していることを構造的に保証するため、結界力を 30 に届かせる
+ * 最後のスキルの会得条件にこれを編み込む（クリア＝回帰の輪を断つ＝fin）。
+ */
+function finKeyConditionMet(chronicle: Chronicle): boolean {
+  const allUnlocked = CHARACTER_UNLOCKS.every((u) => chronicle.roster.includes(u.id));
+  const kind = findSoulKind("altruism");
+  // ココロ定義が消えているのはコード矛盾（鍵条件が永遠に満たせなくなる）。隠さず止める。
+  if (!kind) throw new Error("ココロ『利他の心』(altruism) が SOUL_KINDS に存在しない");
+  const stage = soulStageOf(kind, chronicle.heroSoulCounters["altruism"] ?? 0);
+  const soulFull = (stage?.level ?? 0) >= 3;
+  return allUnlocked && soulFull;
+}
 
 /**
  * スキルレジストリ。ハル（成長軸=利他 / 異能=観の眼 / 殻を破り独占を憎む）のテーマに沿う。
@@ -78,47 +96,58 @@ export const SKILLS: SkillDef[] = [
     effect: { stealResist: 0.5 },
   },
   // --- 結界スキル（30日目の大禍を祓い退けるための「結界力 wardPower」を積む）---
-  // 単独（ハルひとり）の周でも、祓い×8 と 休む×10 だけで wardPower 18+14=32 ≥ 猛威度30 に届く設計。
-  // 仲間が解放されれば、分与・寄り添いの道でも結界を編める。
+  // 結界は「心得」（基礎・単独周でも進む）と「捨て身の守り」（鍵）の2つだけ。
+  // 合計 14+18=32 ≥ 猛威度30 だが、鍵には fin の物語条件（全キャラ解放＋ココロ満ちる）が
+  // 編み込まれているため、物語が完成するまで大禍は決して祓えない。
+  // 祓えた周＝回帰する理由が消えた周＝fin（campaign.recordTick が輪を断つ）。
   {
     id: "ward_basics",
     icon: "🛡️",
     name: "結界の心得",
-    description: "通算8度、祓い清めると会得（周をまたいで蓄積）。荒れた地を鎮める手が結界の基礎となり、大禍への結界力+18。",
+    description: "通算8度、祓い清めると会得（周をまたいで蓄積）。荒れた地を鎮める手が結界の基礎となり、大禍への結界力+14。",
     scope: "career",
     threshold: 8,
     measure: ({ hero }) => (hero.action === "purify" ? 1 : 0),
-    effect: { wardPower: 18 },
+    effect: { wardPower: 14 },
   },
+  // 旧「守りの静坐」。結界が4スキルに偏重していたため結界力を外し、休息の質を高める
+  // 生存スキルへ改装した（id は DB の進捗・i18n キーとの互換のため据え置き）。
   {
     id: "ward_vigil",
     icon: "🪷",
-    name: "守りの静坐",
-    description: "通算10度、身を鎮めて休むと会得（周をまたいで蓄積）。澄んだ静けさが心の備えとなり、大禍への結界力+14。",
+    name: "静坐の澄み",
+    description: "通算10度、身を鎮めて休むと会得（周をまたいで蓄積）。澄んだ静けさが身に染みつき、以後は休むたびの回復が+4増す。",
     scope: "career",
     threshold: 10,
     measure: ({ hero }) => (hero.action === "rest" ? 1 : 0),
-    effect: { wardPower: 14 },
+    effect: { restBonus: 4 },
   },
+  // 旧「守りの絆」。同じく結界力を外し、分かち合いの記憶が次の生へ宿る成長スキルへ改装
+  // （startAltruismBonus は freshWorldFor が周開始時に適用する。利他はココロ・カイ解放・
+  //  「独りを断つ」と連動するため、fin 本線への間接支援になる）。
   {
     id: "ward_bonds",
     icon: "🪢",
-    name: "守りの絆",
-    description: "通算12度、霊力を分け与えると会得（周をまたいで蓄積）。人と結んだ絆が盾となり、大禍への結界力+12。",
+    name: "絆の温もり",
+    description: "通算12度、霊力を分け与えると会得（周をまたいで蓄積）。人と分かち合った温もりが魂に宿り、次周以降は利他+5で目覚める。",
     scope: "career",
     threshold: 12,
     measure: ({ hero }) => (hero.action === "share" && hero.targetId ? 1 : 0),
-    effect: { wardPower: 12 },
+    effect: { startAltruismBonus: 5 },
   },
+  // fin への鍵。この進捗は「全キャラ解放＋ココロ満ちる」の周でしか進まない（finKeyConditionMet）。
+  // 会得すれば結界力 14+18=32 ≥ 猛威度30 となり、次の30日目で大禍を祓える＝輪を断てる。
   {
     id: "ward_resolve",
     icon: "🦸",
     name: "捨て身の守り",
-    description: "通算6度、誰かに寄り添うと会得（周をまたいで蓄積）。傍に在り支える覚悟が力に変わり、大禍への結界力+14。",
+    description:
+      "全ての仲間と出会い、ココロ（利他の心）が満ちた者の寄り添いだけが糧になる。その状態で通算6度、誰かに寄り添うと会得（周をまたいで蓄積）。輪を断つ覚悟が結界を結び、大禍への結界力+18。",
     scope: "career",
     threshold: 6,
-    measure: ({ hero }) => (hero.action === "follow" ? 1 : 0),
-    effect: { wardPower: 14 },
+    measure: ({ hero, chronicle }) =>
+      hero.action === "follow" && finKeyConditionMet(chronicle) ? 1 : 0,
+    effect: { wardPower: 18 },
   },
   // --- 鎮めの術（荒ぶる半妖カイを祓い鎮める「鎮めの力 quellPower」を積む。結界 wardPower の双子）---
   // 荒ぶるカイと同じ霊地でハルが祓った日だけ進む。ward_basics の素の purify とは差別化し、
@@ -213,6 +242,7 @@ export function noSkillEffects(): SkillEffects {
     startEnergyBonus: 0,
     startTrustBonus: 0,
     startAltruismBonus: 0,
+    restBonus: 0,
     wardPower: 0,
     stealResist: 0,
     quellPower: 0,
@@ -233,6 +263,7 @@ export function aggregateEffects(acquired: SkillId[]): SkillEffects {
     if (e.startEnergyBonus) eff.startEnergyBonus += e.startEnergyBonus;
     if (e.startTrustBonus) eff.startTrustBonus += e.startTrustBonus;
     if (e.startAltruismBonus) eff.startAltruismBonus += e.startAltruismBonus;
+    if (e.restBonus) eff.restBonus += e.restBonus;
     if (e.wardPower) eff.wardPower += e.wardPower;
     if (e.stealResist) eff.stealResist += e.stealResist;
     if (e.quellPower) eff.quellPower += e.quellPower;

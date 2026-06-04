@@ -100,7 +100,19 @@ function probeSkillMeasure(skill: SkillDef): { live: boolean; triggers: Action[]
       // （未充足で measure が例外を投げると「死んだ条件」と誤判定してしまうため）。
       const result = { day: 1, weather: "normal", characters: [hero] } as any;
       const state = { day: 1, weather: "normal", characters: [], places: [], activeEvents: [] } as any;
-      const inc = skill.measure({ hero, result, state });
+      // 年代記も「全部マシマシ」（全キャラ解放・ココロ満ちる・全スキル）で渡す。
+      // 「捨て身の守り」のような物語到達度ゲート付き measure が、最良の文脈でなら
+      // 発火しうるか（＝定義が破綻していないか）を見るため。
+      const chronicle = {
+        loop: 10_000,
+        protagonistId: "haru",
+        skills: { acquired: ALL_SKILL_IDS, progress: {} },
+        roster: ["haru", ...CHARACTER_UNLOCKS.map((u) => u.id)],
+        heroPeakAltruism: 100,
+        heroSoulCounters: { altruism: 9_999 },
+        history: [],
+      } as any;
+      const inc = skill.measure({ hero, result, state, chronicle });
       if (inc > 0) triggers.push(action);
     } catch (e) {
       return { live: false, triggers, error: String(e) };

@@ -82,6 +82,11 @@ const UI = {
     mark_skill: "✨ ハルは「{skills}」を会得した",
     mark_unlock: "🆕 {names} が次の回帰から京に現れる",
     mark_regress: "↻ ハルは力尽き、時は巻き戻る——",
+    // fin（大禍を祓い、回帰の輪が断たれた）。観客ビューの幕引き。
+    fin_title: "—— 結 ——",
+    fin_text:
+      "大禍は祓われた。ハルが力尽きる未来は、もうどこにもない。回帰の輪は断たれ、京の長い三十日は、ここに結ばれた。",
+    fin_sub: "この物語は完結しました。これまでの回帰は、上の「第N回帰」からいつでも読み返せます。",
     // 変身・鎮静の地の文（決定的ルール文。LLM ナレーションの後に UI が言語別に添える）。
     narr_frenzy_became:
       "——{name}の眼の色が変わる。餓えと猛りが理性を呑み、荒ぶりが鎌首をもたげた。",
@@ -243,7 +248,7 @@ const UI = {
     loop_select_label: "回帰を選んでジャンプ",
     loop_survived: "生存 {n} 日",
     loop_no_record: "この回帰の記録はありません。",
-    loop_end_cleared: "大禍を祓い、京を救った",
+    loop_end_cleared: "大禍を祓い、回帰の輪を断った",
     loop_end_died: "力尽きた",
     loop_end_died_at: "{place}で力尽きた",
     scope_loop: "周回内",
@@ -348,6 +353,12 @@ const UI = {
     mark_skill: "✨ Haru mastered {skills}",
     mark_unlock: "🆕 {names} will appear in Kyoto from the next loop",
     mark_regress: "↻ Haru’s strength fails, and time rewinds—",
+    // fin (the Calamity was purified and the cycle of regression is severed). Final curtain of the stage view.
+    fin_title: "—— Fin ——",
+    fin_text:
+      "The Calamity has been purified. There is no future left in which Haru’s strength fails. The cycle of regression is severed, and Kyoto’s long thirty days come, at last, to a close.",
+    fin_sub:
+      "This story is complete. You can revisit every loop anytime from the “Loop N” selector above.",
     narr_frenzy_became:
       "—{name}’s eyes change color. Hunger and fury swallow reason, and the frenzy rears its head.",
     narr_frenzy_steal:
@@ -510,7 +521,7 @@ const UI = {
     loop_select_label: "Jump to a loop",
     loop_survived: "Survived {n} days",
     loop_no_record: "No records for this loop.",
-    loop_end_cleared: "Warded off the Calamity and saved Kyoto",
+    loop_end_cleared: "Warded off the Calamity and severed the cycle of regression",
     loop_end_died: "Fell, strength spent",
     loop_end_died_at: "Fell at {place}, strength spent",
     scope_loop: "Per loop",
@@ -603,8 +614,8 @@ const SKILL_EN: Record<string, string> = {
   sever_solitude: "Sever Solitude",
   warded_heart: "Unyielding Core",
   ward_basics: "Ward Basics",
-  ward_vigil: "Vigil of Stillness",
-  ward_bonds: "Bonds of Warding",
+  ward_vigil: "Clarity of Stillness",
+  ward_bonds: "Warmth of Bonds",
   ward_resolve: "Selfless Guard",
   quell_art: "Art of Quelling",
   never_dry: "Unfailing Hands",
@@ -670,13 +681,13 @@ const SKILL_DESC_EN: Record<string, string> = {
   warded_heart:
     "Acquired when your spirit power is stolen 3 times in total (accumulates across loops). A core inured to being robbed repels defilement, so thereafter the loss of spirit power and stress from being stolen from are halved.",
   ward_basics:
-    "Acquired by purifying 8 times in total (accumulates across loops). The hand that quells troubled land becomes the basis of a ward: +18 ward power against the Calamity.",
+    "Acquired by purifying 8 times in total (accumulates across loops). The hand that quells troubled land becomes the basis of a ward: +14 ward power against the Calamity.",
   ward_vigil:
-    "Acquired by stilling yourself and resting 10 times in total (accumulates across loops). Clear stillness becomes a readiness of heart: +14 ward power against the Calamity.",
+    "Acquired by stilling yourself and resting 10 times in total (accumulates across loops). Clear stillness settles into the body: recovery from resting is +4 thereafter.",
   ward_bonds:
-    "Acquired by sharing spirit power 12 times in total (accumulates across loops). Bonds forged with others become a shield: +12 ward power against the Calamity.",
+    "Acquired by sharing spirit power 12 times in total (accumulates across loops). The warmth of what was shared lodges in the soul: from the next loop on, you awaken with +5 altruism.",
   ward_resolve:
-    "Acquired by staying close to someone 6 times in total (accumulates across loops). The resolve to stand by and support turns to strength: +14 ward power against the Calamity.",
+    "Only the closeness of one who has met every companion and whose Heart of Altruism is Full can become nourishment. In that state, stay close to someone 6 times in total to acquire (accumulates across loops). The resolve to sever the cycle weaves the ward: +18 ward power against the Calamity.",
   quell_art:
     "Acquired by facing the frenzied half-spirit in the same sacred land and purifying it 5 times in total (accumulates across loops; days you fail to quell still count). Grants +14 quelling power to undo a frenzy.",
   never_dry:

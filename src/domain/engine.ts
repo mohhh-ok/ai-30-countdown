@@ -572,6 +572,12 @@ export async function runTick(
     if (action === "share" && isHero(actor.id)) {
       self = Math.min(0, self + skillEffects.shareSelfReduction);
     }
+    // 主人公のスキル「静坐の澄み」: 休むときの回復量が増す。
+    // 相手不在で rest に倒されたフォールバック日も対象（「実際に休んだ日」基準。
+    // ward_vigil の measure も同じく実行後 action を数えるので意味論を揃えている）。
+    if (action === "rest" && isHero(actor.id)) {
+      self += skillEffects.restBonus;
+    }
     // forage（集霊）は民の霊力プールから引く。それ以外は固定効果。
     actor.energy += action === "forage" ? doForage(actor, place) : self;
     // 相手への害/恵み（partner 増減）を相手に適用する。
@@ -1044,10 +1050,9 @@ export async function runTick(
     });
   }
 
-  // 7. 終了判定（生者1人以下）
-  if (state.characters.filter((c) => c.alive).length <= 1) {
-    state.finished = true;
-  }
+  // （旧 v1 の「生者1人以下で finished」判定はここにあったが除去した。回帰モデルでは
+  //   ハル単独の周が常態で、毎ティック finished=true になる無意味なフラグ汚染だった。
+  //   現在の finished は「大禍を祓い輪を断った＝fin」専用で、campaign.recordTick だけが立てる。）
 
   // 注目の変化（plan.md 第10節）
   const notableParts: string[] = [];

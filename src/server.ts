@@ -125,6 +125,13 @@ let workerOn = false;
 async function workerLoop() {
   llog("server", "worker→start", { intervalMs: WORKER_INTERVAL_MS });
   while (workerOn) {
+    // fin: 大禍を祓い回帰の輪が断たれたら、世界はもう進まない。ワーカーはここで役目を終える。
+    if (campaign.world.finished) {
+      workerOn = false;
+      llog("server", "worker→fin", { loop: campaign.chronicle.loop });
+      console.log("🏯 fin — 大禍は祓われ、回帰の輪は断たれた。ワーカーを停止する。");
+      break;
+    }
     if (ticking) {
       // 手動 tick 等と衝突したら少し待って再挑戦
       await Bun.sleep(200);
@@ -264,5 +271,10 @@ console.log(
 );
 
 // 配信モデル: 起動と同時にワーカーを立ち上げ、自走で世界を進め続ける（外部から停止する手段は持たない）
-startWorker();
-console.log(`   ワーカー起動（自動進行 / 間隔 ${WORKER_INTERVAL_MS}ms）`);
+// ただし fin（大禍を祓い輪を断った）済みの年代記を復元したときは、完結した世界を動かさない。
+if (campaign.world.finished) {
+  console.log("🏯 fin 済みの年代記を復元。物語は完結しているためワーカーは起動しない。");
+} else {
+  startWorker();
+  console.log(`   ワーカー起動（自動進行 / 間隔 ${WORKER_INTERVAL_MS}ms）`);
+}
