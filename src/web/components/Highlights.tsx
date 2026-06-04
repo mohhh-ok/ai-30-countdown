@@ -90,29 +90,40 @@ function HighlightBlock({
 export function Highlights({
   log,
   chronicle,
+  loop,
+  liveLog = true,
 }: {
   log: TickResult[];
   chronicle: Chronicle | null;
+  // 見せ場を組む対象の回帰。省略時は chronicle の現周（ホーム用）。過去回帰ページでは閲覧中の周を渡す。
+  loop?: number;
+  // log が「まだ閉じていない進行中の周」のログかどうか。true のときだけ年代記に現周ぶんを足す。
+  // 過去の閉じた周は metaHighlights が chronicle.history に焼き付け済みなので false（二重計上を防ぐ）。
+  liveLog?: boolean;
 }) {
   const t = useT();
   const heroId = chronicle?.protagonistId ?? "haru";
-  const currentLoop = chronicle?.loop ?? 1;
+  const viewedLoop = loop ?? chronicle?.loop ?? 1;
 
   // 回帰を超えた年代記は chronicle から組む。過去周は LoopSummary.metaHighlights（closeLoop で焼き付け済み）、
   // 進行中の周は手元の現周ログ（log）から live に拾う。全周ログは持たない設計なので log には現周しか無い。
-  const meta = chronicleHighlights(chronicle?.history ?? [], {
-    loop: currentLoop,
-    events: loopMetaHighlights(log, heroId),
-  }).reverse();
+  // 過去回帰を見ているときは「その回帰までの年代記」に絞る（viewedLoop より後の周の節目は伏せる）。
+  // ホームは viewedLoop が現周（＝最大）なので全件が通り従来どおり。
+  const meta = chronicleHighlights(
+    chronicle?.history ?? [],
+    liveLog ? { loop: viewedLoop, events: loopMetaHighlights(log, heroId) } : undefined,
+  )
+    .filter((h) => h.loop == null || h.loop <= viewedLoop)
+    .reverse();
   // 新しい順（date desc・直近を上に）。
-  const loopTop = loopHighlights(log, currentLoop, heroId, 5).reverse();
+  const loopTop = loopHighlights(log, viewedLoop, heroId, 5).reverse();
 
   if (meta.length === 0 && loopTop.length === 0) return null;
 
   return (
     <section className="highlights">
       <HighlightBlock
-        title={t("hl_loop_showcase", { n: currentLoop })}
+        title={t("hl_loop_showcase", { n: viewedLoop })}
         items={loopTop}
         showLoop={false}
         empty={t("hl_empty_loop")}

@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import type { Chronicle, TickResult } from "../../domain/types.ts";
 import { FrontStage } from "../components/FrontStage.tsx";
+import { Highlights } from "../components/Highlights.tsx";
 import { LoopSelect } from "../components/LoopSelect.tsx";
 import { skillName } from "../util.ts";
 import { useDomainNames, useLoopEnd, useSep, useT } from "../i18n.tsx";
@@ -98,7 +99,16 @@ export function LoopPage({
       ) : ticks.length === 0 ? (
         <p className="page-empty">{t("loop_no_record")}</p>
       ) : (
-        <FrontStage log={ticks} chronicle={chronicle} />
+        // ホームと同じ2カラム構成。右肩に「第N回帰の見せ場」（＝閲覧中の周）を出す。
+        // live な周は現周ログとして年代記へ足し、閉じた周は焼き付け済みなので足さない（liveLog）。
+        <div className="body-cols">
+          <div className="main-col">
+            <FrontStage log={ticks} chronicle={chronicle} />
+          </div>
+          <aside className="side-col">
+            <Highlights log={ticks} chronicle={chronicle} loop={loop} liveLog={live} />
+          </aside>
+        </div>
       )}
     </div>
   );
