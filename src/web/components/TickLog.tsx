@@ -205,6 +205,24 @@ export function TickLog({ log }: { log: TickResult[] }) {
                   {c.energyDelta >= 0 ? `+${c.energyDelta}` : c.energyDelta}
                 </span>
               </span>
+              {/* 業・徳の現在値（日次負荷への上乗せ/軽減）。積もった翌日以降も収支の理由が読めるよう常時出す。
+                  旧データ（未記録の tick）は ?? 0 で非表示。 */}
+              {(c.stealBurden ?? 0) > 0 && (
+                <span
+                  className="text-[11px] font-bold text-[color:var(--down)]"
+                  title={tr("tlog_burden_title", { n: c.stealBurden })}
+                >
+                  {tr("tlog_burden_badge", { n: c.stealBurden })}
+                </span>
+              )}
+              {(c.shareGrace ?? 0) > 0 && (
+                <span
+                  className="text-[11px] font-bold text-[color:var(--up)]"
+                  title={tr("tlog_grace_title", { n: c.shareGrace })}
+                >
+                  {tr("tlog_grace_badge", { n: c.shareGrace })}
+                </span>
+              )}
               {(() => {
                 const dt = diary(c.diary, c.diaryNote);
                 return dt ? <span className="log-diary">「{dt}」</span> : null;
