@@ -11,8 +11,8 @@ import { TickLog } from "./components/TickLog.tsx";
 import { PlacesMap } from "./components/PlacesMap.tsx";
 import { FrontStage } from "./components/FrontStage.tsx";
 import { Highlights } from "./components/Highlights.tsx";
-import { LoopsPage } from "./pages/LoopsPage.tsx";
 import { LoopPage } from "./pages/LoopPage.tsx";
+import { LoopSelect } from "./components/LoopSelect.tsx";
 import { CharacterPage } from "./pages/CharacterPage.tsx";
 import { SkillsPage } from "./pages/SkillsPage.tsx";
 import { SoulsPage } from "./pages/SoulsPage.tsx";
@@ -34,7 +34,8 @@ const IS_LOCALHOST =
   typeof window !== "undefined" &&
   ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
 
-/** ページ切り替えのナビ。回帰一覧と各キャラへの入口を常設する。 */
+/** ページ切り替えのナビ。各ページと各キャラへの入口を常設する。
+    回帰一覧は廃止（日付欄の「第N回帰」セレクトから各回帰へ直接ジャンプする）。 */
 function SiteNav({
   route,
   chronicle,
@@ -48,15 +49,9 @@ function SiteNav({
 }) {
   const t = useT();
   const dn = useDomainNames();
-  const { lang } = useLang();
-  // 周の総数は現在の回帰番号（chronicle.loop）そのもの。全周ログは持たない。
-  const loopCount = chronicle?.loop ?? 1;
   // ナビは全キャラを定義順で並べる。まだ登場（解放）していない子は名前を伏せて「???」に。
   const appeared = new Set<string>(chronicle?.roster ?? []);
   const charIds = allCharIds();
-  const onLoop = route.name === "loops" || route.name === "loop";
-  const loopParen =
-    loopCount > 0 ? (lang === "en" ? ` (${loopCount})` : `（${loopCount}）`) : "";
   return (
     <nav className="site-nav">
       {/* ホーム配下のビュー切替（表/裏/デバッグ）をナビ行に統合。ホーム以外のページから
@@ -84,10 +79,6 @@ function SiteNav({
           {t("nav_debug")}
         </a>
       )}
-      <a className={onLoop ? "nav-on" : ""} href="#/loops">
-        {t("nav_loops")}
-        {loopParen}
-      </a>
       <a className={route.name === "skills" ? "nav-on" : ""} href="#/skills">
         {t("nav_skills")}
       </a>
@@ -242,7 +233,7 @@ export function App() {
   const currentLoop = chronicle?.loop ?? 1;
   const currentLoopLog = ticksOfLoop(log, currentLoop); // ホームは「現在の回帰のみ」
 
-  // ホーム以外（回帰一覧・各回帰・キャラ別）は専用ページを出す。
+  // ホーム以外（各回帰・キャラ別など）は専用ページを出す。
   if (route.name !== "home") {
     return (
       <div className="app">
@@ -253,9 +244,6 @@ export function App() {
           view={view}
           setView={setView}
         />
-        {route.name === "loops" && (
-          <LoopsPage chronicle={chronicle} currentDays={log.length} />
-        )}
         {route.name === "loop" && (
           <LoopPage loop={route.loop} chronicle={chronicle} />
         )}
@@ -281,9 +269,6 @@ export function App() {
       />
       <header className="topbar">
         <div className="day-box">
-          {chronicle && (
-            <span className="loop-num">{t("loop_label", { n: chronicle.loop })}</span>
-          )}
           <span className="day-num">{t("day_label", { n: state.day })}</span>
           {state.day > 0 && state.day < DEADLINE_DAY && (
             <span className="countdown">
@@ -297,6 +282,10 @@ export function App() {
             <span className={`weather weather-${state.weather}`}>
               {state.weather === "normal" ? t("weather_normal") : t("weather_lean")}
             </span>
+          )}
+          {chronicle && (
+            // 「第N回帰」表示そのものがセレクト。ページ右端に置き、選んだ回帰へジャンプする
+            <LoopSelect chronicle={chronicle} value={chronicle.loop} />
           )}
         </div>
       </header>

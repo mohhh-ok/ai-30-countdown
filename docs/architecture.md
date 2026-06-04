@@ -32,7 +32,7 @@ src/
     index.html        エントリ HTML
     main.tsx          React マウント
     App.tsx           ルーティング・レイアウト・SiteNav・TitleBlock
-    router.ts         ハッシュルーター（#/ / #/loops / #/char/:id 等）
+    router.ts         ハッシュルーター（#/ / #/loop/:n / #/char/:id 等）
     styles.css        手書き CSS（暗幕・背景絵・毛筆・回帰アニメ等）
     charTheme.ts      キャラ別テーマ色
     util.ts           フロント共通ユーティリティ
@@ -45,9 +45,9 @@ src/
       PlacesMap.tsx     京都の地図（場所サムネ）
       SceneFX.tsx       three.js 粒子演出
       Highlights.tsx    見せ場・メタイベント表示
+      LoopSelect.tsx    回帰ジャンプセレクト（「第N回帰」ピル＝select）
     pages/            ページコンポーネント
       CharacterPage.tsx キャラ別ページ（全周横断の軌跡）
-      LoopsPage.tsx     回帰一覧
       LoopPage.tsx      特定回帰の物語
       SkillsPage.tsx    スキル一覧
       SoulsPage.tsx     ココロ一覧

@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import type { Chronicle, TickResult } from "../../domain/types.ts";
 import { FrontStage } from "../components/FrontStage.tsx";
+import { LoopSelect } from "../components/LoopSelect.tsx";
 import { skillName } from "../util.ts";
 import { useDomainNames, useLoopEnd, useSep, useT } from "../i18n.tsx";
 
@@ -48,13 +49,17 @@ export function LoopPage({
   return (
     <div className="page">
       <div className="page-head">
-        <a className="back-link" href="#/loops">
-          {t("back_loops")}
+        <a className="back-link" href="#/">
+          {t("back_home")}
         </a>
         <h2 className="page-title">
           {t("loop_label", { n: loop })}
           {live && <span className="loop-badge live">{t("loops_live")}</span>}
         </h2>
+        {/* 回帰ジャンプのセレクトはページ右肩に置く */}
+        <span className="loop-select-right">
+          <LoopSelect chronicle={chronicle} value={loop} />
+        </span>
       </div>
 
       {sum && (
@@ -76,6 +81,13 @@ export function LoopPage({
               })}
             </span>
           )}
+        </div>
+      )}
+
+      {/* 進行中の周にも先頭サマリーを出す（閉じた周の要約に相当する経過日数） */}
+      {live && !error && ticks !== null && ticks.length > 0 && (
+        <div className="loop-summary">
+          <span>{t("loops_elapsed", { n: ticks.length })}</span>
         </div>
       )}
 
