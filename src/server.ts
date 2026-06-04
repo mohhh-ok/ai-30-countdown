@@ -257,6 +257,20 @@ const server = Bun.serve({
       },
     },
 
+    // OGP シェアカード画像（assets/og.jpg = title-en.webp の 1.91:1 クロップ）。
+    // index.html の og:image が絶対URLでここを指す。クローラ向けなので長期キャッシュでよい。
+    // webp 統一ルールの明示的例外: LinkedIn が WebP の og:image を公式非対応（JPG/PNG/GIF のみ）
+    // でプレビューが壊れるため、この1枚だけ JPG にしている（ユーザー合意済み）。
+    "/assets/og.jpg": {
+      GET: async () => {
+        const f = Bun.file("assets/og.jpg");
+        if (!(await f.exists())) return new Response("not found", { status: 404 });
+        return new Response(f, {
+          headers: { "Cache-Control": DEV ? "no-store" : "public, max-age=86400" },
+        });
+      },
+    },
+
   },
   development: DEV,
 });

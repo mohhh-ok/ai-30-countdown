@@ -10,6 +10,12 @@
 
 永続化は Railway の**ボリューム**に `data/world.db` を置く。進行間隔は `WORKER_INTERVAL_MS` で調整する。
 
+**公開 URL は `https://ai-30-countdown.up.railway.app` で確定**（2026-06 合意）。
+`index.html` の OGP（`og:url` / `og:image` の絶対URL）がこの URL を前提に焼き込まれているため、
+Railway 側のサービス名（サブドメイン）を必ずこれに合わせる。変える場合は index.html も更新すること。
+OGP は拡散経路（Show HN / Reddit / X）に合わせて**英語優先**で書いてある（カード画像は `/assets/og.jpg`。
+LinkedIn が WebP の og:image を公式非対応でプレビューが壊れるため、webp 統一ルールの例外として JPG）。
+
 ## 本番の進行ペースと運用（fin まで放置）
 
 - **本番は 1 tick / 2時間（`WORKER_INTERVAL_MS=7200000`）で回す。**

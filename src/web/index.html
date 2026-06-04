@@ -1,9 +1,36 @@
 <!DOCTYPE html>
-<html lang="ja">
+<!-- lang の静的既定は OGP の英語優先（og:locale=en_US）と整合させて "en"。
+     実表示言語は i18n.tsx の LangProvider が起動後に document.documentElement.lang へ同期する。 -->
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>30日のカウントダウン</title>
+    <title>30日のカウントダウン | A 30-Day Countdown</title>
+    <!-- OGP（シェアカード）。クローラは JS を実行しないため静的タグのみが効く。
+         拡散経路（Show HN / Reddit / X）に合わせて英語優先で書く。
+         画像は絶対URL必須（相対だと X/Discord/FB が解決できない）。本番URLは Railway の
+         サブドメイン ai-30-countdown.up.railway.app（docs/deploy.md の方針で確定済み）。 -->
+    <meta
+      name="description"
+      content="Five yokai spirits live one day every two hours, decided entirely by AI. A time-loop story that writes itself — and when the hero finally severs the cycle, it ends forever."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="A 30-Day Countdown" />
+    <meta property="og:title" content="A 30-Day Countdown — an AI-driven time-loop story that runs itself" />
+    <meta
+      property="og:description"
+      content="Five yokai spirits live one day every two hours, decided entirely by AI. A time-loop story that writes itself — and when the hero finally severs the cycle, it ends forever."
+    />
+    <meta property="og:url" content="https://ai-30-countdown.up.railway.app/" />
+    <!-- og:image は webp 統一ルールの明示的例外で JPG。LinkedIn が WebP の og:image を
+         公式非対応（JPG/PNG/GIF のみ）でプレビューが壊れるため（CLAUDE.md 画像生成方針参照）。 -->
+    <meta property="og:image" content="https://ai-30-countdown.up.railway.app/assets/og.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1536" />
+    <meta property="og:image:height" content="804" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="ja_JP" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

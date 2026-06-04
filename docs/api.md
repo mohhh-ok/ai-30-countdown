@@ -17,7 +17,8 @@
 |---|---|
 | `/assets/characters/:file` | キャラ絵（WebP/PNG。サニタイズ済み・Cache-Control 1日） |
 | `/assets/places/:file` | 場所絵（同上） |
-| `/assets/title.webp` | タイトルロゴ |
+| `/assets/title.webp` | タイトルロゴ（日本語版。`/assets/title-en.webp` は英語版） |
+| `/assets/og.jpg` | OGP シェアカード画像（title-en.webp の 1.91:1 クロップ。index.html の og:image が参照。LinkedIn が WebP 非対応のため webp ルールの例外で JPG） |
 
 ## UI ページ（ハッシュルーティング）
 

@@ -782,6 +782,9 @@ export function LangProvider({ children }: { children: ReactNode }) {
     const url = new URL(window.location.href);
     url.searchParams.set("lang", lang);
     window.history.replaceState(null, "", url.toString());
+    // <html lang> も現在言語に同期する（静的既定は OGP の英語優先に合わせ "en"。
+    // 日本語で表示しているのに lang="en" のままだと支援技術や翻訳機能が誤動作するため）。
+    document.documentElement.lang = lang;
   }, [lang]);
   const setLang = useCallback((l: Lang) => setLangState(l), []);
   return (
