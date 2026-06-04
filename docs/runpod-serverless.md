@@ -2,7 +2,9 @@
 
 調査日: 2026-05-31 / 用途: 「妖の京」シミュレーションを公開運用（YouTube垂れ流し + 専用サイト）するときの、本番 LLM 推論バックエンド候補としての RunPod Serverless 評価。
 
-> 前提: CLAUDE.md の方針どおり、**本番では `claude -p`（Claude Code CLI）を使わない**。本番ループは Anthropic API か、自前ホスト（=本書の RunPod Serverless）に寄せる。本プロジェクトは既に `ollama` バックエンドを持つので、OpenAI 互換エンドポイント用の薄いアダプタを足せば移行コストは小さい。
+> **【過去メモ・前提が現行方針と異なる】** この調査は YouTube 配信構成を前提とした当時の検討記録。現行方針は **YouTube 配信は廃止（観るだけの公開 Web サイトのみ）**、かつ **本番でも `claude -p` をそのまま使う**（CLAUDE.md 参照）に変更済み。以下の本文は調査当時の前提のまま残している。
+
+> 当時の前提: 当時の CLAUDE.md の方針どおり、**本番では `claude -p`（Claude Code CLI）を使わない**。本番ループは Anthropic API か、自前ホスト（=本書の RunPod Serverless）に寄せる。本プロジェクトは既に `ollama` バックエンドを持つので、OpenAI 互換エンドポイント用の薄いアダプタを足せば移行コストは小さい。
 
 ---
 

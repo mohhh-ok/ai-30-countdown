@@ -37,7 +37,7 @@ src/
     charTheme.ts      キャラ別テーマ色
     util.ts           フロント共通ユーティリティ
     components/       共通コンポーネント
-      FrontStage.tsx    観客ビュー（配信で見せる表）
+      FrontStage.tsx    観客ビュー（公開サイトで観客に見せる表）
       TickLog.tsx       楽屋ビュー（開発・観察用の裏）
       CharacterCard.tsx キャラカード
       CharAvatar.tsx    キャラアバター
