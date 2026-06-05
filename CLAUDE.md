@@ -95,6 +95,9 @@
 - **キャラ絵などの画像生成は OpenAI `gpt-image-2` を使う。**（`OPENAI_API_KEY` / 従量課金 API）
 - ただし**背景透過が欲しいときは `gpt-image-1`**（gpt-image-2 は透過非対応）。
 - 出力は `cwebp` で WebP に変換して `assets/` に保存（軽量化＋透過保持）。
-  - **唯一の例外: `assets/og.jpg`（OGP シェアカード画像）は JPG でよい**。LinkedIn が WebP の
-    og:image を公式非対応（JPG/PNG/GIF のみ）でプレビューが壊れるため（2026-06 合意）。
+  - **合意済み例外（この2枚だけ非 webp でよい）:**
+    - `assets/og.jpg`（OGP シェアカード画像）は JPG。LinkedIn が WebP の og:image を
+      公式非対応（JPG/PNG/GIF のみ）でプレビューが壊れるため（2026-06 合意）。
+    - `assets/favicon.png`（favicon = haru.webp の顔クロップ）は PNG。Safari が WebP の
+      favicon に非対応のため（2026-06 合意）。
 - 生成スクリプト・モデルの使い分け・知見は `docs/image-gen.md` を参照。

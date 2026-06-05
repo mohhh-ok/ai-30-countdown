@@ -61,9 +61,14 @@ git log --oneline -5
 これから commit に入る画像のうち `.webp` 以外（`.png` / `.jpg` / `.jpeg` / `.gif` / `.bmp` / `.tiff` など）が
 1つでもあれば、**警告を出して push を中断**し、ユーザーに変換するか除外するか判断してもらう。勝手に進めない。
 
-**唯一の合意済み例外: `assets/og.jpg`（OGP シェアカード画像）。** LinkedIn が WebP の og:image を
-公式非対応（JPG/PNG/GIF のみ）でプレビューを壊すため、この1枚だけ JPG を許可する（2026-06 合意）。
-チェックで `assets/og.jpg` だけが出た場合は違反ではない。それ以外の非 webp は従来どおり止める。
+**合意済み例外（この2枚だけ非 webp を許可）:**
+
+- `assets/og.jpg`（OGP シェアカード画像）。LinkedIn が WebP の og:image を
+  公式非対応（JPG/PNG/GIF のみ）でプレビューを壊すため JPG を許可する（2026-06 合意）。
+- `assets/favicon.png`（favicon = haru.webp の顔クロップ）。Safari が WebP の favicon に
+  非対応のため PNG を許可する（2026-06 合意）。
+
+チェックでこの2枚だけが出た場合は違反ではない。それ以外の非 webp は従来どおり止める。
 
 stage 前後に必ずチェックする：
 

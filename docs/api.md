@@ -19,6 +19,7 @@ Read-only (a watch-only site). Progress is driven solely by the server's interna
 | `/assets/places/:file` | Place art (same as above) |
 | `/assets/title.webp` | Title logo (Japanese version; `/assets/title-en.webp` is the English version) |
 | `/assets/og.jpg` | OGP share card image (a 1.91:1 crop of title-en.webp, referenced by the og:image in index.html; JPG as an exception to the webp rule, because LinkedIn does not support WebP) |
+| `/assets/favicon.png` | Favicon (a face crop of haru.webp, 180×180; PNG as an exception to the webp rule, because Safari does not support WebP favicons) |
 
 ## UI Pages (hash routing)
 

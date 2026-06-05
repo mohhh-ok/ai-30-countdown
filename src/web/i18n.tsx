@@ -840,6 +840,9 @@ export function LangProvider({ children }: { children: ReactNode }) {
     // <html lang> も現在言語に同期する（静的既定は OGP の英語優先に合わせ "en"。
     // 日本語で表示しているのに lang="en" のままだと支援技術や翻訳機能が誤動作するため）。
     document.documentElement.lang = lang;
+    // タブタイトルも現在言語に同期する。index.html の静的 <title>（両言語併記）は
+    // JS を実行しないクローラ向けの既定で、実表示はここで言語別に上書きする。
+    document.title = UI[lang].title_alt;
   }, [lang]);
   const setLang = useCallback((l: Lang) => setLangState(l), []);
   return (

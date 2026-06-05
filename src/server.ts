@@ -302,6 +302,18 @@ const server = Bun.serve({
       },
     },
 
+    // favicon（assets/favicon.png = haru.webp の顔クロップ 180x180）。
+    // webp 統一ルールの明示的例外で PNG: Safari が WebP の favicon を非対応のため。
+    "/assets/favicon.png": {
+      GET: async () => {
+        const f = Bun.file("assets/favicon.png");
+        if (!(await f.exists())) return new Response("not found", { status: 404 });
+        return new Response(f, {
+          headers: { "Cache-Control": DEV ? "no-store" : "public, max-age=86400" },
+        });
+      },
+    },
+
     // OGP シェアカード画像（assets/og.jpg = title-en.webp の 1.91:1 クロップ）。
     // index.html の og:image が絶対URLでここを指す。クローラ向けなので長期キャッシュでよい。
     // webp 統一ルールの明示的例外: LinkedIn が WebP の og:image を公式非対応（JPG/PNG/GIF のみ）
