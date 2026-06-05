@@ -8,7 +8,7 @@ import type {
   WorldState,
   Weather,
 } from "../domain/types.ts";
-import { ACTIONS } from "../domain/types.ts";
+import { ACTIONS, UsageLimitError } from "../domain/types.ts";
 import { BACKEND, chatJSON, normalizeLocalized } from "./backend.ts";
 import { SYSTEM_PROMPT, buildSingleUserPrompt, buildUserPrompt } from "./prompt.ts";
 
@@ -107,6 +107,8 @@ export function createOllamaProvider(): DecisionProvider {
         const raw = await chatJSON(messages, { label: "decide" });
         return parseDecision(raw, living);
       } catch (err) {
+        // 使用上限はリトライ・フォールバック禁止（偽の1日を演じない）。tick ごと中断させる。
+        if (err instanceof UsageLimitError) throw err;
         console.error(
           `[decide] attempt ${attempt + 1} failed:`,
           err instanceof Error ? err.message : err,
@@ -139,6 +141,8 @@ export function createParallelProvider(): DecisionProvider {
             const raw = await chatJSON(messages, { label: `decide:${c.id}` });
             return parseSingleDecision(raw, c.id);
           } catch (err) {
+            // 使用上限はリトライ・フォールバック禁止。Promise.all ごと reject させ tick を中断する。
+            if (err instanceof UsageLimitError) throw err;
             console.error(
               `[decide:parallel] ${c.id} attempt ${attempt + 1} failed:`,
               err instanceof Error ? err.message : err,

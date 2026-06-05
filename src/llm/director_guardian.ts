@@ -22,6 +22,7 @@ import type {
 } from "../domain/types.ts";
 import { findPlace } from "../domain/places.ts";
 import { temperamentText } from "../domain/rules.ts";
+import { UsageLimitError } from "../domain/types.ts";
 import { chatJSON, normalizeLocalized } from "./backend.ts";
 import { llog } from "./log.ts";
 
@@ -236,6 +237,8 @@ async function runDirGuard(
     });
     return plan;
   } catch (err) {
+    // 使用上限はフォールバック禁止（偽の演出で1日を進めない）。tick ごと中断させる。
+    if (err instanceof UsageLimitError) throw err;
     llog("dirguard", "✗failed→safe-plan", {
       err: err instanceof Error ? err.message : String(err),
     });

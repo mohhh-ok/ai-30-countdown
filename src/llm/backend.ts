@@ -11,6 +11,7 @@ import {
 import { recordTiming } from "./timing.ts";
 import { llog } from "./log.ts";
 import { logLlmCallStart, logLlmCallEnd } from "../db.ts";
+import { UsageLimitError } from "../domain/types.ts";
 import type { LocalizedText } from "../domain/types.ts";
 
 export type { ChatMessage } from "./ollama.ts";
@@ -40,6 +41,21 @@ export const CLAUDE_CODE_MODEL = process.env.CLAUDE_CODE_MODEL ?? "haiku";
 /** 表示・記録用のバックエンド名とモデル名 */
 export const BACKEND_NAME = BACKEND === "ollama" ? "ollama" : "claude-code";
 export const MODEL = BACKEND === "ollama" ? OLLAMA_MODEL : CLAUDE_CODE_MODEL;
+
+/**
+ * claude の失敗出力がサブスクの使用上限によるものかを判定する。
+ * Claude Code の上限メッセージ（公式エラーリファレンス準拠）:
+ *   "You've hit your session limit · resets 3:45pm" / weekly limit / Opus limit
+ * 旧形式の "Claude usage limit reached" や、2026-06-15 以降の Agent SDK credit
+ * 枯渇（credit 系の文言）もここで拾う。誤検知より取りこぼしの方が害が大きい
+ * （取りこぼすと偽の1日が DB に残る）ため、文言はやや広めに取る。
+ */
+export function isUsageLimitMessage(s: string): boolean {
+  // you.?ve: アポストロフィが ' でも ’ でも（無くても）拾う
+  return /you.?ve hit your [^\n]{0,40}limit|usage limit reached|hour limit reached|out of [^\n]{0,40}credits|usage credits/i.test(
+    s,
+  );
+}
 
 /** ```json …``` フェンスや前後の地の文を剥がして、最初の JSON オブジェクトだけ取り出す */
 function stripToJson(s: string): string {
@@ -182,12 +198,21 @@ async function claudeCodeChatJSON(
     outBytes: stdout.length,
   });
 
+  // 使用上限（session/weekly/Opus limit・credit 枯渇）は型付きで投げ分ける。
+  // 各プロバイダはこのエラーだけはフォールバック禁止（偽の1日を演じない）で再 throw する。
+  const failText = `${stderrText}\n${stdout}`;
   if (code !== 0) {
     llog("claude-cli", "nonzero-exit", { code, stderr: stderrText.slice(0, 200) });
+    if (isUsageLimitMessage(failText)) {
+      throw new UsageLimitError(`claude -p usage limit (exit ${code}): ${stderrText.slice(0, 300)}`);
+    }
     throw new Error(`claude -p exited ${code}: ${stderrText.slice(0, 300)}`);
   }
 
   if (isError || !content) {
+    if (isUsageLimitMessage(failText)) {
+      throw new UsageLimitError(`claude -p usage limit: ${(content || stdout).slice(0, 300)}`);
+    }
     throw new Error(`claude -p returned no result: ${stdout.slice(0, 300)}`);
   }
   return stripToJson(content);

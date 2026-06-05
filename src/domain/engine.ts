@@ -25,7 +25,7 @@ import type {
   Weather,
   WorldState,
 } from "./types.ts";
-import { ACTION_LABELS } from "./types.ts";
+import { ACTION_LABELS, UsageLimitError } from "./types.ts";
 import { distance, findPlace, isNeighbor, stepToward } from "./places.ts";
 import { noSkillEffects } from "./skills.ts";
 import { bumpSoul } from "./soul.ts";
@@ -266,6 +266,8 @@ export async function runTick(
     try {
       director = await directorProvider(state, tension, recentLog);
     } catch (err) {
+      // 使用上限は握りつぶさず tick ごと中断（呼び出し側が巻き戻して再試行する）
+      if (err instanceof UsageLimitError) throw err;
       console.error("[director] failed:", err instanceof Error ? err.message : err);
     }
   }
@@ -278,6 +280,8 @@ export async function runTick(
     try {
       whispers = await guardianProvider(state, director.directives);
     } catch (err) {
+      // 使用上限は握りつぶさず tick ごと中断
+      if (err instanceof UsageLimitError) throw err;
       console.error("[guardian] failed:", err instanceof Error ? err.message : err);
     }
   }
@@ -1210,6 +1214,8 @@ export async function runTick(
         }
         if (history.length > 0) dialogue = history;
       } catch (err) {
+        // 使用上限は握りつぶさず tick ごと中断
+        if (err instanceof UsageLimitError) throw err;
         console.error(
           "[dialogue] generation failed:",
           err instanceof Error ? err.message : err,

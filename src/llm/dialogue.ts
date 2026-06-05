@@ -8,7 +8,7 @@ import type {
   WorldState,
   Weather,
 } from "../domain/types.ts";
-import { ACTION_LABELS } from "../domain/types.ts";
+import { ACTION_LABELS, UsageLimitError } from "../domain/types.ts";
 import { temperamentText } from "../domain/rules.ts";
 import { findPlace } from "../domain/places.ts";
 import { chatJSON, normalizeLocalized } from "./backend.ts";
@@ -176,6 +176,8 @@ ${profiles}
           .slice(0, MAX_LINES);
       }
     } catch (err) {
+      // 使用上限はフォールバック禁止（会話なしの偽の1日にしない）。tick ごと中断させる。
+      if (err instanceof UsageLimitError) throw err;
       // 呼び出し失敗もパース失敗も握りつぶさず楽屋ビューへ記録（逐次版と挙動を揃える）。
       llog("dialogue", "⚠oneshot failed", {
         err: err instanceof Error ? err.message : String(err),
@@ -189,6 +191,9 @@ ${profiles}
 
   return async (state, weather, speakers, history) => {
     // 初回（history 空）に全文生成。以降はキャッシュから1行ずつ。
+    // lines はクロージャで tick をまたいで残るが、毎 tick 最初の呼び出しは必ず
+    // history.length === 0 なのでここで上書き再生成される（前 tick の残骸は使われない。
+    // UsageLimitError で tick が中断された後の再試行でも同様）。
     if (history.length === 0) lines = await generate(state, weather, speakers);
     const i = history.length;
     if (i >= lines.length) return { text: { ja: "", en: "" }, end: true };

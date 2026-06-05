@@ -479,6 +479,21 @@ export interface TickDecision {
 }
 
 /**
+ * サブスクの使用上限（session/weekly/Opus limit・Agent SDK credit 枯渇）で
+ * LLM 呼び出しが拒まれたことを示す型付きエラー。
+ * 通常の失敗（JSON 不正・一時的な不通）と違い、リトライやフォールバックで握りつぶすと
+ * 「ボットが演じた偽の1日」が DB に永続化されてしまう。各プロバイダはこれを捕まえたら
+ * 必ず再 throw して tick ごと中断させる（server.ts のワーカーが最終スナップショットへ
+ * 巻き戻し、時間を置いて再試行する）。
+ */
+export class UsageLimitError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UsageLimitError";
+  }
+}
+
+/**
  * エンジンに渡す「判断プロバイダ」。
  * 負荷適用後の状態と天候を受け取り、各キャラの行動などを返す（通常は LLM 呼び出し）。
  */

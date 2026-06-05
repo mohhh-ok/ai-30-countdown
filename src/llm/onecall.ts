@@ -30,7 +30,7 @@ import type {
   Weather,
   WorldState,
 } from "../domain/types.ts";
-import { ACTIONS, ACTION_LABELS } from "../domain/types.ts";
+import { ACTIONS, ACTION_LABELS, UsageLimitError } from "../domain/types.ts";
 import { findPlace } from "../domain/places.ts";
 import { chatJSON, normalizeLocalized } from "./backend.ts";
 import { llog } from "./log.ts";
@@ -380,6 +380,8 @@ async function runOneCall(
     });
     return plan;
   } catch (err) {
+    // 使用上限はフォールバック禁止（偽の1日を演じない）。tick ごと中断させる。
+    if (err instanceof UsageLimitError) throw err;
     llog("onecall", "✗failed→safe-plan", {
       err: err instanceof Error ? err.message : String(err),
     });

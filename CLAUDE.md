@@ -62,12 +62,20 @@
 - 「commit/push して」と言われたら、ブランチを作らず `main` でそのまま進めてよい。
 
 ## LLM 呼び出し方針
-- **本番（公開運用）でも `claude -p`（Claude Code CLI）をそのまま使う。** Max サブスクの認証で動くため、追加の API 課金は発生しない。
+- **本番（公開運用）でも `claude -p`（Claude Code CLI）をそのまま使う。** Max サブスクの認証で動く。
 - 設計上、LLM 呼び出し層は **CLI / API を差し替えられる構造**にしておく（将来の選択肢を残す）。
+- **規約上の位置づけ（2026-06 確認）: 自分のスクリプト／ワークフローから公式 CLI を `claude -p` で呼ぶのは許可されている正規の使い方**（公式 headless ドキュメント・サポート記事 [15036540](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan) が「自作プロジェクト・`claude -p`・GitHub Actions」を明示的に対象に含める）。
+  禁止されているのは**サブスクの OAuth トークンを Claude Code / Claude.ai 以外のサードパーティツールへ流用**すること（OpenCode 等が 2026-01 にブロックされた件）。本プロジェクトの使い方は禁止パターンに該当しない。
+- **★課金前提の変更（2026-06-15 から）: 「サブスク認証ならタダ同然」はもう成り立たない。**
+  - 6/15 以降、`claude -p` / Agent SDK の利用は対話的 Claude Code の使用枠から**分離**され、月次の「Agent SDK credit」から消費される（Pro $20 / Max 5x $100 / Max 20x $200、標準 API 料金換算・繰り越しなし）。
+  - クレジットを使い切ると**自動化は停止**する（継続には従量課金への移行が必要）。本番ワーカーが月内に止まりうるということ。
+  - 本番の月間消費が枠内に収まるかは標準 API レートで再見積もりが必要（`docs/deploy.md` の旧見積もりは「サブスク枠内なら無料」前提なので要更新）。実測は `claude -p --output-format json` の `total_cost_usd` で取れる。
+- **使用上限（session/weekly limit・credit 枯渇）に当たった tick は、フォールバックで完走させず安全に中断する**（2026-06 合意・実装済み）。
+  上限中にフォールバックの既定行動で「偽の1日」を演じて DB に永続化しない。`backend.ts` が上限系メッセージを `UsageLimitError` として投げ分け、各プロバイダはこれだけ再 throw、`server.ts` のワーカーが DB の最終スナップショットへ巻き戻して時間を置き同じ日をやり直す。詳細は `docs/llm-backend.md`。
 - **★課金事故メモ（実際に起きた）: `claude -p` を使うときは `ANTHROPIC_API_KEY` を環境に置かない。**
   - キーが環境にあると `claude` はサブスク(OAuth)ではなく **API キー認証＝従量課金**で動く（公式仕様・実機で確認済み）。
     過去に `.env` のキーが Bun 経由で `claude` に渡り、Max 枠が大量に余っているのに従量課金が発生した。
-  - `claude -p` は **キーが無ければ OAuth サブスク認証**で動き、プラン枠内なら追加課金は出ない（=本来これでタダ同然・高品質）。
+  - `claude -p` は **キーが無ければ OAuth サブスク認証**で動く（6/15 以降は上記の Agent SDK credit 消費。それでもキー直叩きの無制限従量課金とは別物なので、この注意は引き続き有効）。
   - 防御として `backend.ts` が `claude` へ渡す env から `ANTHROPIC_API_KEY` 等の API キー系変数を除去済み。
     それでも `.env` にキーを書かないこと（OpenAI 等の別キーは可）。
 

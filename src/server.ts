@@ -1,6 +1,7 @@
 // Bun.serve エントリ。API + フロントエンド配信。
 // 回帰（ローグライク）ランナーをメモリに保持しつつ、SQLite に永続化する（再起動で復元）。
 import type { TickResult } from "./domain/types.ts";
+import { UsageLimitError } from "./domain/types.ts";
 import { runTick } from "./domain/engine.ts";
 import { Campaign } from "./domain/campaign.ts";
 import { createDecisionProvider } from "./llm/decide.ts";
@@ -126,6 +127,9 @@ async function runOneTick(): Promise<TickResult> {
 // ワーカーはサーバが自律的に回し続けるので、ブラウザを閉じても世界は進む（配信モデル向き）。
 // 進行はこのワーカーだけが行い、外部から開始・停止する API は持たない（公開時のいたずら防止）。
 const WORKER_INTERVAL_MS = Number(process.env.WORKER_INTERVAL_MS ?? 1000);
+// サブスク使用上限（session/weekly limit 等）に当たったときの追加待機。
+// 上限は数時間で回復するため、通常エラーの5秒連打ではなく長めに置いてから再試行する。
+const LIMIT_BACKOFF_MS = Number(process.env.LIMIT_BACKOFF_MS ?? 15 * 60_000);
 let workerOn = false;
 
 async function workerLoop() {
@@ -147,12 +151,33 @@ async function workerLoop() {
     try {
       await runOneTick();
     } catch (err) {
-      llog("server", "✗worker-tick-error", {
-        err: err instanceof Error ? err.message : String(err),
-      });
-      console.error("[worker] tick error:", err);
-      // LLM 不通などで連打しないよう、エラー時は長めに待つ
-      await Bun.sleep(5000);
+      if (err instanceof UsageLimitError) {
+        // サブスク使用上限。tick は DB 書き込み前に中断済み（saveTick/saveRunState 未実行）なので
+        // DB は無傷。ただし runTick は world をその場で書き換えるため、メモリ上は日付・実り回復・
+        // イベント抽選などが半端に進んで汚れている。最後に保存したスナップショットから復元して
+        // 「最後に成功した日」へ巻き戻し、上限の回復を待ってから同じ日をやり直す。
+        const restored = loadLatestRun();
+        if (!restored) throw err; // 1日も保存せず上限に当たるのは想定外。隠さず落とす
+        campaign = Campaign.restore(restored.save, restored.loopTicks);
+        llog("server", "⏸usage-limit→rollback", {
+          day: campaign.world.day,
+          loop: campaign.chronicle.loop,
+          backoffMs: LIMIT_BACKOFF_MS,
+          err: err.message.slice(0, 160),
+        });
+        console.warn(
+          `[worker] サブスク使用上限により tick を中断し、Day ${campaign.world.day}（Loop ${campaign.chronicle.loop}）へ巻き戻した。` +
+            `${Math.round(LIMIT_BACKOFF_MS / 60_000)}分＋通常間隔を置いて同じ日をやり直す: ${err.message.slice(0, 160)}`,
+        );
+        await Bun.sleep(LIMIT_BACKOFF_MS);
+      } else {
+        llog("server", "✗worker-tick-error", {
+          err: err instanceof Error ? err.message : String(err),
+        });
+        console.error("[worker] tick error:", err);
+        // LLM 不通などで連打しないよう、エラー時は長めに待つ
+        await Bun.sleep(5000);
+      }
     } finally {
       ticking = false;
     }
