@@ -1,5 +1,7 @@
 # 30-Day Countdown — LLM Ensemble Simulator
 
+**🔮 Live site: <https://ai-30-countdown.up.railway.app/>** — the world advances one day every two hours, on its own.
+
 A TypeScript + bun web app. It uses an LLM to drive several ayakashi (妖, spirit beings) through a spirit-vein world set in Kyoto, one day (= one tick) at a time, and lets you watch what unfolds. The end goal is a watch-only public website (YouTube streaming has been discontinued).
 
 > The current spec is this file and [`docs/`](docs/README.md).
