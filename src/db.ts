@@ -209,6 +209,7 @@ export function createRun(save: CampaignSave, model: string): number {
       protagonistId: save.chronicle.protagonistId,
       heroPeakAltruism: save.chronicle.heroPeakAltruism,
       heroSoulCountersJson: JSON.stringify(save.chronicle.heroSoulCounters),
+      pendingRegressJson: save.pendingRegress ? JSON.stringify(save.pendingRegress) : null,
     })
     .returning({ id: runs.id })
     .get();
@@ -227,6 +228,7 @@ export function saveRunState(runId: number, save: CampaignSave): void {
       weather: save.weather,
       heroPeakAltruism: save.chronicle.heroPeakAltruism,
       heroSoulCountersJson: JSON.stringify(save.chronicle.heroSoulCounters),
+      pendingRegressJson: save.pendingRegress ? JSON.stringify(save.pendingRegress) : null,
     })
     .where(eq(runs.id, runId))
     .run();
@@ -521,6 +523,7 @@ export function loadLatestRun(): {
     activeEvents,
     characters,
     places,
+    pendingRegress: run.pendingRegressJson ? JSON.parse(run.pendingRegressJson) : null,
   };
   const ticksOfLoop = loadLoopTicks(runId, run.lastLoop);
   return { runId, save, loopTicks: ticksOfLoop };

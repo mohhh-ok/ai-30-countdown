@@ -70,7 +70,12 @@ function json(data: unknown, status = 200): Response {
 // 1ティック進めて永続化する。二重実行の防止は呼び出し側（ticking ロック）の責務。
 async function runOneTick(): Promise<TickResult> {
   const tickT0 = performance.now();
-  const world = campaign.world; // この日の世界（recordTick で回帰すると次周へ差し替わる）
+  // 前 tick で死亡/独りの暁により「次の回帰へ」を予告して保留していたら、ここで巻き戻す。
+  // これで死んだ周の場面＋予告を 1 tick 見せたうえで、この tick から次周 Day1 を始められる。
+  if (campaign.flushPendingRegress()) {
+    llog("server", "tick→regress-flush", { loop: campaign.chronicle.loop });
+  }
+  const world = campaign.world; // 巻き戻し後の世界（recordTick で次の回帰を保留したら次 tick で差し替わる）
   llog("server", "tick→start", {
     loop: campaign.chronicle.loop,
     day: world.day + 1,

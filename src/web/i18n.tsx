@@ -85,6 +85,11 @@ const UI = {
     mark_skill: "✨ ハルは「{skills}」を会得した",
     mark_unlock: "🆕 {names} が次の回帰から京に現れる",
     mark_regress: "↻ ハルは力尽き、時は巻き戻る——",
+    // 次の回帰へ移ることを告げる専用バナー（観客ビュー）。died/solo_dawn で文言を出し分ける。
+    regress_banner_heading: "次の回帰へ",
+    regress_banner_died: "ハルは力尽きた。だが時は巻き戻り、次の回帰が始まる——",
+    regress_banner_solo:
+      "大禍は祓えた。だがそれは独りの暁——散った仲間を残しては、まだ輪を断てない。時は巻き戻り、次の回帰が始まる——",
     // fin（大禍を祓い、回帰の輪が断たれた）。観客ビューの幕引き。
     fin_title: "—— 結 ——",
     fin_text:
@@ -371,6 +376,11 @@ const UI = {
     mark_skill: "✨ Haru mastered {skills}",
     mark_unlock: "🆕 {names} will appear in Kyoto from the next loop",
     mark_regress: "↻ Haru’s strength fails, and time rewinds—",
+    // Dedicated banner announcing the move to the next loop (stage view). Worded differently for died/solo_dawn.
+    regress_banner_heading: "To the next loop",
+    regress_banner_died: "Haru’s strength fails. Yet time rewinds, and the next loop begins—",
+    regress_banner_solo:
+      "The Calamity was averted—but it was a lone dawn. With the fallen left behind, the cycle cannot yet be severed. Time rewinds, and the next loop begins—",
     // fin (the Calamity was purified and the cycle of regression is severed). Final curtain of the stage view.
     fin_title: "—— Fin ——",
     fin_text:

@@ -17,6 +17,7 @@ export const runs = sqliteTable("runs", {
   protagonistId: text("protagonist_id").notNull().default("haru"),
   heroPeakAltruism: real("hero_peak_altruism").notNull().default(0),
   heroSoulCountersJson: text("hero_soul_counters_json"), // ハルのココロ通算受領（kind→回数のJSON・周またぎ持ち越し）
+  pendingRegressJson: text("pending_regress_json"), // 「次の回帰へ」予告を出して保留中の結末（JSON）。無ければ null。次 tick 冒頭で巻き戻す。
 });
 
 /** スキル進捗（年代記）。1スキル1行。acquired=会得済み / progress=進捗カウンタ。 */

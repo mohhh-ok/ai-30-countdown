@@ -284,7 +284,9 @@ for (let i = 0; i < days; i++) {
     if (!values.json) console.log("\n🏯 fin — 大禍は祓われ、回帰の輪は断たれた。物語はここに結ばれた。");
     break;
   }
-  const world = campaign.world; // この日の世界（recordTick で回帰すると次周へ差し替わる）
+  // 前 tick で死亡/独りの暁により回帰を保留していたら、ここで巻き戻す（server.ts と対称）。
+  campaign.flushPendingRegress();
+  const world = campaign.world; // 巻き戻し後の世界（recordTick で次の回帰を保留したら次 tick で差し替わる）
   beginTickTiming(); // この tick の LLM 呼び出し時間を集める（mock 時は空）
   const result = await runTick(world, campaign.weatherHistory, provider, {
     dialogueProvider,

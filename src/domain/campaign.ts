@@ -69,6 +69,12 @@ export interface PlaceSave {
  *  - ログ（loopLog / weatherHistory）→ 現周の ticks 行から再構成する。
  * 含めるのは「コードにもログにも無い・派生不能な状態」だけ。
  */
+/** 回帰予告の保留状態。死亡/独りの暁の tick では即巻き戻さず、次 tick 冒頭まで closeLoop を遅延する。 */
+export interface PendingRegress {
+  causeOfEnd: string;
+  end: { kind: "died" | "solo_dawn"; placeId?: string };
+}
+
 export interface CampaignSave {
   chronicle: Chronicle;
   day: number;
@@ -77,6 +83,8 @@ export interface CampaignSave {
   activeEvents: WorldEvent[];
   characters: CharSave[];
   places: PlaceSave[];
+  /** 「次の回帰へ移る」予告を出して保留中なら、その結末。次 tick 冒頭で巻き戻す（再起動耐性のため永続）。 */
+  pendingRegress: PendingRegress | null;
 }
 
 /** まっさらな年代記（1周目の開始。京にはハルだけがいる） */
@@ -154,6 +162,8 @@ export class Campaign {
   loopLog: TickResult[];
   private loopMaxAltruism: number;
   private loopDays: number;
+  /** 「次の回帰へ移る」予告を出して保留中の結末（次 tick 冒頭で closeLoop する）。無ければ null。 */
+  pendingRegress: PendingRegress | null;
 
   constructor(chronicle: Chronicle = createChronicle()) {
     this.chronicle = chronicle;
@@ -162,6 +172,7 @@ export class Campaign {
     this.loopLog = [];
     this.loopMaxAltruism = this.heroAltruism();
     this.loopDays = 0;
+    this.pendingRegress = null;
   }
 
   /** 永続化用のセーブ状態を取り出す（DB へ正規化保存。設定とログは含めない）。 */
@@ -193,6 +204,7 @@ export class Campaign {
         frenzy: c.frenzy,
       })),
       places: w.places.map((p) => ({ id: p.id, populace: p.populace })),
+      pendingRegress: this.pendingRegress,
     };
   }
 
@@ -254,6 +266,9 @@ export class Campaign {
       const h = t.characters.find((r) => r.id === heroId);
       return h ? Math.max(mx, h.paramsAfter.altruism) : mx;
     }, c.heroAltruism());
+    // 回帰予告を出して保留中だったか（旧DB＝列なしなら null）。死亡/独りの暁の world をそのまま復元し、
+    // 次 tick 冒頭の flushPendingRegress で巻き戻す。
+    c.pendingRegress = save.pendingRegress ?? null;
     return c;
   }
 
@@ -326,17 +341,34 @@ export class Campaign {
       // この日「暁の迎え火」を会得する（advanceSkills が上で処理済み・一覧に初めて現れる）が、
       // 効果は次の祓いから＝fin は構造的に一周後ろへずれる。散った仲間を残して輪は断てない——
       // ハルはもう一度だけ、始まりの朝へ戻ることを選ぶ。
+      // ただし即巻き戻さず、この独りの暁の場面を 1 tick 観客に見せ、「次の回帰へ」予告を出して保留する。
+      // 実際の closeLoop（巻き戻し）は次 tick 冒頭の flushPendingRegress が行う。
       result.regressed = true;
-      this.closeLoop("大禍を祓った。だが、独りの暁だった——散った仲間を残して、輪は断てない", {
-        kind: "solo_dawn",
-      });
+      this.pendingRegress = {
+        causeOfEnd: "大禍を祓った。だが、独りの暁だった——散った仲間を残して、輪は断てない",
+        end: { kind: "solo_dawn" },
+      };
     } else if (heroDied) {
+      // 即巻き戻さず、力尽きた場面を 1 tick 残して「次の回帰へ」予告を出し、次 tick 冒頭で巻き戻す。
       result.regressed = true;
-      this.closeLoop(heroResult ? `${heroResult.placeName}で力尽きた` : "力尽きた", {
-        kind: "died",
-        placeId: heroResult?.placeId,
-      });
+      this.pendingRegress = {
+        causeOfEnd: heroResult ? `${heroResult.placeName}で力尽きた` : "力尽きた",
+        end: { kind: "died", placeId: heroResult?.placeId },
+      };
     }
+  }
+
+  /**
+   * 前 tick で死亡/独りの暁により保留した回帰を、いま実行する（次 tick の冒頭で呼ぶ）。
+   * これにより「死んだ周の場面＋予告」を 1 tick 見せたうえで、次 tick から次周 Day1 を始められる。
+   * @returns 巻き戻したら true（呼び出し側は world を取り直す）、保留が無ければ false。
+   */
+  flushPendingRegress(): boolean {
+    const pending = this.pendingRegress;
+    if (!pending) return false;
+    this.pendingRegress = null;
+    this.closeLoop(pending.causeOfEnd, pending.end);
+    return true;
   }
 
   /**
