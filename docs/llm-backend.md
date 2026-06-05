@@ -1,51 +1,43 @@
-# LLM バックエンド切替
+# LLM Backend Switching
 
-LLM 呼び出しは `src/llm/backend.ts` の切替層に集約されており、環境変数 `LLM_BACKEND` で選ぶ。
+LLM calls are consolidated in the switching layer at `src/llm/backend.ts`, selected via the environment variable `LLM_BACKEND`.
 
-| `LLM_BACKEND` | 内容 | 既定モデル |
+| `LLM_BACKEND` | Description | Default model |
 |---|---|---|
-| `claude-code`（**既定**） | ローカルの **Claude Code CLI**（`claude -p`）経由。Max サブスクの認証で動く | `haiku`（`CLAUDE_CODE_MODEL` で変更） |
-| `ollama` | ローカル **Ollama**（無料・無制限・やや遅い） | `qwen2.5:7b-instruct`（`OLLAMA_MODEL` で変更） |
+| `claude-code` (**default**) | Via the local **Claude Code CLI** (`claude -p`). Runs on Max subscription auth | `haiku` (change with `CLAUDE_CODE_MODEL`) |
+| `ollama` | Local **Ollama** (free, unlimited, somewhat slow) | `qwen2.5:7b-instruct` (change with `OLLAMA_MODEL`) |
 
-## Claude Code バックエンド
+## Claude Code Backend
 
-既定。ローカルに [Claude Code](https://claude.com/claude-code) CLI（`claude`）がインストール・ログイン済みであること。
+The default. The [Claude Code](https://claude.com/claude-code) CLI (`claude`) must be installed and logged in locally.
 
-**課金事故に注意**: `ANTHROPIC_API_KEY` を環境に置かないこと。キーがあると `claude` は OAuth サブスクではなく API キー認証＝従量課金で動く（公式仕様）。`backend.ts` は `claude` へ渡す env からキーを除去しているが、`.env` にも書かないのが安全。
+**Beware of billing accidents**: do not put `ANTHROPIC_API_KEY` in your environment. If the key is present, `claude` runs with API key authentication (pay-as-you-go) rather than OAuth subscription auth (official behavior). `backend.ts` strips the key from the env it passes to `claude`, but for safety, do not write it in `.env` either.
 
-## Ollama バックエンド
+## Ollama Backend
 
 ```sh
 ollama pull qwen2.5:7b-instruct
 LLM_BACKEND=ollama bun run dev
 ```
 
-軽量モデルへの切替例:
+Example of switching to a lighter model:
 ```sh
 LLM_BACKEND=ollama OLLAMA_MODEL=qwen2.5:3b-instruct bun run dev
 ```
 
-## 本番での方針
+## Policy in Production
 
-本番（公開運用）でも **`claude -p`（Claude Code CLI）をそのまま使う**。Max サブスクの認証で動く。
-（2026-06-15 以降、`claude -p` はサブスクでも月次の Agent SDK credit 消費になる——CLAUDE.md「LLM 呼び出し方針」参照。）
-自前ホスティングの過去の検討メモは [runpod-serverless.md](runpod-serverless.md) を参照（未採用）。
+In production (public operation) as well, we **use `claude -p` (the Claude Code CLI) directly**. It runs on Max subscription auth.
+(As of 2026-06-15, `claude -p` consumes monthly Agent SDK credit even on a subscription — see the "LLM 呼び出し方針" (LLM call policy) section in CLAUDE.md.)
+For past investigation notes on self-hosting, see [runpod-serverless.md](runpod-serverless.md) (not adopted).
 
-## 使用上限（session/weekly limit）に当たったときの挙動
+## Behavior When Hitting a Usage Limit (session/weekly limit)
 
-サブスク運用ではセッション/週次の使用上限に当たりうる。このとき**フォールバックの既定行動で
-偽の1日を演じて DB に残すのではなく、その tick を安全に中断する**（2026-06 合意）:
+Under subscription operation, you can hit a session/weekly usage limit. When this happens, **rather than performing a fake day with fallback default actions and leaving it in the DB, we abort that tick safely** (agreed 2026-06):
 
-- `backend.ts` が claude の失敗出力から上限系メッセージ（"You've hit your session limit" 等）を
-  判定し、型付きの `UsageLimitError`（`src/domain/types.ts`）を投げる。
-- 各プロバイダ（decide / director+guardian / dialogue / onecall）は通常の失敗ならリトライ→
-  フォールバックするが、**`UsageLimitError` だけは握りつぶさず再 throw** して tick ごと中断させる。
-- `runTick` は world を破壊的更新するため、中断時はメモリ上の世界が半端に進んで汚れている。
-  `server.ts` のワーカーがこれを捕まえ、**DB の最終スナップショットから `Campaign.restore` で
-  巻き戻す**（saveTick/saveRunState は未実行なので DB は無傷）。その後 `LIMIT_BACKOFF_MS`
-  （既定15分）＋通常間隔を置いて**同じ日をやり直す**。ワーカー自体は止まらない。
-- CLI（`bun run sim`）では `UsageLimitError` は捕捉されずプロセスが落ちる。保存済みの日までが
-  DB に残るので、上限回復後に `sim --resume` で続きから再開すればよい。
-- 注意: session/weekly limit の文言は公式エラーリファレンスで確認済みだが、**Agent SDK credit
-  枯渇（2026-06-15 開始）の実文言は未確認**。credit 系は見当で広めに拾っているため、実際に
-  枯渇を観測したら `backend.ts` の `isUsageLimitMessage` の正規表現を実文言で更新すること。
+- `backend.ts` inspects `claude`'s failure output, identifies usage-limit messages ("You've hit your session limit", etc.), and throws a typed `UsageLimitError` (`src/domain/types.ts`).
+- Each provider (decide / director+guardian / dialogue / onecall) retries and then falls back on ordinary failures, but **only `UsageLimitError` is not swallowed and is re-thrown**, aborting the whole tick.
+- Because `runTick` mutates the world destructively, on abort the in-memory world is left half-advanced and dirty.
+  The worker in `server.ts` catches this and **rolls back from the DB's last snapshot via `Campaign.restore`** (since saveTick/saveRunState never ran, the DB is intact). It then waits `LIMIT_BACKOFF_MS` (default 15 minutes) plus the normal interval and **retries the same day**. The worker itself does not stop.
+- In the CLI (`bun run sim`), `UsageLimitError` is not caught and the process dies. The days saved so far remain in the DB, so after the limit recovers you can resume from where you left off with `sim --resume`.
+- Note: the session/weekly limit wording has been confirmed against the official error reference, but **the actual wording for Agent SDK credit exhaustion (starting 2026-06-15) has not been confirmed**. The credit-related patterns are caught broadly by guesswork, so if you actually observe exhaustion, update the regex in `isUsageLimitMessage` in `backend.ts` with the real wording.

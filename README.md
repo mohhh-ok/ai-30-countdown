@@ -1,72 +1,72 @@
-# 30日のカウントダウン — LLM 群像シミュレーター
+# 30-Day Countdown — LLM Ensemble Simulator
 
-TypeScript + bun の Web アプリ。LLM を使い、毎日（1ティック）複数の妖（あやかし）を京都の霊脈世界で動かして観察する。「観るだけの公開 Web サイト」が最終目的（YouTube 配信は廃止済み）。
+A TypeScript + bun web app. It uses an LLM to drive several ayakashi (妖, spirit beings) through a spirit-vein world set in Kyoto, one day (= one tick) at a time, and lets you watch what unfolds. The end goal is a watch-only public website (YouTube streaming has been discontinued).
 
-> `plan.md` は初期構想（v1）で**内容が古い**ため参照しない。現在の仕様は本ファイルと [`docs/`](docs/README.md) が正。
+> The current spec is this file and [`docs/`](docs/README.md).
 
-## クイックスタート
+## Quick Start
 
 ```sh
 bun install
-bun run dev      # http://localhost:5566（既定: Claude Code バックエンド）
+bun run dev      # http://localhost:5566 (default: Claude Code backend)
 ```
 
-### 必要環境
+### Requirements
 
 - [bun](https://bun.sh) 1.3+
-- **既定（`claude-code`）**: ローカルに [Claude Code](https://claude.com/claude-code) CLI がログイン済みであること
-- **`ollama` を使う場合のみ**: `ollama serve` 起動済み＋モデル pull 済み
+- **Default (`claude-code`)**: the [Claude Code](https://claude.com/claude-code) CLI must be installed and logged in locally
+- **Only when using `ollama`**: `ollama serve` running and the model pulled
   ```sh
   ollama pull qwen2.5:7b-instruct
   LLM_BACKEND=ollama bun run dev
   ```
 
-### ローカル開発（トークンを食わない進め方）
+### Local development (without burning tokens)
 
-`bun run dev` / `bun run start` は起動と同時に自走ワーカーが回り、毎日（1ティック）最大10回 LLM を叩き続ける（配信モデル）。開発中はこれが垂れ流しになるので、**「任意の状態を作る → ワーカー無しでUIを見る → 必要な分だけ進める」** で回す。
+`bun run dev` / `bun run start` spin up an autonomous worker on startup that keeps hitting the LLM up to 10 times per day-tick (the streaming model). During development this just drains tokens, so iterate as: **"seed whatever state you want → view the UI without the worker → advance only as far as you need."**
 
 ```sh
-# ① 好きな初期状態で種を作る（mock なら無料 / 実 LLM でもこの一回だけ）
+# 1) Seed an initial state of your choosing (free with mock / even with a real LLM this is the only spend)
 bun run sim --config examples/harsh.json --days 3 --save
 
-# ② 人がUIを見る（自走ワーカー無し＝LLM 呼び出しゼロ。DB の最新 run を表示するだけ）
+# 2) View the UI (no autonomous worker = zero LLM calls; just renders the latest run in the DB)
 bun run view            # http://localhost:5566
 
-# ③ もっと見たくなったら、続きから必要な分だけ進める → ② をリロード
+# 3) Want to see more? Advance the run from where it left off, then reload (2)
 bun run sim --resume --days 1 --save
 ```
 
-- `bun run view` = `WORKER_AUTOSTART=0` で server を起動（自走ワーカーを立てない）。本番 `start` の自走挙動は変わらない。
-- `sim --resume` = `data/world.db` の最新 run を復元し、その**続きから** `--days N` だけ進めて同じ run に追記する（既存日数は再計算しない＝実 LLM でも無駄な再課金が出ない）。`--resume` は保存が前提なので `--save` は省略可。
-- 数値・UIだけ素早く確認したいときは `--mock`（LLM 不使用）を付ける。詳細は [docs/cli.md](docs/cli.md) / [docs/env.md](docs/env.md)。
+- `bun run view` = starts the server with `WORKER_AUTOSTART=0` (no autonomous worker). The autonomous behavior of production `start` is unchanged.
+- `sim --resume` = restores the latest run from `data/world.db` and advances it by `--days N` **from where it left off**, appending to the same run (existing days are not recomputed = no wasted re-billing even with a real LLM). `--resume` presumes persistence, so `--save` can be omitted.
+- Add `--mock` (no LLM) when you just want a quick check of numbers/UI. Details: [docs/cli.md](docs/cli.md) / [docs/env.md](docs/env.md).
 
-## 概要
+## Overview
 
-芯の異なる妖たちが同じ世界に置かれ、出会い・すれ違い・奪い合いが生まれる。1周目はハルだけで始まり、成長に応じて仲間が解放されていく。
+Ayakashi with different cores are placed in the same world, where encounters, fallings-out, and struggles over resources emerge. The first loop begins with Haru alone; companions unlock as Haru grows.
 
-- **ハル** — 霊脈の独占を憎む祓いの妖。成長軸=利他。回帰の主人公
-- **ナギ** — 見捨てられを恐れる結びの妖。成長軸=自立
-- **カイ** — 誰も信じない餓えた半妖。成長軸=信頼
-- **ソラ** — どこにも根を下ろさぬ風来の妖。成長軸=信頼
-- **シオリ** — 古い約束に縛られた社守りの神使。成長軸=自立
+- **Haru** — an exorcist ayakashi who despises the monopolization of the spirit veins. Growth axis: altruism. Protagonist of the regressions
+- **Nagi** — a binding ayakashi who fears abandonment. Growth axis: independence
+- **Kai** — a starving half-ayakashi who trusts no one. Growth axis: trust
+- **Sora** — a drifting ayakashi who puts down roots nowhere. Growth axis: trust
+- **Shiori** — a shrine-keeping divine messenger bound by an old promise. Growth axis: independence
 
-数値の確定（負荷・収支・死亡・段階）は TS コードが保証し、芯と気質からの判断は LLM に委ねる。世界には30日の期限があり、災害は日を追うごとに強まる。30日目の「大禍」に結界が届かなければ回帰して Day1 からやり直す（ローグライク型）。結界はハル独りしか護れないため、初めて大禍を祓い退けた朝は「独りの暁」——仲間は皆散り、隠しスキル「暁の迎え火」を会得してもう一度だけ輪へ戻る。次に祓った朝は迎え火が散った仲間を全員呼び戻し、回帰の輪は断たれて物語は必ず全員生存の絵で完結する（fin・以後世界は進まない）。祓えるようになる条件には「全キャラ解放＋ココロが満ちる」が編み込まれており、物語の完成と fin が必ず一致する。
+TS code guarantees all numeric outcomes (load, balance, death, stages), while judgments rooted in core and temperament are delegated to the LLM. The world has a 30-day deadline, and disasters intensify with each passing day. If the barrier is not ready for the "Great Calamity" (大禍) on Day 30, the world regresses and restarts from Day 1 (roguelike). Because the barrier can shelter only Haru alone, the first morning Haru repels the Great Calamity is the "Lone Dawn" (独りの暁) — every companion has fallen, and Haru acquires the hidden skill "Beacon of Dawn" (暁の迎え火) to return to the loop one more time. The next morning the Calamity is repelled, the beacon calls all the fallen companions back, the loop of regressions is severed, and the story always concludes with everyone alive (fin — the world stops advancing thereafter). The conditions for becoming able to repel it have "all characters unlocked + Kokoro fulfilled" woven in, so the story's completion and fin always coincide.
 
-## ドキュメント
+## Documentation
 
-詳細は [`docs/`](docs/README.md) を参照。
+See [`docs/`](docs/README.md) for details.
 
-| トピック | ドキュメント |
+| Topic | Document |
 |---|---|
-| ディレクトリ構成・技術スタック | [docs/architecture.md](docs/architecture.md) |
-| 世界のルール・行動・場所・テンポ | [docs/game-rules.md](docs/game-rules.md) |
-| 登場人物・演出家・守護神・ココロ | [docs/characters.md](docs/characters.md) |
-| 永続化（Drizzle / SQLite） | [docs/database.md](docs/database.md) |
-| API・UI ページ | [docs/api.md](docs/api.md) |
-| 環境変数 | [docs/env.md](docs/env.md) |
-| LLM バックエンド切替 | [docs/llm-backend.md](docs/llm-backend.md) |
-| CLI（`bun run sim`） | [docs/cli.md](docs/cli.md) |
-| デプロイ（Railway） | [docs/deploy.md](docs/deploy.md) |
-| シークレット検査（gitleaks） | [docs/secrets.md](docs/secrets.md) |
-| 画像生成（gpt-image） | [docs/image-gen.md](docs/image-gen.md) |
-| RunPod Serverless 調査 | [docs/runpod-serverless.md](docs/runpod-serverless.md) |
+| Directory layout & tech stack | [docs/architecture.md](docs/architecture.md) |
+| World rules, actions, locations, tempo | [docs/game-rules.md](docs/game-rules.md) |
+| Characters, the Director, guardian deities, Kokoro | [docs/characters.md](docs/characters.md) |
+| Persistence (Drizzle / SQLite) | [docs/database.md](docs/database.md) |
+| API & UI pages | [docs/api.md](docs/api.md) |
+| Environment variables | [docs/env.md](docs/env.md) |
+| Switching LLM backends | [docs/llm-backend.md](docs/llm-backend.md) |
+| CLI (`bun run sim`) | [docs/cli.md](docs/cli.md) |
+| Deployment (Railway) | [docs/deploy.md](docs/deploy.md) |
+| Secret scanning (gitleaks) | [docs/secrets.md](docs/secrets.md) |
+| Image generation (gpt-image) | [docs/image-gen.md](docs/image-gen.md) |
+| RunPod Serverless research | [docs/runpod-serverless.md](docs/runpod-serverless.md) |

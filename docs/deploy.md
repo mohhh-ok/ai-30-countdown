@@ -1,35 +1,32 @@
-# デプロイ方針
+# Deployment Policy
 
 ## Railway
 
-デプロイ先は **Railway**（マネージド PaaS・常駐プロセス可）。
+The deployment target is **Railway** (a managed PaaS that allows long-running processes).
 
-- **常駐できる**: サーバ側ワーカーが自走で1日ずつ世界を進める常時運用モデル（`server.ts` の `workerLoop` / `WORKER_INTERVAL_MS` の休憩式）。Railway はプロセスを起きっぱなしにできるので、自走ループがそのまま動く。
-- **移植不要**: bun ランタイムをそのまま動かせ、`Bun.serve`・`bun:sqlite` も無改造で動く。
-- **安い**: Hobby プランが月 $5 で、リソース使用クレジットとして使える。LLM の外部 API 待ち（I/O）が主で自前 CPU はほぼ遊ぶため、使用量が $5 内に収まりやすい。
+- **Can stay resident**: The server-side worker advances the world one day at a time on its own, an always-on operating model (`workerLoop` in `server.ts` / the rest-based `WORKER_INTERVAL_MS`). Railway keeps processes running, so the self-running loop just works as-is.
+- **No porting needed**: The bun runtime runs as-is, and `Bun.serve` and `bun:sqlite` work without modification.
+- **Cheap**: The Hobby plan is $5/month, usable as resource credits. Since the app is mostly waiting on external LLM API calls (I/O) and its own CPU is largely idle, usage tends to fit within $5.
 
-永続化は Railway の**ボリューム**に `data/world.db` を置く。進行間隔は `WORKER_INTERVAL_MS` で調整する。
+For persistence, place `data/world.db` on a Railway **volume**. Adjust the advance interval with `WORKER_INTERVAL_MS`.
 
-**公開 URL は `https://ai-30-countdown.up.railway.app` で確定**（2026-06 合意）。
-`index.html` の OGP（`og:url` / `og:image` の絶対URL）がこの URL を前提に焼き込まれているため、
-Railway 側のサービス名（サブドメイン）を必ずこれに合わせる。変える場合は index.html も更新すること。
-OGP は拡散経路（Show HN / Reddit / X）に合わせて**英語優先**で書いてある（カード画像は `/assets/og.jpg`。
-LinkedIn が WebP の og:image を公式非対応でプレビューが壊れるため、webp 統一ルールの例外として JPG）。
+**The public URL is fixed as `https://ai-30-countdown.up.railway.app`** (agreed 2026-06).
+The OGP tags in `index.html` (the absolute URLs in `og:url` / `og:image`) are baked in assuming this URL,
+so be sure to match the Railway service name (subdomain) to it. If you change it, update index.html too.
+The OGP is written **English-first** to suit the distribution channels (Show HN / Reddit / X) (the card image is `/assets/og.jpg`;
+it is JPG as an exception to the webp-only rule, because LinkedIn does not officially support WebP og:image and the preview breaks).
 
-## 本番の進行ペースと運用（fin まで放置）
+## Production pacing and operation (leave it until fin)
 
-- **本番は 1 tick / 2時間（`WORKER_INTERVAL_MS=7200000`）で回す。**
-  根拠（2026-06 の実測データ・14回帰ぶん）: 平均生存 ≈15日/周・最長22日で、毎日1回見る観客が
-  「12日分 ≒ 0.8周」を追いかけられるペース。fin（**2度目**に30日目まで生き延びた周＝回帰の輪を断つ。
-  初回の30日到達は「独りの暁」で「暁の迎え火」を会得してもう一周回る——[game-rules.md](game-rules.md) 参照）
-  までの寿命はおおむね1か月強の見込み（独りの暁ぶん一周延びる。生存率に依存するため幅あり）。
-  1 tick/時だと1日で1回帰がまるごと過ぎてしまい、fin も2週間程度で来てしまうため採らない。
-- **本番にあげたら放置する。** 途中でのバランス調整や DB リセット（やり直し）はしない想定。
-  現 run（結界力32で fin 資格済み）をそのまま走らせ、fin したらワーカーが自動停止して
-  エピローグ（fin バナー＋年代記）を表示し続ける。fin 後も読み取り専用サイトとして残る。
+- **Production runs at 1 tick / 2 hours (`WORKER_INTERVAL_MS=7200000`).**
+  Rationale (measured data from 2026-06, across 14 regressions): average survival ≈15 days/loop, longest 22 days, a pace at which an audience that checks once a day can follow "about 12 days ≒ 0.8 of a loop." The lifespan until fin (= surviving to day 30 for the **second** time, cutting the chain of regression. Reaching day 30 the first time leads into the Lone Dawn (独りの暁), where you acquire the Beacon of Dawn (暁の迎え火) and run one more loop—see [game-rules.md](game-rules.md))
+  is expected to be a little over a month (the Lone Dawn extends it by one loop; the range varies with survival rate).
+  At 1 tick/hour a whole regression would pass in a single day and fin would come in about two weeks, so we don't use that.
+- **Once it goes to production, leave it alone.** We do not intend to do balance tuning or DB resets (restarts) midway.
+  Let the current run (barrier strength 32, already fin-qualified) run as-is; once it reaches fin, the worker auto-stops and keeps displaying the epilogue (fin banner + chronicle). After fin it remains as a read-only site.
 
-## 公開時の制約
+## Constraints when public
 
-- 状態を変える API（POST）は外部に出さない（いたずら防止）。公開するのは読み取り専用エンドポイントのみ（[api.md](api.md) 参照）。
-- 進行はサーバ内部の自走ワーカーだけが行い、外部からは止められない。
-- UI も進行操作を持たず、`/api/state` を一定間隔でポーリングして最新状態を映すだけ。
+- Do not expose state-changing APIs (POST) externally (to prevent tampering). Only read-only endpoints are published (see [api.md](api.md)).
+- Advancing is done solely by the server-internal self-running worker and cannot be stopped from outside.
+- The UI has no advance controls either; it just polls `/api/state` at a fixed interval to reflect the latest state.

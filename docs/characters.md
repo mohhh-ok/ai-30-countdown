@@ -1,96 +1,96 @@
-# 登場人物と演出システム
+# Characters and the Direction System
 
-## 登場人物（群像）
+## Characters (an ensemble cast)
 
-芯の異なる妖（あやかし）たちが同じ京都の霊脈世界に置かれ、出会い・すれ違い・奪い合いが生まれる。1周目はハルだけ。ハルの成長・スキル達成が解放条件を満たすと、次の回帰から新たな者が加わる。
+Ayakashi (妖) with differing cores are placed into the same Kyoto spirit-vein world, and out of this come encounters, missed connections, and struggles over spirit veins. In the first loop there is only Haru. When Haru's growth and skill achievements satisfy the unlock conditions, new beings join from the next regression onward.
 
-### ハル（初期から登場）
-- **芯**: 霊脈の独占を憎む、冷静で口数少ない祓いの妖（観の眼）
-- **背景**: かつて霊脈の奪い合いで眷属を失った
-- **成長軸**: 利他（altruism）
-- **初期配置**: 貴船の渓（人里離れた山奥）
-- **異能**: 観の眼 — 霊脈と気配を読み切り、集霊が巧み
-- **回帰の主人公**: ハルが力尽きると世界が巻き戻る。スキル・ココロは周をまたいで持ち越す
+### Haru (present from the start)
+- **Core**: A calm, taciturn ayakashi of purification (the Eye of Insight) who hates the monopolizing of spirit veins
+- **Background**: Once lost their kin in a struggle over spirit veins
+- **Growth axis**: altruism
+- **Starting placement**: Kibune-no-tani (a remote valley deep in the mountains)
+- **Talent**: The Eye of Insight — reads spirit veins and presences to the last detail; adept at gathering (forage)
+- **Protagonist of the regression**: When Haru runs out of strength, the world rewinds. Skills and Kokoro carry over across loops
 
-### ナギ（解放条件: ハルがスキルを1つ会得）
-- **芯**: 見捨てられることを恐れる、明るく世話焼きの結びの妖・巫女筋（結の力）
-- **背景**: かつて所属していた集団から追放された
-- **成長軸**: 自立（independence）
-- **初期配置**: 鴨川の河原（人の気配のある場所）
+### Nagi (unlock condition: Haru acquires 1 skill)
+- **Core**: A bright, doting ayakashi of binding, of shrine-maiden (miko) lineage (the Power of Binding), who fears being abandoned
+- **Background**: Once exiled from the group she belonged to
+- **Growth axis**: independence
+- **Starting placement**: Kamogawa-no-kawara (the riverbed, a place where people gather)
 
-### カイ（解放条件: 利他70以上 / 「独りを断つ」会得 / スキル3つ会得のいずれか）
-- **芯**: 生き延びるためなら奪う、誰も信じない餓えた半妖（奪命）
-- **背景**: 霊を喰らう者。物語の触媒
-- **成長軸**: 信頼（trust）
-- **初期配置**: 伏見の稲荷（博打の地）
-- **荒ぶり（変身）**: 孤立・裏切り（信頼が地に落ち、拒まれ続ける／独りが募る）が嵩むと「荒ぶり」へ豹変し、`steal`/`devour` の自制が外れて地を激しく喰らう。ハルが「鎮めの術」（`quellPower`）を会得して同じ霊地で `purify` すれば鎮まり、鎮め損ねた周は術を育てて次周で救う——「結界 `wardPower` vs 大禍」の双子のゲート（詳細は `docs/game-rules.md`）
+### Kai (unlock condition: any of altruism ≥ 70 / acquiring "Sever the Solitude" / acquiring 3 skills)
+- **Core**: A starving half-ayakashi (devourer) who will steal to survive and trusts no one
+- **Background**: An eater of spirits. The catalyst of the story
+- **Growth axis**: trust
+- **Starting placement**: Fushimi-no-Inari (a gambler's ground)
+- **Frenzy (transformation)**: When isolation and betrayal (trust falling to the floor, being rejected again and again / mounting solitude) pile up, Kai snaps into a "frenzy," the restraint on `steal`/`devour` comes off, and the land is devoured fiercely. If Haru acquires the "Quelling Art" (`quellPower`) and performs `purify` in the same spirit-land, the frenzy is quelled; in loops where the quelling fails, the art is grown so that the next loop can save Kai — the twin gate to "barrier `wardPower` vs. the Great Calamity" (for details see `docs/game-rules.md`)
 
-### ソラ（解放条件: 回帰7周以上 かつ「観の眼・冴え」を含めてスキル4つ会得）
-- **芯**: どこにも根を下ろさぬ、風来の妖。来ては去り、執着を笑う
-- **背景**: 戦と飢えで里が焼けた日、ただ一人だけ風に乗って逃げ延びた
-- **成長軸**: 信頼（trust）— 誰かを信じて根を張れるか
-- **初期配置**: 貴船の渓
+### Sora (unlock condition: 7+ regressions AND acquiring 4 skills, including "Eye of Insight, Honed")
+- **Core**: A wandering ayakashi who puts down roots nowhere. Comes and goes, and laughs at attachment
+- **Background**: On the day war and famine burned the village, was the only one to ride the wind and escape alive
+- **Growth axis**: trust — can Sora trust someone and put down roots?
+- **Starting placement**: Kibune-no-tani
 
-### シオリ（解放条件: 「結ぶ手」会得 かつ スキル5つ会得）
-- **芯**: 古い約束に縛られた、社守りの神使。義に厚く、己を許さない
-- **背景**: 守ると誓った社は朽ち、守るべき主はもういない
-- **成長軸**: 自立（independence）— 縛りから己の意志へ
-- **初期配置**: 大原の隠れ里
+### Shiori (unlock condition: acquiring "Binding Hands" AND acquiring 5 skills)
+- **Core**: A shrine-guardian divine messenger bound by an old promise. Strong in duty, unable to forgive herself
+- **Background**: The shrine she swore to protect has decayed, and the master she was to guard is gone
+- **Growth axis**: independence — from bondage toward her own will
+- **Starting placement**: Ohara-no-kakurezato (the hidden hamlet of Ohara)
 
-## キャラの内部モデル
+## A character's internal model
 
-各キャラは性格（長期）と気分（短期）の2層を持つ。
+Each character has two layers: personality (long-term) and mood (short-term).
 
-### 成長パラメータ（性格・長期）
-- **利他 / 自立 / 信頼**（0–100）。経験の結果としてのみ ±1〜5 で動く。芯は不変。
+### Growth parameters (personality, long-term)
+- **altruism / independence / trust** (0–100). They move only by ±1–5 as the result of experience. The core never changes.
 
-### 段階（成長軸のしきい値）
-| 段階 | 範囲 |
+### Stages (growth-axis thresholds)
+| Stage | Range |
 |---|---|
-| 芽生え | 0–39 |
-| 揺らぎ | 40–69 |
-| 成熟 | 70–100 |
+| Budding | 0–39 |
+| Wavering | 40–69 |
+| Mature | 70–100 |
 
-### エネルギー執着度 `satiety`
-充足とみなす霊力水準。高いほど執着型（ハル=55 / カイ=50）、低いほど余裕が出やすい型（ナギ=28）。
+### Energy attachment `satiety`
+The spirit-power level regarded as fullness. The higher it is, the more attached the type (Haru = 55 / Kai = 50); the lower it is, the more easily a type finds slack (Nagi = 28).
 
-### 報酬・抗体システム（気分・短期）
-- 行動の結果＝イベントに報酬を出す（集霊＝達成、語りかけ噛み合い／霊力を分ける＝絆、休息／満腹＝安らぎ、奪う＝背徳）。
-- **抗体方式**: `実効報酬 = 基礎 ×(1 − 抗体/100)`。報酬を得るほど抗体が増えて鈍り（飽き）、やめれば減衰して戻る。
-- **抗体は個体差**（チャネル別の感作率＋減衰率）。ハルは達成に飽きにくい執着型、ナギは絆に飽きず一人の達成にすぐ飽きる。
-- **気分**: 高揚（達成+背徳）／温かさ（絆）／安らぎ／ストレス。ストレスは抗体がつかず蓄積。
-- 気分と「飽き具合」を言葉に翻訳してプロンプトに渡す＝報酬を行動に結びつける。
+### Reward / antibody system (mood, short-term)
+- Actions yield results — events — that pay out rewards (gathering = achievement; conversation clicking / sharing spirit power = bonds; resting / fullness = peace; stealing = transgression).
+- **Antibody model**: `effective reward = base × (1 − antibody/100)`. The more reward you gain, the more antibodies build up and dull it (boredom); if you stop, they decay and recover.
+- **Antibodies differ per individual** (per-channel sensitization rate + decay rate). Haru is the attached type, slow to tire of achievement; Nagi never tires of bonds and quickly tires of solitary achievement.
+- **Mood**: elation (achievement + transgression) / warmth (bonds) / peace / stress. Stress never gains antibodies and accumulates.
+- Mood and the "degree of boredom" are translated into words and passed into the prompt = rewards are tied back into actions.
 
-### ココロ（利他の心）
-- 誰かに霊力を分けてもらう（`share` を受ける）たびに受領回数が積もり（`soulCounters`、DB永続化）、一定回数で「利他の心」が多段に芽生える。
-- 芽生えた心は段階に応じた一文としてプロンプトに注入され、分け与え・語らい・寄り添いといった行動へ傾ける（パラメータは直接いじらない）。
-- 回帰をまたいで持ち越せるのは主人公ハルだけ。他の妖は周ごとにリセット。
-- 種類は `src/domain/soul.ts` の `SOUL_KINDS` で管理。UI は `#/souls` ページで段階と各妖の現状を表示。
-- 利他が成熟した者（利他≥60）は、分け与え(−10)後も「死なない最低線」(`GIFT_FLOOR`=5)を保てる限り、同室で弱った相手を見ると決定論的に分与へ促される（＝ココロの種となる「最初の贈与」を生む）。与え手が枯れる側になったら、ハルの会得スキル「涸らさぬ手」(返霊)が share元を救う。
+### Kokoro (the heart of altruism)
+- Each time someone shares spirit power with you (you receive a `share`), a receipt count accumulates (`soulCounters`, persisted in the DB), and at certain counts a multi-tiered "heart of altruism" buds.
+- A budded heart is injected into the prompt as a sentence keyed to its tier, leaning the character toward actions like giving, conversing, and staying close (it does not touch the parameters directly).
+- Only the protagonist Haru can carry it over across regressions. Other ayakashi reset each loop.
+- The kinds are managed in `SOUL_KINDS` in `src/domain/soul.ts`. The UI shows the tiers and each ayakashi's current state on the `#/souls` page.
+- One whose altruism has matured (altruism ≥ 60) is deterministically prompted to give whenever they see a weakened partner in the same room, as long as they can keep the "minimum line for not dying" (`GIFT_FLOOR` = 5) even after giving (−10) — this produces the "first gift" that becomes the seed of Kokoro. If the giver becomes the one who runs dry, Haru's acquired skill "Hands That Never Run Dry" (spirit reflection) saves the share's source.
 
-## 演出家（ディレクター）
+## The Director
 
-物語がエンタメとして面白くなるよう、**環境にだけ**介入する LLM 演出家（任意）。キャラの芯・行動・自由意志には触れない。
+An optional LLM Director who intervenes **only in the environment** so the story becomes entertaining. It does not touch a character's core, actions, or free will.
 
-- 毎日の幕開けに**緊張度**（calm／stagnant／tense／tragic）を読み、**天候の決定・場所の実りの一時操作・幕開けナレーション**を行う。
-- 例: 膠着（stagnant）を検知すると不作で揺さぶる、悲劇直前（tragic）には猶予を与えて見せ場を作る。「2人が離れたまま出会わない」状態も膠着として検知する。
-- Web では常に有効。CLI では `--director` で有効化。
+- At the curtain-raise of each day it reads the **tension level** (calm / stagnant / tense / tragic) and performs **deciding the weather, temporarily manipulating the bounty of places, and the curtain-raise narration**.
+- Example: detecting deadlock (stagnant), it shakes things up with a poor harvest; just before tragedy (tragic), it grants a reprieve to create a set piece. It also detects "two who stay apart and never meet" as deadlock.
+- Always enabled on the Web. On the CLI it is enabled with `--director`.
 
-### 守護神と衝動
+### Guardian deities and impulses
 
-演出家はキャラの行動を直接操作できないので、**守護神**を介して働きかける。
+Since the Director cannot operate a character's actions directly, it works through **guardian deities**.
 
-- 演出家は「この者をどう動かしたいか」を `directives` で守護神に指示。
-- **守護神**は各キャラに憑き、その指示を**芯と気分に根ざした一人称の囁き**に変換。囁きは行動決定プロンプトに「ふと心に浮かんだ声（従っても抗ってもよい）」として注入。
-- **衝動**: 囁きを受けても従わない日が募る（`whisperIgnored` が閾値超）と、「抑えきれない衝動」が発火。小型モデルが囁きを行動に翻訳できないときの保険。
+- The Director instructs the guardian deities via `directives` on "how it wants to move this one."
+- A **guardian deity** is attached to each character and converts that instruction into a **first-person whisper rooted in the character's core and mood**. The whisper is injected into the action-decision prompt as "a voice that suddenly surfaces in the mind (you may follow it or resist it)."
+- **Impulse**: when days of not following the whisper pile up (`whisperIgnored` exceeds a threshold), an "uncontrollable impulse" fires. It is the safety net for when a small model cannot translate a whisper into action.
 
-`環境（演出家）→ 囁き（守護神）→ 募って衝動 → 出会い → 会話 → 関係の機微` の連鎖で、膠着を確実に解いてドラマを生む。
+The chain `environment (Director) → whisper (guardian deity) → it builds up into an impulse → encounter → conversation → the subtleties of relationships` reliably breaks deadlock and generates drama.
 
-### カメラ（主役・スポットライト）
+### Camera (lead role, spotlight)
 
-裏では全員を等しくシミュレートしつつ、観客が追うのは「いま最も物語が動いている一人」の視点。演出家が毎日**主役（spotlight）**を選ぶ。
+Behind the scenes everyone is simulated equally, but what the audience follows is the viewpoint of "the one whose story is moving most right now." The Director picks a **lead role (spotlight)** each day.
 
-- 演出家は葛藤・危機・決断・出会い・裏切りが宿る人物にカメラを向け、漫然と同じ視点を続けて飽きさせない。
-- 主役が力尽きて退場したら、カメラは残った者の中で最も目が離せない者へ移る。
-- 演出家が未指定/無効のときは、エンジンがその日の「見せ場の大きさ」（死・段階変化・移動・衝動・対人・強い感情・大きな霊力変動）が最大の生存者を自動で主役にする。
-- Web では主役カードが強調表示される。
+- The Director turns the camera on the person harboring conflict, crisis, decision, encounter, or betrayal, so it never bores by aimlessly holding the same viewpoint.
+- When the lead runs out of strength and exits, the camera moves to the one among the survivors who is hardest to look away from.
+- When the Director is unspecified / disabled, the engine automatically makes the survivor with the largest "size of the set piece" that day (death, stage change, movement, impulse, interpersonal action, strong emotion, large swing in spirit power) the lead.
+- On the Web the lead-role card is highlighted.

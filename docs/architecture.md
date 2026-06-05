@@ -1,92 +1,92 @@
-# アーキテクチャ
+# Architecture
 
-## ディレクトリ構成
+## Directory structure
 
 ```
 src/
-  domain/           世界モデルとルール
-    types.ts          ドメイン型定義（Action / Weather / WorldState 等）
-    characters.ts     登場人物の初期定義・抗体/気分の初期値
-    places.ts         場所の定義・隣接グラフ・移動ユーティリティ
-    engine.ts         1ティックの決定論処理（負荷・収支・クランプ・死亡・段階）
-    rules.ts          パラメータ変動のルール（報酬・抗体・気分）
-    events.ts         天候・災害・豊穣の抽選と効果（disasterIntensity / creepingLoad）
-    campaign.ts       年代記（Chronicle）・回帰モデル・スキル/ロスター管理
-    skills.ts         会得式スキルのレジストリ（条件・効果・進捗計測）
-    soul.ts           ココロ（利他の心）の段階管理
-    highlights.ts     見せ場・メタイベントの抽出（ルールベース）
-  llm/              LLM バックエンド切替・プロンプト・判断
-    backend.ts        バックエンド切替層（claude-code / ollama）
-    decide.ts         行動決定プロンプト・LLM 呼び出し
-    dialogue.ts       会話劇の生成（1発言ずつ交互）
-    director.ts       演出家（天候・実り操作・ナレーション）
-    guardian.ts       守護神（囁きの生成）
-    director_guardian.ts  演出家+守護神の統合呼び出し
-    prompt.ts         共通プロンプトユーティリティ
-    mock.ts           モック（LLM 不要の簡易ロジック）
-    ollama.ts         Ollama クライアント
-    onecall.ts        1プロセス起動で複数判断を並列処理
-    timing.ts         LLM 呼び出しの計時・記録
-    log.ts            LLM ログ
+  domain/           World model and rules
+    types.ts          Domain type definitions (Action / Weather / WorldState, etc.)
+    characters.ts     Initial definitions of the cast; initial antibody/mood values
+    places.ts         Place definitions, adjacency graph, movement utilities
+    engine.ts         Deterministic processing of one tick (load, balance, clamps, death, stages)
+    rules.ts          Rules for parameter changes (rewards, antibodies, mood)
+    events.ts         Rolls and effects for weather/disaster/abundance (disasterIntensity / creepingLoad)
+    campaign.ts       Chronicle, regression model, skill/roster management
+    skills.ts         Registry of acquired skills (conditions, effects, progress measurement)
+    soul.ts           Stage management of Kokoro (the altruistic heart)
+    highlights.ts     Extraction of showcase moments / meta-events (rule-based)
+  llm/              LLM backend switching, prompts, decisions
+    backend.ts        Backend switching layer (claude-code / ollama)
+    decide.ts         Action-decision prompts and LLM calls
+    dialogue.ts       Generation of the dialogue drama (one utterance at a time, alternating)
+    director.ts       The Director (weather, harvest manipulation, narration)
+    guardian.ts       Guardian deity (generation of whispers)
+    director_guardian.ts  Combined invocation of the Director + guardian deity
+    prompt.ts         Shared prompt utilities
+    mock.ts           Mock (simple logic that needs no LLM)
+    ollama.ts         Ollama client
+    onecall.ts        Process multiple decisions in parallel from a single process launch
+    timing.ts         Timing and recording of LLM calls
+    log.ts            LLM log
   web/              React UI
-    index.html        エントリ HTML
-    main.tsx          React マウント
-    App.tsx           ルーティング・レイアウト・SiteNav・TitleBlock
-    router.ts         ハッシュルーター（#/ / #/loop/:n / #/char/:id 等）
-    styles.css        手書き CSS（暗幕・背景絵・毛筆・回帰アニメ等）
-    charTheme.ts      キャラ別テーマ色
-    util.ts           フロント共通ユーティリティ
-    components/       共通コンポーネント
-      FrontStage.tsx    観客ビュー（公開サイトで観客に見せる表）
-      TickLog.tsx       楽屋ビュー（開発・観察用の裏）
-      CharacterCard.tsx キャラカード
-      CharAvatar.tsx    キャラアバター
-      ParamBar.tsx      パラメータバー
-      PlacesMap.tsx     京都の地図（場所サムネ）
-      SceneFX.tsx       three.js 粒子演出
-      Highlights.tsx    見せ場・メタイベント表示
-      LoopSelect.tsx    回帰ジャンプセレクト（「第N回帰」ピル＝select）
-    pages/            ページコンポーネント
-      CharacterPage.tsx キャラ別ページ（全周横断の軌跡）
-      LoopPage.tsx      特定回帰の物語
-      SkillsPage.tsx    スキル一覧
-      SoulsPage.tsx     ココロ一覧
-  schema.ts         Drizzle テーブル定義（SQLite スキーマの正）
-  db.ts             DB 読み書き（全て drizzle 経由）
-  server.ts         Bun.serve（API + フロント配信 + 自走ワーカー）
-  sim.ts            ヘッドレス CLI（bun run sim）
-  worldlock.ts      world.db への進行（書き込み）を1プロセスに限るファイルロック（二重起動ガード）
+    index.html        Entry HTML
+    main.tsx          React mount
+    App.tsx           Routing, layout, SiteNav, TitleBlock
+    router.ts         Hash router (#/ / #/loop/:n / #/char/:id, etc.)
+    styles.css        Hand-written CSS (dark curtain, background art, brushwork, regression animation, etc.)
+    charTheme.ts      Per-character theme colors
+    util.ts           Shared frontend utilities
+    components/       Shared components
+      FrontStage.tsx    Audience view (the stage shown to the audience on the public site)
+      TickLog.tsx       Backstage view (the behind-the-scenes view for development and observation)
+      CharacterCard.tsx Character card
+      CharAvatar.tsx    Character avatar
+      ParamBar.tsx      Parameter bar
+      PlacesMap.tsx     Map of Kyoto (place thumbnails)
+      SceneFX.tsx       three.js particle effects
+      Highlights.tsx    Display of showcase moments / meta-events
+      LoopSelect.tsx    Regression jump select (the "Loop N" pill = select)
+    pages/            Page components
+      CharacterPage.tsx Per-character page (the arc across all loops)
+      LoopPage.tsx      The story of a specific regression
+      SkillsPage.tsx    Skill list
+      SoulsPage.tsx     Kokoro list
+  schema.ts         Drizzle table definitions (source of truth for the SQLite schema)
+  db.ts             DB reads and writes (everything goes through drizzle)
+  server.ts         Bun.serve (API + frontend serving + autonomous worker)
+  sim.ts            Headless CLI (bun run sim)
+  worldlock.ts      File lock that limits progression (writes) to world.db to a single process (double-launch guard)
 scripts/
-  audit-reachability.ts   到達可能性アウディット
-  bench-decide.ts         行動決定のベンチマーク
-  gen-character-art.ts    キャラ絵生成
-  gen-place-art.ts        場所絵生成
-  gen-title-art.ts        タイトルロゴ生成
+  audit-reachability.ts   Reachability audit
+  bench-decide.ts         Benchmark for action decisions
+  gen-character-art.ts    Character art generation
+  gen-place-art.ts        Place art generation
+  gen-title-art.ts        Title logo generation
 assets/
-  characters/       キャラ絵（WebP）
-  places/           場所絵（WebP）
-  title.webp        タイトルロゴ
+  characters/       Character art (WebP)
+  places/           Place art (WebP)
+  title.webp        Title logo
 data/
-  world.db          SQLite データベース（.gitignore 対象）
+  world.db          SQLite database (covered by .gitignore)
 ```
 
-## 技術スタック
+## Tech stack
 
-| レイヤー | 技術 |
+| Layer | Technology |
 |---|---|
-| ランタイム | [bun](https://bun.sh) 1.3+ |
-| 言語 | TypeScript |
-| DB | SQLite（bun:sqlite） |
-| ORM | Drizzle ORM（drizzle-orm / drizzle-kit） |
-| フロントエンド | React 19 + Tailwind v4（ハイブリッド） |
-| 3D 演出 | three.js（観客ビューの粒子エフェクト） |
-| LLM | Claude Code CLI / Ollama（切替可能） |
-| 画像生成 | OpenAI gpt-image-1 / gpt-image-2 |
+| Runtime | [bun](https://bun.sh) 1.3+ |
+| Language | TypeScript |
+| DB | SQLite (bun:sqlite) |
+| ORM | Drizzle ORM (drizzle-orm / drizzle-kit) |
+| Frontend | React 19 + Tailwind v4 (hybrid) |
+| 3D effects | three.js (particle effects in the audience view) |
+| LLM | Claude Code CLI / Ollama (switchable) |
+| Image generation | OpenAI gpt-image-1 / gpt-image-2 |
 
-## スタイリング（CSS / Tailwind ハイブリッド）
+## Styling (CSS / Tailwind hybrid)
 
-CSS は `src/web/styles.css` の手書きが主体。これに加えて **Tailwind v4 をハイブリッドで併用**する。
+CSS is primarily hand-written in `src/web/styles.css`. On top of that, we **use Tailwind v4 alongside it in a hybrid fashion**.
 
-- `src/web/styles.css` 先頭の `@import "tailwindcss";` と、`bunfig.toml` の `[serve.static] plugins = ["bun-plugin-tailwind"]` で、bun の HTML import バンドラ（`server.ts` の `import index from "./web/index.html"`）にそのまま乗る。別ビルドステップは不要で、`bun dev` の HMR も効く。
-- 使い分け: 新規・小物パーツは JSX に Tailwind ユーティリティで書き、既存の凝った演出（暗幕・背景絵・毛筆・回帰アニメ等）は `styles.css` に温存する。テーマ色は CSS 変数を arbitrary value（例: `bg-[var(--accent)]`）で参照する。
-- 注意: `Bun.build` 直叩き＋ `bun-plugin-tailwind` は bun 1.3.11 で segfault する（Bun 側のバグ）。ビルドは `Bun.serve` / `bun dev` 経路で行う（本アプリは serve 経路なので影響なし）。
+- The `@import "tailwindcss";` at the top of `src/web/styles.css`, together with `[serve.static] plugins = ["bun-plugin-tailwind"]` in `bunfig.toml`, rides directly on bun's HTML import bundler (`import index from "./web/index.html"` in `server.ts`). No separate build step is needed, and `bun dev` HMR works.
+- When to use which: write new and small parts in JSX with Tailwind utilities, and keep the existing elaborate effects (dark curtain, background art, brushwork, regression animation, etc.) in `styles.css`. Reference theme colors as arbitrary values (e.g. `bg-[var(--accent)]`).
+- Note: calling `Bun.build` directly together with `bun-plugin-tailwind` segfaults on bun 1.3.11 (a Bun-side bug). Do builds via the `Bun.serve` / `bun dev` path (this app uses the serve path, so it is unaffected).

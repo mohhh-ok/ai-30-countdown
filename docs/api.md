@@ -1,43 +1,43 @@
-# API エンドポイントと UI ページ
+# API Endpoints and UI Pages
 
 ## API
 
-読み取り専用（観るだけ画面）。進行はサーバ内部の自走ワーカーだけが行い、状態を変える API は公開しない。
+Read-only (a watch-only site). Progress is driven solely by the server's internal autonomous worker; APIs that mutate state are not exposed publicly.
 
-| メソッド | パス | 説明 |
+| Method | Path | Description |
 |---|---|---|
-| GET | `/api/state` | 現在の世界状態と現在の回帰ぶんのログ・年代記 |
-| GET | `/api/loops/:loop` | 指定した回帰の物語（その周の ticks をオンデマンドに） |
-| GET | `/api/character/:id` | キャラの全周横断の軌跡（`char_metrics` の薄い行） |
-| GET | `/api/health` | バックエンド疎通とモデル名 |
+| GET | `/api/state` | Current world state, plus the logs and chronicle for the current regression |
+| GET | `/api/loops/:loop` | The story of a given regression (the ticks of that loop, on demand) |
+| GET | `/api/character/:id` | A character's trajectory across all loops (thin rows from `char_metrics`) |
+| GET | `/api/health` | Backend connectivity and model name |
 
-### アセット配信
+### Asset Serving
 
-| パス | 説明 |
+| Path | Description |
 |---|---|
-| `/assets/characters/:file` | キャラ絵（WebP/PNG。サニタイズ済み・Cache-Control 1日） |
-| `/assets/places/:file` | 場所絵（同上） |
-| `/assets/title.webp` | タイトルロゴ（日本語版。`/assets/title-en.webp` は英語版） |
-| `/assets/og.jpg` | OGP シェアカード画像（title-en.webp の 1.91:1 クロップ。index.html の og:image が参照。LinkedIn が WebP 非対応のため webp ルールの例外で JPG） |
+| `/assets/characters/:file` | Character art (WebP/PNG; sanitized, Cache-Control 1 day) |
+| `/assets/places/:file` | Place art (same as above) |
+| `/assets/title.webp` | Title logo (Japanese version; `/assets/title-en.webp` is the English version) |
+| `/assets/og.jpg` | OGP share card image (a 1.91:1 crop of title-en.webp, referenced by the og:image in index.html; JPG as an exception to the webp rule, because LinkedIn does not support WebP) |
 
-## UI ページ（ハッシュルーティング）
+## UI Pages (hash routing)
 
-`src/web/router.ts` でハッシュベースのルーティング。
+Hash-based routing is handled in `src/web/router.ts`.
 
-| ハッシュ | ページ | コンポーネント |
+| Hash | Page | Component |
 |---|---|---|
-| `#/` | ホーム（現在の回帰） | `FrontStage` / `TickLog` / `CharacterCard` 等 |
-| `#/loop/:n` | 第N回帰の物語 | `LoopPage` |
-| `#/char/:id` | キャラ別ページ（全周横断） | `CharacterPage` |
-| `#/skills` | スキル一覧（獲得式・永続） | `SkillsPage` |
-| `#/souls` | ココロ一覧（利他の心・全キャラの現状） | `SoulsPage` |
+| `#/` | Home (current regression) | `FrontStage` / `TickLog` / `CharacterCard`, etc. |
+| `#/loop/:n` | The story of the Nth regression | `LoopPage` |
+| `#/char/:id` | Per-character page (across all loops) | `CharacterPage` |
+| `#/skills` | Skill list (acquirable, persistent) | `SkillsPage` |
+| `#/souls` | Kokoro list (the altruistic heart; current state of every character) | `SoulsPage` |
 
-各回帰へは、ホームの日付欄および回帰ページ右肩にある「第N回帰」セレクト（`LoopSelect`）からジャンプする。
-最新（進行中）の回帰を選ぶとホーム（`#/`）へ飛ぶ。旧・回帰一覧ページ（`#/loops`）は廃止。
+You jump to a regression via the "Nth regression" selector (`LoopSelect`) in the home screen's date field and at the top-right of a loop page.
+Selecting the latest (in-progress) regression takes you to Home (`#/`). The old regression list page (`#/loops`) has been removed.
 
-### 観客ビューと楽屋ビュー
+### Audience View and Backstage View
 
-ホーム画面には2つの表示モードがある。SiteNav（ホーム＝表／ステータス＝裏／デバッグ＝ログ）で切替。
+The home screen has two display modes, toggled via SiteNav (Home = front / Status = backstage / Debug = log).
 
-- **観客ビュー（`FrontStage.tsx`）**: 公開サイトで観客に見せる表。数値・囁き・気分・実り操作・演出意図は出さない。演出家由来で出るのは `director.narration` だけ。
-- **楽屋ビュー（`TickLog.tsx`）**: 開発・観察用の裏。intent（`演出: …`）・囁き・実り操作の数値・LLM時間などが見える。
+- **Audience view (`FrontStage.tsx`)**: the front shown to the audience on the public site. It does not surface numbers, whispers, moods, harvest manipulations, or directorial intent. The only thing surfaced from the Director is `director.narration`.
+- **Backstage view (`TickLog.tsx`)**: the backstage for development and observation. Here you can see intent (`演出: …`), whispers, the numbers behind harvest manipulation, LLM timing, and so on.

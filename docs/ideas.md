@@ -1,13 +1,13 @@
-# 将来アイデア・バックログ
+# Future Ideas & Backlog
 
-> 今やる話ではなく「あとでやる」候補のメモ。着手は現行プロジェクトを完走してから。
+> Not things to do now, but a memo of "do later" candidates. Start only after the current project is finished.
 
-## 勇者軍団 vs 魔王軍団の戦い
+## Battle between the Hero Corps and the Demon Lord Corps
 
-- **構図**: 勇者軍団と魔王軍団が戦う。
-- **自動増援**:
-  - 魔王は自動で新たな魔物を生成して戦力を補充する。
-  - 勇者も自動で新たな仲間を生成して戦力を補充する。
-- **終了条件**: 勇者本体か魔王本体のどちらかが倒されたら終了。
+- **Setup**: The Hero Corps and the Demon Lord Corps fight each other.
+- **Automatic reinforcements**:
+  - The Demon Lord automatically spawns new monsters to replenish its forces.
+  - The Heroes also automatically spawn new allies to replenish their forces.
+- **End condition**: The battle ends when either the Hero leader or the Demon Lord leader is defeated.
 
-（記録のみ。現行プロジェクト完走後に詳細を詰める。）
+(Record only. Details to be worked out after the current project is finished.)

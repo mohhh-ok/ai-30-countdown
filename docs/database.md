@@ -1,84 +1,84 @@
-# 永続化（SQLite / Drizzle ORM）
+# Persistence (SQLite / Drizzle ORM)
 
-## 概要
+## Overview
 
-**Drizzle ORM**（`drizzle-orm` の bun-sqlite ドライバ）で `data/world.db` に保存する。サーバーを再起動すると最新 run の続きから復元される。
+State is stored in `data/world.db` via **Drizzle ORM** (the bun-sqlite driver of `drizzle-orm`). When the server restarts, it resumes from where the latest run left off.
 
-- スキーマの正: `src/schema.ts`（Drizzle テーブル定義）
-- 読み書き: `src/db.ts`（全て drizzle 経由。生SQL/prepared statement・手書き `CREATE TABLE`/`ALTER` は廃止）
+- Source of truth for the schema: `src/schema.ts` (Drizzle table definitions)
+- Reads and writes: `src/db.ts` (everything goes through drizzle; raw SQL / prepared statements and hand-written `CREATE TABLE`/`ALTER` have been retired)
 
-## スキーマ管理（drizzle-kit push）
+## Schema management (drizzle-kit push)
 
-テーブルの実体化は `bun run db:push`（= `drizzle-kit push --force`）で行う。`dev`/`start`/`sim` の起動時にも自動で走る（先頭で push してから本体を起動）。
+Tables are materialized with `bun run db:push` (= `drizzle-kit push --force`). It also runs automatically when `dev`/`start`/`sim` start up (push runs first, then the main process launches).
 
-列を足すときは `src/schema.ts` を編集して `bun run db:push` するだけ（手書きの `ALTER` は不要）。
+To add a column, just edit `src/schema.ts` and run `bun run db:push` (no hand-written `ALTER` needed).
 
-| スクリプト | 役割 |
+| Script | Role |
 |---|---|
-| `bun run db:push` | `src/schema.ts` を DB に反映（`--force`＝データロス自動承認） |
-| `bun run db:generate` | 将来バージョン管理されたマイグレーションが要るとき用（現状は push 運用） |
-| `bun run db:studio` | Drizzle Studio で DB を閲覧 |
+| `bun run db:push` | Apply `src/schema.ts` to the DB (`--force` = data loss auto-approved) |
+| `bun run db:generate` | For when versioned migrations become necessary in the future (currently we use push) |
+| `bun run db:studio` | Browse the DB in Drizzle Studio |
 
-## テーブル一覧
+## Table list
 
-### `runs` — 年代記（回帰をまたぐ1セッション）
-年代記スカラー（周回・日・天候・主人公・ハルのピーク利他等）を列に持つ。復元用スナップショット。CLI（`sim`）も Web（`server`）も同じテーブルに保存する。
+### `runs` — Chronicle (one session spanning regressions)
+Holds chronicle-level scalars (loop, day, weather, protagonist, Haru's peak altruism, etc.) as columns. A snapshot for restoration. Both the CLI (`sim`) and the Web app (`server`) save to this same table.
 
-### `run_skill` — スキル進捗
-1スキル1行。`acquired`（会得済み）/ `progress`（進捗カウンタ）。
+### `run_skill` — Skill progress
+One row per skill. `acquired` (acquired) / `progress` (progress counter).
 
-### `run_roster` — 恒久ロスター
-解放済みキャラ。1キャラ1行。
+### `run_roster` — Permanent roster
+Unlocked characters. One row per character.
 
-### `run_char` — キャラの可変状態
-周の途中から再開するためのもの。霊力・成長値・気分・抗体・囁き・関係・記憶・ココロ（`soulCountersJson`）・荒ぶり（`frenzyJson`・半妖カイのみ）等を持つ。不変設定はコードが正。1キャラ1行で上書き。
+### `run_char` — Mutable character state
+Used to resume mid-loop. Holds spiritual power, growth values, mood, antibodies, whispers, relationships, memories, Kokoro (`soulCountersJson`), frenzy (`frenzyJson`; half-ayakashi Kai only), and so on. Immutable settings live in code as the source of truth. One row per character, overwritten in place.
 
-### `run_place` — 場所の可変状態
-民の霊力の枯れ具合（`sei`/`daku`）だけ。地形・隣接・上限はコードが正。1場所1行で上書き。
+### `run_place` — Mutable place state
+Just how depleted the people's spiritual power is (`sei`/`daku`). Terrain, adjacency, and caps live in code as the source of truth. One row per place, overwritten in place.
 
-### `run_event` — 環境イベント
-いま京に起きている災い/恵み（回帰でリセット）。保存のたびに全消し→入れ直し。
+### `run_event` — Environmental events
+The calamities/blessings currently befalling the capital (reset on regression). On every save, all rows are wiped and re-inserted.
 
-### `run_loop_summary` — 過去の周回の結末
-年代記 history。1周1行。クリア/未クリア・到達段階・会得スキル・メタハイライトを記録。
-結末は日本語の `cause_of_end`（source of truth）に加え、表示の多言語化用に構造化（`end_kind`＝`cleared`（クリア）/`died`（力尽き）/`solo_dawn`（大禍は祓ったが独りの暁）、`end_place_id`＝力尽きた場所 id）を持つ。旧 run（未設定）は日本語へフォールバック。
+### `run_loop_summary` — Outcomes of past loops
+Chronicle history. One row per loop. Records cleared/not-cleared, reached stage, acquired skills, and meta highlights.
+In addition to the Japanese `cause_of_end` (source of truth), the outcome is also stored in structured form for display localization (`end_kind` = `cleared` (cleared) / `died` (succumbed) / `solo_dawn` (the Great Calamity (大禍) was purified but it is a Lone Dawn (独りの暁)); `end_place_id` = the id of the place where they succumbed). Old runs (unset) fall back to the Japanese text.
 
-### `ticks` — 日次結果
-各日の `TickResult` を1日1行で JSON 保存（`loop`/`day` で識別。回帰で `day` は周ごとに1に戻る）。表示ログはここから組む。
+### `ticks` — Daily results
+The `TickResult` for each day, stored as JSON, one row per day (identified by `loop`/`day`; on regression `day` resets to 1 each loop). The display log is assembled from this.
 
-### `char_metrics` — キャラ指標（正規化）
-1日×1人を正規化した薄い行。成長曲線や行動頻度の SQL 集計用。
+### `char_metrics` — Character metrics (normalized)
+A thin, normalized row per day per character. For SQL aggregation of growth curves and action frequency.
 
-### `dialogues` — 会話行
-その日の会話を1発言1行で保存。`seq` で発言順を保持。
+### `dialogues` — Dialogue lines
+That day's conversation, stored one row per utterance. `seq` preserves the order of utterances.
 
-### `llm_timings` — LLM 呼び出し計時
-LLM 呼び出し1回ぶんの所要時間。ボトルネック分析用。ラベル（`decide:haru` / `dialogue` / `director` / `guardian`）で種別を区別。
+### `llm_timings` — LLM call timing
+The duration of a single LLM call. For bottleneck analysis. The label (`decide:haru` / `dialogue` / `director` / `guardian`) distinguishes the call type.
 
-### `llm_calls` — LLM 発火ログ
-叩いた瞬間に1行（`status='started'`）を残し、完了時に更新。進行中の呼び出しを可視化する。
+### `llm_calls` — LLM invocation log
+A row is left the instant a call fires (`status='started'`) and updated on completion. This makes in-flight calls visible.
 
-### `skill_audit` — 到達可能性監査ログ
-毎 tick 1行。ハルの利他・ピーク利他・習得済みスキル・全スキル進捗・解放済みキャラを時系列で記録。`scripts/audit-reachability.ts` が使う。
+### `skill_audit` — Reachability audit log
+One row per tick. Records Haru's altruism, peak altruism, acquired skills, all skill progress, and unlocked characters over time. Used by `scripts/audit-reachability.ts`.
 
-## 集計例
+## Aggregation examples
 
 ```sh
-# ナギの自立心の推移
+# Trend of Nagi's independence
 sqlite3 data/world.db "SELECT day, independence FROM char_metrics WHERE char_id='nagi' ORDER BY day;"
 
-# 行動の頻度
+# Action frequency
 sqlite3 data/world.db "SELECT name, action, COUNT(*) FROM char_metrics GROUP BY char_id, action;"
 ```
 
-## 永続化の配線チェックリスト
+## Persistence wiring checklist
 
-列を足すときに忘れず全部通す:
+When adding a column, be sure to wire it through all of these:
 
-1. `src/schema.ts` に列追加
-2. `src/db.ts` の `charSaveToRow`（insert 値）
-3. `loadLatestRun` の select マッピング
-4. `CharSave`（`campaign.ts`）
-5. save/restore マッピング
+1. Add the column in `src/schema.ts`
+2. `charSaveToRow` in `src/db.ts` (insert values)
+3. The select mapping in `loadLatestRun`
+4. `CharSave` (`campaign.ts`)
+5. The save/restore mapping
 
-どれか欠けると silently 保存漏れになる。
+If any one is missing, the column is silently dropped on save.

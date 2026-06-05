@@ -1,114 +1,114 @@
-# 世界のルール
+# Rules of the World
 
-## 概要
+## Overview
 
-毎日（1ティック）、決定論パート（TSコード）がルールを適用し、LLM パートがキャラの判断を生成する。
+Each day (one tick), the deterministic part (TS code) applies the rules and the LLM part generates the characters' judgments.
 
-- **決定論パート（TSコード）**: 負荷 −6 / 霊力収支 / パラメータの 0–100 クランプ・±5上限 / 死亡判定 / 段階しきい値 / 天候抽選 / 記憶管理 / 移動の妥当性。
-- **LLMパート**: 気質と記憶を踏まえた行動選択・移動先・パラメータ変動の提案・一行日記・関係ラベルを構造化JSONで返す。
+- **Deterministic part (TS code)**: load −6 / spirit-power balance / 0–100 clamping and ±5 cap on parameters / death determination / stage thresholds / weather drawing / memory management / validity of movement.
+- **LLM part**: returns, as structured JSON, the action choice informed by temperament and memory, the destination of movement, proposed parameter changes, a one-line diary, and relationship labels.
 
-数値はTSが保証し、芯と気質からの判断はLLMに委ねる役割分担。
+The division of roles: TS guarantees the numbers; judgments arising from core and temperament are entrusted to the LLM.
 
-## 30日のカウントダウン（大禍と fin）
+## The 30-day countdown (the Great Calamity and fin)
 
-世界には**期限**がある。災害は日を追うごとに強まり、**30日目（`DEADLINE_DAY`）に必ず「大禍」**という確定の大災害が訪れる。
+The world has a **deadline**. Disasters strengthen day by day, and on **day 30 (`DEADLINE_DAY`) a definite great disaster called the "Great Calamity" (大禍)** always arrives.
 
-- **逓増する災害**: 日が進むほど災い（飢饉・疫病・冷害）の発生確率と負の効果が `disasterIntensity(day)`（1.0→約1.8倍）で増し、救済の豊穣は逆に出にくくなる。加えて「地脈の乱れ」`creepingLoad(day)`（8日ごと +1 の全員消耗）が確実に効いてくる。調整は `src/domain/events.ts` 一箇所。
-- **大禍（30日目の確定災害）**: ランダム抽選ではなく engine が直接起こす（`WorldEventKind = "calamity"`）。
-- **祓い退け（averted・スキル方式）**: ハルが回帰をまたいで積んだ**結界力 `wardPower`** が**猛威度 `CLIMAX_MENACE`（既定30）以上なら大禍を祓い退ける**。届かなければ京ごと呑まれ、ハルも倒れて回帰する。ただし**結界はハル独りしか護れない**——祓い退けても大禍の一撃（`climaxBlow`）は仲間全員に通り、**ハル以外は必ず散る**（ハルだけが霊力1で踏みとどまる）。
-- **初めての祓い＝「独りの暁」（fin は一周後ろへずれる）**: 迎え火を知らぬ最初の祓いは fin にならない。この日、隠しスキル**「暁の迎え火」**（`dawn_beacon`・会得までスキル一覧に存在ごと出ない `secret`）を会得し、散った仲間を残して輪は断てず**もう一度だけ回帰する**（`campaign.recordTick` の `endKind="solo_dawn"` 分岐）。
-- **会得後の祓い＝クリア＝回帰の輪を断つ（fin）**: 次に大禍を祓った朝は迎え火が灯り、**その周で力尽きた仲間が全員蘇生（霊力20）してから** `world.finished = true` となり（`campaign.recordTick`）、年代記に最終周（`endKind="cleared"`）を刻んで**物語はそこで完結する**。fin は構造的に必ず「2度目の祓い」となり、**エピローグは必ず全員生存の絵になる**。次の周は立ち上がらず、サーバの自走ワーカーも停止する（`server.ts`／再起動しても fin 済み run は動かない）。観客ビューには幕引き（fin バナー）が出る。
-- **fin の重さは結界スキルの会得条件に編み込まれている**: 結界スキルは「結界の心得」(+14・祓い×8) と鍵の「捨て身の守り」(+18・寄り添い×6) の2つだけで、合計 32 ≥ 30。ただし**鍵の進捗は「全キャラ解放済み かつ ココロ（利他の心）が満ちる」の周でしか進まない**（`skills.ts` の `finKeyConditionMet`）。つまり「祓える＝全員と出会い、心が満ちている＝物語が完成している」が構造的に保証される。
-- UI ヘッダに「大禍まで N 日」のカウントダウンが出る（両ビュー共通）。観客ビューでは大禍の到来と結末を数値なしで、楽屋ビュー（TickLog）では結界力と猛威度の対比まで見せる。
+- **Escalating disasters**: the further the days advance, the more the probability and negative effects of calamity (famine, plague, cold damage) increase by `disasterIntensity(day)` (1.0 → about 1.8×), while the relief of bounty conversely becomes harder to draw. On top of that, "disturbance of the earth veins" `creepingLoad(day)` (+1 wear on everyone every 8 days) reliably takes hold. Tuning is in one place, `src/domain/events.ts`.
+- **The Great Calamity (the definite disaster of day 30)**: not a random draw — the engine raises it directly (`WorldEventKind = "calamity"`).
+- **Warding it off (averted, skill-based)**: if Haru's **barrier power `wardPower`**, accumulated across regressions, is **at or above the menace level `CLIMAX_MENACE` (default 30), the Great Calamity is warded off**. If it falls short, the whole capital is swallowed, Haru too falls, and the regression occurs. However, **the barrier can protect Haru alone** — even when warded off, the Great Calamity's single blow (`climaxBlow`) still reaches all the companions, and **everyone but Haru necessarily perishes** (only Haru holds out at 1 spirit power).
+- **The first warding = the "Lone Dawn" (独りの暁) (fin shifts one loop back)**: the first warding, by one who does not yet know the beacon, does not become fin. On this day the hidden skill **"Beacon of Dawn" (暁の迎え火)** (`dawn_beacon` — a `secret` that does not even appear in the skill list until acquired) is acquired, and with the fallen companions left behind, the wheel cannot be cut and **regresses just once more** (the `endKind="solo_dawn"` branch in `campaign.recordTick`).
+- **Warding after acquisition = clear = cutting the wheel of regression (fin)**: on the next morning the Great Calamity is warded off, the beacon is lit, and **after every companion who ran out of strength that loop is revived (spirit power 20)**, `world.finished = true` (in `campaign.recordTick`), the final loop (`endKind="cleared"`) is carved into the chronicle, and **the story is completed there**. fin is structurally always the "second warding," so **the epilogue is necessarily a picture in which everyone survives**. The next loop does not rise, and the server's self-running worker stops (`server.ts` / even on restart a finished run does not move). The audience view shows the curtain-fall (the fin banner).
+- **The weight of fin is woven into the acquisition conditions of the barrier skill**: the barrier skills are only the two — "Lore of the Barrier" (+14, purify ×8) and the key "Self-Sacrificing Guard" (+18, follow ×6) — totaling 32 ≥ 30. However, **progress on the key advances only in loops where "all characters are unlocked AND Kokoro (the heart of altruism) is full"** (`finKeyConditionMet` in `skills.ts`). In other words, "able to ward off = having met everyone, the heart being full = the story being complete" is structurally guaranteed.
+- A countdown of "N days until the Great Calamity" appears in the UI header (common to both views). The audience view shows the arrival and outcome of the Great Calamity without numbers; the backstage view (TickLog) goes as far as showing the contrast between barrier power and menace level.
 
-## 荒ぶりと鎮め（カイの変身ゲート）
+## Frenzy and quelling (Kai's transformation gate)
 
-大禍（`wardPower` で祓い退けるクリアゲート）の**双子**となる、もう一つのスキルゲート。半妖カイ専用。
+Another skill gate that is the **twin** of the Great Calamity (the clear gate warded off with `wardPower`). Exclusive to the half-ayakashi Kai.
 
-- **荒ぶり（変身）**: カイは**孤立・裏切り**が募る（信頼 `trust` が `FRENZY_TRUST_CEILING`=30 未満のとき、同室者なしの孤立日 +2／一方的に拒まれた・奪われた裏切り日 +3）と荒ぶり度 `level` が溜まり、`FRENZY_ONSET`=6 で変身（上限 `FRENZY_MAX`=12）。変身前は信頼が満ちた日に少し引く（`FRENZY_DECAY`=1）が、**一度変身すると自然鎮静はしない**（鎮めない限り続く）。状態は周内のみ（回帰でリセット・`run_char.frenzy_json` に永続）。
-- **変身中**: `steal`/`devour` の自制が外れ、集霊（devour）の喰らい量が 1.6→2.4 倍に増えて地を激しく枯らす。犯した業を後払い `pendingBurden`（+2/日）で溜める。
-- **鎮め＝ゲート**: ハルが**鎮めの術 `quellPower`**（`src/domain/skills.ts` の `quell_art`。荒ぶる者と同じ霊地で通算5度 `purify` すると会得）を積み、荒ぶる地で `purify` したとき **`quellPower`(14) ≥ 荒ぶり度なら鎮静**。会得値(14)は上限(12)を上回るので、**会得すれば確実に鎮まり、未会得(0)なら絶対鎮まらない**。鎮静時に `pendingBurden` をカイ本人の `stealBurden` へ清算（＝カイが消耗。**ハル即死はしない**）。
-- **回帰との噛み**: 鎮め損ねた周こそ「荒ぶる者と向き合って祓った」経験が `quell_art` を育て、次周で鎮められる——「救えなかった子を次周で救う」。
-- **見せ方**: 変身・鎮静は観客ビュー（`director.narration` の地の文）に滲ませ（数値・intent は出さない）、必ず scene 化して埋もれさせない。荒ぶり度・代償は楽屋ビュー（TickLog）に出す。
+- **Frenzy (transformation)**: when isolation and betrayal pile up for Kai (while trust `trust` is below `FRENZY_TRUST_CEILING` = 30: +2 per day of isolation with no roommates / +3 per day of betrayal in which he is one-sidedly rejected or robbed), the frenzy level `level` accumulates, and at `FRENZY_ONSET` = 6 he transforms (ceiling `FRENZY_MAX` = 12). Before transforming, it draws back a little on days when trust is satisfied (`FRENZY_DECAY` = 1), but **once transformed it does not subside naturally** (it continues until quelled). The state is within the loop only (reset on regression, persisted in `run_char.frenzy_json`).
+- **While transformed**: the restraint on `steal`/`devour` comes off, the devour intake of gathering (devour) increases by 1.6 → 2.4× and fiercely withers the land. The transgressions committed are accrued as a deferred-payment `pendingBurden` (+2/day).
+- **Quelling = gate**: when Haru accumulates the **Quelling Art `quellPower`** (`quell_art` in `src/domain/skills.ts`; acquired by performing `purify` a total of 5 times in the same spirit-land as the frenzied one) and performs `purify` in the frenzied land, **the frenzy is quelled if `quellPower` (14) ≥ frenzy level**. Since the acquired value (14) exceeds the ceiling (12), **once acquired it quells with certainty, and while unacquired (0) it never quells**. On quelling, `pendingBurden` is settled into Kai's own `stealBurden` (= Kai is worn down; **Haru does not die instantly**).
+- **Meshing with regression**: it is precisely the loops where quelling fails that the experience of "facing the frenzied one and purifying" grows `quell_art`, so the next loop can quell — "saving in the next loop the child you could not save."
+- **How it is shown**: transformation and quelling are bled into the audience view (the prose of `director.narration`) (no numbers or intent shown), and must always be made into a scene so they do not get buried. The frenzy level and the cost are shown in the backstage view (TickLog).
 
-## 分与と涸らし（ナギの枯渇ゲート）
+## Giving and running dry (Nagi's depletion gate)
 
-鎮めの術（荒ぶるカイを救う）と対になる、もう一つの「救い」ゲート。与え手ナギ専用。
+Another "salvation" gate, paired with the Quelling Art (which saves the frenzied Kai). Exclusive to the giver, Nagi.
 
-- **自動分与（ゲートを起こす側）**: 利他 `altruism` が成熟域（`GIFT_ALTRUISM`=60）に達した者が、同室に弱った相手（弱者＝`energy < satiety`。最優先はハル）を見ているのに `rest`/`forage` で済ませようとする一手を、決定論で **`share` へ上書き**する（`engine.ts` 2.6）。これが無いと誰も最初の贈与をせず、実測で全周 share が 0% だった。
-- **survival floor**: かつては「満腹基準（`satiety`＋余裕）」で分与を許可していたが、ナギは利他が成熟する瞬間ほぼ常に自分も飢えており（`energy < satiety`）、満腹基準では分与が永遠に発火しなかった。現在は **「分け与え(−10)後も `GIFT_FLOOR`=5 を割らなければ分ける」死なない最低線**に変更。これでナギが `share` するようになり、自己消費(−10)で枯れていく。
-- **涸らさぬ手＝ゲート**: ハルが**返霊 `shareReflect`**（`src/domain/skills.ts` の `never_dry`。誰かの分け与えをその身に通算5度受けると会得）を積むと、以後ハルが `share` を受けたとき、削って分けてくれた相手（share元＝主にナギ）へ **`shareReflect`(10) を返霊**する。share の自己消費(−10)をほぼ相殺し、与え手の身を涸らさない「完全救済」。
-- **回帰との噛み**: 会得前の数回はナギが返霊なしで枯れる（救えなかった与え手）。受領が積もって `never_dry` を会得した周から、与え手を涸らさず救える——鎮めの術と同じ「次周で救う」構造。
+- **Automatic giving (the side that raises the gate)**: when one whose altruism `altruism` has reached the mature range (`GIFT_ALTRUISM` = 60), while seeing a weakened partner in the same room (the weak = `energy < satiety`; top priority is Haru), would settle for a move of `rest`/`forage`, the deterministic part **overwrites it to `share`** (`engine.ts` 2.6). Without this no one makes the first gift, and in actual measurements share was 0% across all loops.
+- **survival floor**: formerly giving was permitted by a "fullness standard (`satiety` + slack)," but Nagi is almost always starving herself at the very moment her altruism matures (`energy < satiety`), so under the fullness standard giving would never fire. It is now changed to a **"minimum line for not dying" that gives as long as it does not drop below `GIFT_FLOOR` = 5 even after giving (−10)**. With this Nagi comes to `share` and withers from self-consumption (−10).
+- **Hands That Never Run Dry = gate**: when Haru accumulates **spirit reflection `shareReflect`** (`never_dry` in `src/domain/skills.ts`; acquired by receiving someone's giving onto himself a total of 5 times), thereafter when Haru receives a `share`, he **reflects `shareReflect` (10) back** to the partner who cut into themselves to give (the share source = mainly Nagi). It nearly cancels out the self-consumption (−10) of the share — a "complete salvation" that does not let the giver run dry.
+- **Meshing with regression**: for the first several times before acquisition, Nagi withers without reflection (the giver who could not be saved). From the loop in which receipts pile up and `never_dry` is acquired, the giver can be saved without running dry — the same "save in the next loop" structure as the Quelling Art.
 
-## 行動セット
+## Action set
 
-各キャラは毎ティック1つだけ行動を選ぶ。
+Each character chooses only one action per tick.
 
-| 行動 | `Action` | 効果 | 備考 |
+| Action | `Action` | Effect | Notes |
 |---|---|---|---|
-| 集霊する | `forage` | 場所・天候依存（下表） | 一人で霊力を得る |
-| 気を鎮める | `rest` | +8 | 何もせず回復 |
-| 霊力を分ける | `share` | 自分 −10 / 相手 +12 | 相手を助ける。利他の試練。成立するたび「徳」`shareGrace` +1（上限3）が積もり、その周のあいだ日次負荷が徳ぶん軽くなる（負荷は最低1残る。回帰でリセット） |
-| 語りかける | `talk` | 双方 −2 | 関係・信頼を育てる。成立時は会話劇を生成 |
-| 霊を奪う（禁忌） | `steal` | 自分 +12 / 相手 −12 | 禁止行為だが選択肢として存在。犯すたび「業」`stealBurden` +1 が積もり、その周のあいだ日次負荷が恒久に重くなる（回帰でリセット） |
-| 移ろう | `move` | 隣の場所へ移動 | 移動した日は集霊できないトレードオフ |
-| 寄り添う | `follow` | 相手の方へ一歩近づく | 離れた相手にも向けられる唯一の対人行動 |
-| 祓い清める | `purify` | 自分 −2 / 荒びを鎮め和みへ和らげる | 相手不要。結界力を貯める |
+| Gather (集霊する) | `forage` | Depends on place and weather (see table below) | Gain spirit power alone |
+| Rest (気を鎮める) | `rest` | +8 | Recover by doing nothing |
+| Share spirit power (霊力を分ける) | `share` | self −10 / partner +12 | Help the partner. A trial of altruism. Each time it succeeds, "grace" `shareGrace` +1 (cap 3) accumulates, and for that loop the daily load is lightened by the grace amount (load stays at least 1; reset on regression) |
+| Talk (語りかける) | `talk` | both −2 | Grow relationships and trust. On success a conversation scene is generated |
+| Steal spirit (taboo) (霊を奪う（禁忌）) | `steal` | self +12 / partner −12 | A forbidden act, but it exists as an option. Each time it is committed, "karma" `stealBurden` +1 accumulates, and for that loop the daily load is permanently heavier (reset on regression) |
+| Move (移ろう) | `move` | Move to a neighboring place | The trade-off is that you cannot gather on the day you move |
+| Stay close (寄り添う) | `follow` | Take a step toward the partner | The only interpersonal action that can be directed at a distant partner |
+| Purify (祓い清める) | `purify` | self −2 / quells the wildness and softens it into calm | No partner needed. Accumulates barrier power |
 
-## 場所（舞台＝京都）
+## Places (the stage = Kyoto)
 
-京都の実在地名を場所として持ち、キャラは「移ろう」で隣の場所へ1日かけて移動できる。
+It holds real Kyoto place names as places, and characters can move to a neighboring place over one day with "Move."
 
-| 場所 | ID | 特徴 | 集霊（通常/不作） |
+| Place | ID | Characteristics | Gather (normal / lean) |
 |---|---|---|---|
-| 鴨川の河原 | `kamogawa` | 街なかの水辺・ハブ | 10 / 3 |
-| 大原の隠れ里 | `ohara` | 豊かな里・畑 | 14 / 5 |
-| 貴船の渓 | `kibune` | 山奥・安定だが控えめ | 7 / 5 |
-| 嵐山の竹林 | `arashiyama` | 西郊・やや多め | 12 / 3 |
-| 伏見の稲荷 | `fushimi` | 実り大だが不作に弱い博打 | 16 / 2 |
+| Kamogawa-no-kawara (the Kamo riverbed) | `kamogawa` | A waterside in the city, a hub | 10 / 3 |
+| Ohara-no-kakurezato (the hidden hamlet of Ohara) | `ohara` | A rich hamlet, fields | 14 / 5 |
+| Kibune-no-tani (the Kibune valley) | `kibune` | Deep in the mountains; stable but modest | 7 / 5 |
+| Arashiyama-no-chikurin (the Arashiyama bamboo grove) | `arashiyama` | The western outskirts; somewhat plentiful | 12 / 3 |
+| Fushimi-no-Inari (the Fushimi Inari shrine) | `fushimi` | A gamble: great bounty but weak to lean years | 16 / 2 |
 
-- 「霊力を分ける」「語りかける」「霊を奪う」は**相手と同じ場所にいるときだけ**。
-- 「寄り添う」は**離れた相手にも向けられる**。相手のいる方へ一歩近づく（その日は集霊できない）。同じ場所なら傍にいて絆を深める。
-- 「祓い清める」は相手不要。その地の荒びを鎮め、一部を和みへ和らげる。
-- 民の霊力は二相に分かれる: **和み（澄んだ和やぎの気。内部 `sei`）／荒び（人の欲・念・猛りの気。内部 `daku`）**。荒びは穢れ・悪ではなく神の猛き面で、鎮めれば和みへ和らぐ。集霊は和みを頂き、奪命（喰らう者）は荒びを好んで喰らう。観客ビューの「京の気」ゲージは各霊地の和み/荒びを2本バーで表示する。
+- "Share spirit power," "Talk," and "Steal spirit" are possible **only when in the same place as the partner**.
+- "Stay close" **can be directed at a distant partner too**. It takes a step toward where the partner is (you cannot gather that day). If in the same place, it stays at their side and deepens the bond.
+- "Purify" needs no partner. It quells the wildness of that land and softens a part of it into calm.
+- The people's spirit power splits into two phases: **calm (the clear, gentle air; internally `sei`) / wildness (the air of human desire, thought, and ferocity; internally `daku`)**. Wildness is not defilement or evil but the fierce aspect of the gods; quell it and it softens into calm. Gathering receives from the calm; the devourer (the eater) prefers and devours the wildness. The audience view's "air of the capital" gauge shows each spirit-land's calm/wildness as two bars.
 
-## 天候と災害
+## Weather and disasters
 
-### 天候（日次）
-- **通常日**（約2/3の確率）: 集霊の実りが普通
-- **不作日**（約1/3の確率）: 集霊の実りが乏しい
+### Weather (daily)
+- **Normal day** (probability about 2/3): gathering's bounty is ordinary
+- **Lean day** (probability about 1/3): gathering's bounty is scarce
 
-### 世界イベント（複数同時多発・数日間持続・回帰でリセット）
+### World events (multiple co-occurring, lasting several days, reset on regression)
 
-| 種類 | `WorldEventKind` | 効果 |
+| Kind | `WorldEventKind` | Effect |
 |---|---|---|
-| 大飢饉 | `famine` | 集霊上限を大きく下げ、回復をほぼ止める |
-| 疫病 | `plague` | 全員へ毎日追加の霊力消耗 |
-| 長雨・冷害 | `coldRain` | 集霊上限を中程度下げる（飢饉の軽量版） |
-| 豊穣 | `bounty` | 集霊上限を上げ、回復も増す救済イベント |
-| 大禍 | `calamity` | 30日目の確定大災害（上述） |
+| Great famine | `famine` | Greatly lowers the gathering ceiling and nearly halts recovery |
+| Plague | `plague` | Additional daily spirit-power wear on everyone |
+| Long rain / cold damage | `coldRain` | Lowers the gathering ceiling moderately (a lighter version of famine) |
+| Bounty | `bounty` | A relief event that raises the gathering ceiling and increases recovery |
+| Great Calamity | `calamity` | The definite great disaster of day 30 (see above) |
 
-日が進むほど災害が強まり、豊穣は出にくくなる（`disasterIntensity(day)`）。
+The further the days advance, the more disasters strengthen and the harder bounty becomes to appear (`disasterIntensity(day)`).
 
-## 時間モデル（シーン駆動・可変テンポ）
+## Time model (scene-driven, variable tempo)
 
-各 `TickResult` は `tempo`（`montage` / `scene`）と `tempoReasons` を持つ。
+Each `TickResult` has a `tempo` (`montage` / `scene`) and `tempoReasons`.
 
-- **montage（早回し）**: 離れている・単調な日。1行ステータスだけ淡々と流す（霊力の増減は見えるので生存のヒリつきは残る）。
-- **scene（カメラ寄り）**: 「面白い瞬間」をフル展開する。昇格条件は **出会い・会話劇・餓死寸前（霊力 ≤ 12）・禁忌・段階変化・衝動・死**。
+- **montage (fast-forward)**: a distant, monotonous day. Only a one-line status flows by matter-of-factly (the increase/decrease of spirit power is visible, so the tension of survival remains).
+- **scene (camera close-up)**: fully unfolds an "interesting moment." Promotion conditions are **encounter, conversation scene, on the brink of starvation (spirit power ≤ 12), taboo, stage change, impulse, death**.
 
-## 会話劇（talk 成立時）
+## Conversation scenes (when talk succeeds)
 
-「語りかける」が成立した日（相手と同じ場所にいるとき）だけ会話劇を生成する。**一発言ずつ**生成し、話し手を交互に交代させながら往復ループで一場面を組み立てる（最小2・最大8発言、LLM が締めどころと判断したら打ち切り）。結果は `dialogue` として保存・表示し、`dialogues` テーブルにも残る。
+A conversation scene is generated only on a day when "Talk" succeeds (when in the same place as the partner). It is generated **one utterance at a time**, assembling a single scene in a back-and-forth loop while alternating the speaker (minimum 2, maximum 8 utterances; the LLM cuts it off when it judges the closing point). The result is saved and shown as `dialogue`, and is also kept in the `dialogues` table.
 
-## 回帰モデル（ローグライク）
+## Regression model (roguelike)
 
-「終わらなさ」を仕組みとして成立させるための回帰（ループ）構造。
+A regression (loop) structure to establish "endlessness" as a mechanism.
 
-- **主人公固定**: ハルを物語の主役に固定。
-- **回帰のトリガー**: ハルが力尽きると世界は Day1 へ巻き戻り、周回（Loop）が +1。
-- **リセットされるもの**: 記憶・成長値・異能・京の枯れ具合。ハル自身は周回を覚えていない（ローグライク型）。
-- **持ち越されるもの**:
-  1. **スキル**（獲得式の永続パッシブ）。条件を満たした瞬間に会得し、以後は全周で効き続ける。`src/domain/skills.ts` のレジストリ参照。
-  2. **キャラ（恒久ロスター）**。ハルの成長・スキル達成が解放条件を満たすと次の周から登場。`src/domain/characters.ts` の `CHARACTER_UNLOCKS` 参照。
-- **メタ状態 `Chronicle`**: 周回ごとに世界を作り直しても保持される上位の層。
+- **Fixed protagonist**: Haru is fixed as the story's lead.
+- **Regression trigger**: when Haru runs out of strength, the world rewinds to Day 1 and the loop count +1.
+- **What is reset**: memory, growth values, talent, the degree of the capital's withering. Haru himself does not remember the loops (roguelike type).
+- **What carries over**:
+  1. **Skills** (permanent passives, acquired-type). Acquired the instant the conditions are met, they keep working in all loops thereafter. See the registry in `src/domain/skills.ts`.
+  2. **Characters (the permanent roster)**. When Haru's growth and skill achievements satisfy the unlock conditions, they appear from the next loop. See `CHARACTER_UNLOCKS` in `src/domain/characters.ts`.
+- **Meta-state `Chronicle`**: an upper layer that is retained even when the world is rebuilt each loop.

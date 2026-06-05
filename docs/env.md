@@ -1,14 +1,14 @@
-# 環境変数
+# Environment Variables
 
-| 変数 | デフォルト | 説明 |
+| Variable | Default | Description |
 |---|---|---|
-| `PORT` | `5566` | サーバーのポート |
-| `LLM_BACKEND` | `claude-code` | LLM バックエンド（`claude-code` / `ollama`）。詳細は [llm-backend.md](llm-backend.md) |
-| `CLAUDE_CODE_MODEL` | `haiku` | `claude-code` バックエンドのモデル（`haiku` / `sonnet` / `opus` / 完全ID） |
-| `OLLAMA_MODEL` | `qwen2.5:7b-instruct` | `ollama` バックエンドのモデル |
-| `OLLAMA_HOST` | `http://localhost:11434` | Ollama のホスト |
-| `DB_PATH` | `data/world.db` | SQLite データベースのパス |
-| `WORKER_INTERVAL_MS` | `1000` | 自走ワーカーの休憩間隔（ミリ秒）。1 tick 完了後に N ms 休んで次へ。**本番は `7200000`（1 tick/2時間）にする**（[deploy.md](deploy.md) の進行ペース方針参照） |
-| `LIMIT_BACKOFF_MS` | `900000`（15分） | サブスク使用上限（session/weekly limit 等）で tick を中断・巻き戻した後の追加待機（ミリ秒）。この待機＋通常間隔を置いて同じ日をやり直す（[llm-backend.md](llm-backend.md) の上限時の挙動参照） |
-| `WORKER_AUTOSTART` | `1` | サーバー起動時に自走ワーカーを立てるか。`0`/`false` で起動しない＝**UI 閲覧のみ・LLM 呼び出しゼロ**（ローカル開発用）。`bun run view` がこれを使う。本番 `start` は既定どおり起動する |
-| `OPENAI_API_KEY` | — | 画像生成（gpt-image）用。`.env` に置けば bun が自動ロード |
+| `PORT` | `5566` | Server port |
+| `LLM_BACKEND` | `claude-code` | LLM backend (`claude-code` / `ollama`). See [llm-backend.md](llm-backend.md) for details |
+| `CLAUDE_CODE_MODEL` | `haiku` | Model for the `claude-code` backend (`haiku` / `sonnet` / `opus` / full ID) |
+| `OLLAMA_MODEL` | `qwen2.5:7b-instruct` | Model for the `ollama` backend |
+| `OLLAMA_HOST` | `http://localhost:11434` | Ollama host |
+| `DB_PATH` | `data/world.db` | Path to the SQLite database |
+| `WORKER_INTERVAL_MS` | `1000` | Rest interval for the self-running worker (milliseconds). After completing one tick, rest N ms before the next. **In production set this to `7200000` (1 tick / 2 hours)** (see the pacing policy in [deploy.md](deploy.md)) |
+| `LIMIT_BACKOFF_MS` | `900000` (15 min) | Additional wait (milliseconds) after a tick is interrupted and rolled back due to a subscription usage limit (session/weekly limit, etc.). After this wait plus the normal interval, the same day is retried (see the behavior on hitting limits in [llm-backend.md](llm-backend.md)) |
+| `WORKER_AUTOSTART` | `1` | Whether to start the self-running worker when the server starts. `0`/`false` means it does not start = **UI viewing only, zero LLM calls** (for local development). `bun run view` uses this. Production `start` launches it as normal |
+| `OPENAI_API_KEY` | — | For image generation (gpt-image). bun loads it automatically if placed in `.env` |

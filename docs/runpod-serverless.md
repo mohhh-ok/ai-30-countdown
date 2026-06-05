@@ -1,26 +1,26 @@
-# RunPod Serverless 調査メモ（本番LLMホスティング候補）
+# RunPod Serverless Research Notes (Candidate for Production LLM Hosting)
 
-調査日: 2026-05-31 / 用途: 「妖の京」シミュレーションを公開運用（YouTube垂れ流し + 専用サイト）するときの、本番 LLM 推論バックエンド候補としての RunPod Serverless 評価。
+Research date: 2026-05-31 / Purpose: Evaluating RunPod Serverless as a candidate backend for production LLM inference when running the "Capital of the Ayakashi (妖)" simulation in public (YouTube continuous stream + dedicated site).
 
-> **【過去メモ・前提が現行方針と異なる】** この調査は YouTube 配信構成を前提とした当時の検討記録。現行方針は **YouTube 配信は廃止（観るだけの公開 Web サイトのみ）**、かつ **本番でも `claude -p` をそのまま使う**（CLAUDE.md 参照）に変更済み。以下の本文は調査当時の前提のまま残している。
+> **[Historical note — its premises differ from the current policy]** This research is a record of the deliberations at the time, premised on a YouTube streaming setup. The current policy has changed: **YouTube streaming has been dropped (only a watch-only public web site)**, and **production also uses `claude -p` as-is** (see CLAUDE.md). The body below is left as it was, with the premises from when the research was done.
 
-> 当時の前提: 当時の CLAUDE.md の方針どおり、**本番では `claude -p`（Claude Code CLI）を使わない**。本番ループは Anthropic API か、自前ホスト（=本書の RunPod Serverless）に寄せる。本プロジェクトは既に `ollama` バックエンドを持つので、OpenAI 互換エンドポイント用の薄いアダプタを足せば移行コストは小さい。
-
----
-
-## 1. RunPod Serverless とは
-
-- GPU 推論を**リクエスト単位・秒課金**で動かすマネージドサービス。アイドル時は**スケール to ゼロ**（ワーカー0台＝課金0）。
-- **vLLM がネイティブ統合**されており、OpenAI 互換 API でオープンモデルをドロップイン提供できる（2026年4月時点で LLM エンドポイントの約40%が vLLM 製）。
-- 課金は「ワーカーが起動してから完全停止するまで、秒単位切り上げ」。**コンテナ初期化・リクエスト実行・アイドルタイムアウト（既定5秒）の3フェーズすべてが課金対象**。
+> Premises at the time: As the CLAUDE.md policy of the day stated, **production does not use `claude -p` (the Claude Code CLI)**. The production loop leans on the Anthropic API or self-hosting (= the RunPod Serverless of this document). This project already has an `ollama` backend, so the migration cost is small if we add a thin adapter for an OpenAI-compatible endpoint.
 
 ---
 
-## 2. 料金（Serverless / 秒課金）
+## 1. What RunPod Serverless Is
 
-公式ドキュメント（docs.runpod.io/serverless/pricing）より。**Flex=都度起動（スケールtoゼロ可）**、**Active=常時ウォーム（25〜35%割引だが課金は連続）**。
+- A managed service that runs GPU inference **per request, billed by the second**. When idle, it **scales to zero** (zero workers = zero charge).
+- **vLLM is natively integrated**, so you can drop in open models served over an OpenAI-compatible API (as of April 2026, roughly 40% of LLM endpoints were built on vLLM).
+- Billing runs "from the moment a worker starts until it fully stops, rounded up to the second." **All three phases — container initialization, request execution, and idle timeout (default 5 seconds) — are billable.**
 
-| GPU | VRAM | Flex $/秒 | Active $/秒 | Flex 時給換算 |
+---
+
+## 2. Pricing (Serverless / per-second billing)
+
+From the official docs (docs.runpod.io/serverless/pricing). **Flex = start on demand (can scale to zero)**, **Active = always warm (25–35% discount, but billed continuously)**.
+
+| GPU | VRAM | Flex $/sec | Active $/sec | Flex hourly equiv. |
 |---|---|---|---|---|
 | A4000 / A4500 / RTX4000 | 16GB | $0.00016 | $0.00011 | $0.576 |
 | L4 / A5000 / 3090 | 24GB | $0.00019 | $0.00013 | $0.684 |
@@ -32,109 +32,109 @@
 | H200 PRO | 141GB | $0.00155 | $0.00124 | $5.580 |
 | B200 | 180GB | $0.00240 | $0.00190 | $8.640 |
 
-※価格は需給で変動。Serverless は Pod（常時起動）比でおおむね 2〜3倍単価だが、その分 FlashBoot とオートスケールが付く。
+Note: Prices fluctuate with supply and demand. Serverless is roughly 2–3x the unit price of Pods (always-on), but in exchange you get FlashBoot and autoscaling.
 
 ---
 
-## 3. コールドスタートと FlashBoot（コスト設計の肝）
+## 3. Cold Starts and FlashBoot (the Crux of Cost Design)
 
-- **FlashBoot**: コンテナイメージとモデル重みをホストに事前キャッシュし、スピンダウン後も状態を保持して高速復帰させる仕組み。キャッシュが効けば「サブ200ms」を謳う。
-- **ただし大きいモデルは別**。重みを GPU VRAM にロードする時間は本質的に避けられず、**14〜32B級だと現実的に十数秒〜数十秒**。しかもこの**ロード時間は課金される**。
-- FlashBoot はトラフィックが連続しているほど効く。**スパースなトラフィック（間隔が長い）ほどキャッシュが外れてコールドが起きやすい** ＝ 本プロジェクトの「1分に1ティック」のような疎な呼び方と相性が悪い。
+- **FlashBoot**: A mechanism that pre-caches the container image and model weights on the host and keeps state after spin-down for fast recovery. When the cache hits, it claims "sub-200ms."
+- **But large models are a different story**. The time to load weights into GPU VRAM is fundamentally unavoidable, and **for the 14–32B class it's realistically a dozen to several tens of seconds**. Moreover, **this load time is billed**.
+- FlashBoot works better the more continuous the traffic. **The sparser the traffic (the longer the gaps), the more likely the cache misses and a cold start occurs** — a poor fit for this project's sparse calling pattern like "one tick per minute."
 
-### ワーカー種別
-- **Flex Worker**: アイドルでゼロにスケール。バースト/不定期トラフィック向き。代償がコールドスタート遅延。
-- **Active Worker**: 最低N台を常時ウォーム維持。コールド無しだが**アイドルでも連続課金**（Flex比 25〜35%引き）。
+### Worker Types
+- **Flex Worker**: Scales to zero when idle. Suited to bursty/intermittent traffic. The trade-off is cold-start latency.
+- **Active Worker**: Keeps a minimum of N workers always warm. No cold starts, but **billed continuously even when idle** (25–35% cheaper than Flex).
 
-### 関連設定
-- **Idle Timeout**（既定5秒）: 最後のリクエスト後この秒数はウォーム維持＝その間も課金。長くすると次のティックに間に合うがアイドル課金が増える。
-- **Scale Type**: LLM は `Request count`（保留+実行中で積極スケール）推奨。
-- **Execution Timeout**（既定10分）: 暴走ジョブ防止。
-- **Max Workers**: 同時起動上限＝支出の上限ガード。
+### Related Settings
+- **Idle Timeout** (default 5 sec): Stays warm for this many seconds after the last request = billed during that time. Lengthening it helps you make the next tick in time, but increases idle charges.
+- **Scale Type**: For LLMs, `Request count` (aggressive scaling on pending + in-flight) is recommended.
+- **Execution Timeout** (default 10 min): Guards against runaway jobs.
+- **Max Workers**: The cap on concurrent workers = a guardrail on spending.
 
 ---
 
-## 4. 本プロジェクトでの試算
+## 4. Estimates for This Project
 
-### 4.1 1ティックの推論ワーク（実測プロンプト規模ベース）
-- ロスター最大3体。通常パスの主コストは **decide（生者ごとに1リクエスト並列）**。
-- 1リクエスト ≈ 入力 3,400〜3,600字 / 出力 ~300字。3体で入力 ~10k / 出力 ~900トークン。
-- vLLM の連続バッチングで3体を同一ワーカーに束ねた場合、**実コンピュート ≈ 10〜15 GPU秒/ティック**（prefill 速い + decode 900tok ≈ 8〜11s）。見せ場ティックの dialogue/director で +数秒。
-- モデル候補（日本語の内省 + JSON厳守に耐える前提）:
-  - **Qwen2.5-14B（4bit ~9GB）→ 24GB級（4090/L4）** … 最安、品質はそこそこ
-  - **Qwen2.5-32B（AWQ ~20GB）→ 48GB級（A6000/L40S）** … 品質寄り、推奨
+### 4.1 The Inference Work of One Tick (based on measured prompt sizes)
+- Up to 3 in the roster. On the normal path, the main cost is **decide (one request per living character, in parallel)**.
+- One request ≈ 3,400–3,600 chars input / ~300 chars output. For 3 characters, ~10k input / ~900 output tokens.
+- If vLLM's continuous batching bundles the 3 characters onto the same worker, **actual compute ≈ 10–15 GPU-seconds/tick** (prefill is fast + decoding 900 tokens ≈ 8–11s). On showcase ticks, dialogue/director adds a few more seconds.
+- Model candidates (assuming they can handle Japanese introspection + strict JSON compliance):
+  - **Qwen2.5-14B (4-bit ~9GB) → 24GB class (4090/L4)** … cheapest, decent quality
+  - **Qwen2.5-32B (AWQ ~20GB) → 48GB class (A6000/L40S)** … quality-leaning, recommended
 
-### 4.2 使い方による単価の激変（ここが意思決定の核心）
+### 4.2 How Drastically the Unit Cost Shifts by Usage (the heart of the decision)
 
-「1分に1ティック」を素直に都度リクエストすると、**毎ティックでコールドスタートを食う**。これが致命的。
+If you naively send "one tick per minute" as a fresh request each time, **you eat a cold start every tick**. That's fatal.
 
-| 運用方式 | GPU秒/ティック | A6000 Flex 単価/tick | 配信1時間あたり(60tick) |
+| Operating mode | GPU-sec/tick | A6000 Flex cost/tick | Per stream-hour (60 ticks) |
 |---|---|---|---|
-| **A. 素朴**: 毎ティック都度リクエスト・即ゼロ | コールド~25 + 計算~13 = **~38** | ~$0.013 | **~$0.78/h** |
-| **B. ウォーム維持**: セッション中ゼロにしない | 連続課金（実質 3600s/h） | — | **~$1.22/h** |
-| **C. バッチ先読み**: 10ティックを1バーストで生成 | コールド25/10 + 計算13 = **~15.5** | ~$0.0053 | **~$0.32/h** |
+| **A. Naive**: fresh request every tick, immediate scale-to-zero | cold ~25 + compute ~13 = **~38** | ~$0.013 | **~$0.78/h** |
+| **B. Keep warm**: don't scale to zero during the session | continuous billing (effectively 3600s/h) | — | **~$1.22/h** |
+| **C. Batch prefetch**: generate 10 ticks in one burst | cold 25/10 + compute 13 = **~15.5** | ~$0.0053 | **~$0.32/h** |
 
-**結論: 方式C（先読みバッチ）が圧倒的に効率的。**
-シミュレーションは表示より先に走れるので、**ワーカー起動1回で N ティックぶんをまとめて生成 → スケールtoゼロ → 生成済みを表示側でゆっくり再生**、という設計にすると、(1)コールドを N で割れる (2)ウォーム中は高稼働 (3)再生中は GPU 課金ゼロ、の三拍子が揃う。
+**Conclusion: Mode C (prefetch batch) is by far the most efficient.**
+The simulation can run ahead of display, so a design where you **start a worker once, generate N ticks at once → scale to zero → play back the pre-generated results slowly on the display side** gives you all three at once: (1) you divide the cold start by N, (2) high utilization while warm, and (3) zero GPU billing during playback.
 
-### 4.3 月額の目安（不定期配信 ≈ 4時間/日と仮定）
+### 4.3 Monthly Ballpark (assuming intermittent streaming ≈ 4 hours/day)
 
-| 方式 | 概算/月 | 備考 |
+| Mode | Approx./month | Notes |
 |---|---|---|
-| RunPod Serverless 方式C（A6000先読み） | **~$40** | 配信時間にのみ比例。アイドル0。 |
-| Anthropic Haiku 4.5 API（60tick/h） | ~$130 | 運用ゼロ・品質最高。$0.018/tick。 |
-| RunPod / 他社 Pod 常時起動 | ~$300〜580 | 配信してない時間も課金され割高。 |
+| RunPod Serverless mode C (A6000 prefetch) | **~$40** | Scales only with stream hours. Zero idle. |
+| Anthropic Haiku 4.5 API (60 ticks/h) | ~$130 | Zero ops, top quality. $0.018/tick. |
+| RunPod / other Pod always-on | ~$300–580 | Billed even during hours you're not streaming — pricey. |
 
-> 24/7 で流しっぱなしにすると Serverless の旨味（スケールtoゼロ）は消え、Active worker か Pod とほぼ同じ（~$950/月 A100級, ~$300〜580/月 中型）。**Serverless の価値は「不定期・バースト配信」で最大化**する。
-
----
-
-## 5. 推奨アーキテクチャ
-
-1. **本番ループは「先読みバッチ生成 + 表示側バッファ再生」に分離する**（方式C）。
-   - シム側: ワーカー起動1回で N（例:10〜30）ティックを一気に生成し、結果をキュー/DBに貯める。
-   - 表示側（YouTube配信 + サイト）: キューから一定間隔で取り出して見せる。
-2. **エンドポイントは vLLM（OpenAI互換）**。本プロジェクトの `ollama` バックエンド層の隣に **OpenAI互換バックエンド**を1つ足す（`chatJSON` 差し替えで済む設計を維持）。
-3. **モデルは Qwen2.5-32B AWQ / 48GB（A6000 Flex）から開始**。JSON崩れ・日本語品質を見て 14B/24GB へ下げてコスト最適化。
-4. **設定**: Scale Type=Request count、Max Workers は支出ガードとして低め、Idle Timeout は短め（先読みバッチなら待ち合わせ不要）。重みは Network Volume + FlashBoot でコールド短縮。
-5. **品質ハイブリッド案**: 平常ティックは自前 vLLM、見せ場（dialogue/director）だけ Haiku に投げて演出の質を担保。
+> If you stream 24/7, the Serverless advantage (scale-to-zero) disappears and it's roughly the same as an Active worker or a Pod (~$950/month A100 class, ~$300–580/month mid-size). **The value of Serverless is maximized with "intermittent, bursty streaming."**
 
 ---
 
-## 5.5 結論: 「都度（リアルタイム）」なら Haiku 一択
+## 5. Recommended Architecture
 
-呼び出しスタイルで最適解が割れる。**ティックを表示と同期してリアルタイムに進める＝「都度リクエスト」なら Haiku が有利**。
+1. **Split the production loop into "prefetch batch generation + buffered playback on the display side"** (mode C).
+   - Sim side: start a worker once, generate N (e.g., 10–30) ticks in one go, and stash the results in a queue/DB.
+   - Display side (YouTube stream + site): pull from the queue at a fixed interval and show them.
+2. **Endpoint is vLLM (OpenAI-compatible)**. Add one **OpenAI-compatible backend** next to this project's `ollama` backend layer (keep the design so a `chatJSON` swap is all it takes).
+3. **Start with the model Qwen2.5-32B AWQ / 48GB (A6000 Flex)**. Watch for JSON breakage and Japanese quality, then drop to 14B/24GB to optimize cost.
+4. **Settings**: Scale Type = Request count, keep Max Workers low as a spending guardrail, keep Idle Timeout short (no need to wait around with prefetch batching). Use Network Volume + FlashBoot for the weights to shorten cold starts.
+5. **Quality hybrid idea**: Use self-hosted vLLM for ordinary ticks, and send only the showcase moments (dialogue/director) to Haiku to guarantee staging quality.
 
-| | 都度リクエスト（リアルタイム） | 先読みバッチ |
+---
+
+## 5.5 Conclusion: For "On-Demand (Real-Time)," Haiku Is the Only Choice
+
+The optimal answer splits along calling style. **If you advance ticks in real time, synced with the display = "fresh request each time," Haiku has the edge.**
+
+| | Fresh request (real-time) | Prefetch batch |
 |---|---|---|
-| **Haiku 4.5 API** | ◎ コールド無し・$0.018/tick・運用ゼロ | ◎ 同じ（元々アイドルコスト無し） |
-| **RunPod Serverless** | ✕ 毎ティック コールド課金で割高（~$0.78/h） | ◎ 最安（~$0.32/h） |
+| **Haiku 4.5 API** | ◎ no cold start, $0.018/tick, zero ops | ◎ same (no idle cost to begin with) |
+| **RunPod Serverless** | ✕ pricey from cold-start billing every tick (~$0.78/h) | ◎ cheapest (~$0.32/h) |
 
-- **Haiku は「都度」でも「バッチ」でも単価が同じ**（使ったトークン分だけ）。リアルタイム配信と相性がよく、アイドルコストが無い。
-- **RunPod Serverless は「都度」だと毎ティックのコールドスタートで自滅**する。安くなるのは**先読みバッチ前提のときだけ**。
+- **Haiku's unit cost is the same whether "on-demand" or "batch"** (you pay only for the tokens used). It fits real-time streaming well and has no idle cost.
+- **RunPod Serverless self-destructs in the "on-demand" case** from a cold start every tick. It only gets cheap **on the premise of prefetch batching**.
 
-意思決定はシンプル:
-- **リアルタイムにティックを進めたい → Haiku 一択**（運用も楽）。
-- **表示と生成を分離してバッファ再生する設計を作る覚悟がある → RunPod Serverless が月額で勝てる**（不定期配信で ~$40 vs ~$130）。
+The decision is simple:
+- **Want to advance ticks in real time → Haiku is the only choice** (and ops are easy).
+- **Willing to build a design that separates display from generation and plays back from a buffer → RunPod Serverless can win on monthly cost** (~$40 vs ~$130 for intermittent streaming).
 
-つまり RunPod を選ぶ＝「先読みバッチ + バッファ再生」というアーキ投資とセット。その手間を惜しむなら Haiku が素直。
-
----
-
-## 6. 留意点・リスク
-
-- **大型モデルのコールドは消えない**。方式Cで償却する前提を崩さない（毎ティック都度叩く設計にすると方式Aの罠にはまる）。
-- **価格は動的**。本表は調査時点の公式値。実費はコンソールで要確認。
-- **品質の壁**: 量子化オープンモデルは日本語の内省・JSON厳守で Haiku に劣りうる。プロンプトのリトライ/フォールバック（既存の2回リトライ→fallback）を厚めに。
-- **運用コスト**: Serverless はサーバ管理こそ無いが、イメージ/モデル/エンドポイント保守は発生。Haiku API は運用ゼロ。**「月数十ドルの差」を運用手間で相殺するかは要判断**。
+In other words, choosing RunPod = committing to the architecture investment of "prefetch batch + buffered playback." If you'd rather not bother with that work, Haiku is the straightforward choice.
 
 ---
 
-## 7. 出典
+## 6. Caveats / Risks
 
-- [RunPod Serverless Pricing（公式）](https://docs.runpod.io/serverless/pricing)
-- [Endpoint configurations（公式）](https://docs.runpod.io/serverless/references/endpoint-configurations)
-- [Serverless scaling strategy（RunPod Blog）](https://www.runpod.io/blog/serverless-scaling-strategy-runpod)
-- [Scaling LLM Inference to Zero Cost During Downtime（RunPod）](https://www.runpod.io/articles/guides/runpod-secrets-scale-llm-inference-zero-cost)
-- [Serverless GPU Pricing 解説（RunPod）](https://www.runpod.io/articles/guides/serverless-gpu-pricing)
+- **Cold starts for large models don't go away**. Don't break the premise of amortizing them via mode C (a design that hits the endpoint fresh every tick falls into the mode A trap).
+- **Prices are dynamic**. This table is the official figures as of the research date. Verify actual costs in the console.
+- **The quality wall**: Quantized open models may fall short of Haiku on Japanese introspection and strict JSON compliance. Beef up prompt retry/fallback (the existing 2-retry → fallback).
+- **Operating cost**: Serverless removes server management, but image/model/endpoint maintenance still occurs. The Haiku API has zero ops. **Whether to offset "a difference of tens of dollars a month" with operational effort is a judgment call.**
+
+---
+
+## 7. Sources
+
+- [RunPod Serverless Pricing (official)](https://docs.runpod.io/serverless/pricing)
+- [Endpoint configurations (official)](https://docs.runpod.io/serverless/references/endpoint-configurations)
+- [Serverless scaling strategy (RunPod Blog)](https://www.runpod.io/blog/serverless-scaling-strategy-runpod)
+- [Scaling LLM Inference to Zero Cost During Downtime (RunPod)](https://www.runpod.io/articles/guides/runpod-secrets-scale-llm-inference-zero-cost)
+- [Serverless GPU Pricing explainer (RunPod)](https://www.runpod.io/articles/guides/serverless-gpu-pricing)
 - [Serverless LLM Deployment: RunPod vs Modal vs Lambda (2026)](https://blog.premai.io/serverless-llm-deployment-runpod-vs-modal-vs-lambda-2026/)
