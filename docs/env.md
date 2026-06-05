@@ -3,6 +3,7 @@
 | Variable | Default | Description |
 |---|---|---|
 | `PORT` | `5566` | Server port |
+| `NODE_ENV` | — (= dev mode) | Set to `production` for production. When unset, `server.ts` runs in dev mode: all assets are served with `Cache-Control: no-store` (no browser caching) and `Bun.serve` runs with `development: true`. The Dockerfile sets `ENV NODE_ENV=production`, so Railway deployments get production mode automatically |
 | `LLM_BACKEND` | `claude-code` | LLM backend (`claude-code` / `ollama`). See [llm-backend.md](llm-backend.md) for details |
 | `CLAUDE_CODE_MODEL` | `haiku` | Model for the `claude-code` backend (`haiku` / `sonnet` / `opus` / full ID) |
 | `OLLAMA_MODEL` | `qwen2.5:7b-instruct` | Model for the `ollama` backend |

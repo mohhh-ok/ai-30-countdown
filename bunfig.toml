@@ -3,3 +3,10 @@
 # Tailwind の入口は src/web/styles.css 先頭の `@import "tailwindcss";`。
 [serve.static]
 plugins = ["bun-plugin-tailwind"]
+
+# devDependencies を常にインストールする（既定値の明示）。
+# Dockerfile が ENV NODE_ENV=production を設定しており、現行 bun は NODE_ENV を見て
+# devDeps をスキップしないが（oven-sh/bun#22964）、将来 npm 互換挙動が入っても
+# 起動時に必要な drizzle-kit / bun-plugin-tailwind が確実に入るよう明示しておく
+[install]
+dev = true

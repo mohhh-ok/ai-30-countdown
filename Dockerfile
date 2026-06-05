@@ -19,6 +19,11 @@ ENV PATH="/root/.local/bin:${PATH}"
 # 世界の暦・表示は日本時間前提
 ENV TZ=Asia/Tokyo
 
+# 本番モード宣言。server.ts の DEV 判定（NODE_ENV !== "production"）がこれを見る。
+# 無いと本番でも dev モードになり、全アセットが Cache-Control: no-store で
+# 毎回フルダウンロードされる＋Bun.serve が development:true で動く（実際に起きた）
+ENV NODE_ENV=production
+
 WORKDIR /app
 
 # 依存を先に入れてレイヤーキャッシュを効かせる。
