@@ -7,7 +7,7 @@ import type {
   TickResult,
   WorldState,
 } from "../../domain/types.ts";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { useState } from "react";
 import { charColor } from "../charTheme.ts";
 import { CharAvatar } from "./CharAvatar.tsx";
@@ -35,6 +35,54 @@ function HeroBackground({ placeId, placeName }: { placeId?: string; placeName?: 
       draggable={false}
       onError={() => setFailed(true)}
     />
+  );
+}
+
+/** 大禍演出の上に添える結末絵（lost/solo/saved）。未生成(404)なら消える（絵が無くても演出は成立）。 */
+function CalamityArt({ kind }: { kind: "arrival" | "lost" | "solo" | "saved" }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  // arrival（来たる共通）は接尾辞なしの calamity.webp、結末別は calamity-<kind>.webp。
+  const src = kind === "arrival" ? "/assets/calamity.webp" : `/assets/calamity-${kind}.webp`;
+  return (
+    <img
+      className="basis-full w-full rounded-xl border border-[rgba(200,70,90,0.4)]"
+      src={src}
+      alt=""
+      aria-hidden
+      draggable={false}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+/** 結末絵（lost/solo/saved）に結末テキストを重ねて見せる。
+ *  未生成(404)のときはオーバーレイをやめ、children（テキスト）をそのまま通常表示に落とす
+ *  （絵が無くてもテキストが宙に浮かないように）。 */
+function CalamityScene({
+  kind,
+  children,
+}: {
+  kind: "lost" | "solo" | "saved";
+  children: ReactNode;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <>{children}</>;
+  return (
+    <div className="relative basis-full overflow-hidden rounded-xl border border-[rgba(200,70,90,0.4)]">
+      <img
+        className="block w-full"
+        src={`/assets/calamity-${kind}.webp`}
+        alt=""
+        aria-hidden
+        draggable={false}
+        onError={() => setFailed(true)}
+      />
+      {/* 可読性のため下部に暗幕グラデを敷き、その上にテキストを中央寄せで重ねる。 */}
+      <div className="absolute inset-x-0 bottom-0 px-4 pb-4 pt-16 text-center bg-gradient-to-t from-black/85 via-black/45 to-transparent">
+        {children}
+      </div>
+    </div>
   );
 }
 
@@ -66,18 +114,64 @@ function SceneMarks({ t }: { t: TickResult }) {
     <div className="scene-marks">
       {t.climax ? (
         // 祓い退け方は2通り: 迎え火つき（cleared=fin・大団円）と、独りの暁（仲間は皆呑まれ、fin は一周先送り）。
-        <span className={`mark mark-climax${t.climax.averted ? " mark-climax-saved" : ""}`}>
-          {tr(
-            !t.climax.averted
-              ? "mark_climax_lost"
-              : t.cleared
-                ? "mark_climax_saved"
-                : "mark_climax_solo",
-          )}
-        </span>
+        // 結末に応じた大禍絵を演出の最上段へ添える（lost／solo／saved）。
+        <>
+          {/* 結末絵に結末テキストを重ねて見せる。下段に来たる絵を敷き、下から「来たる→暁」と立ち上げる
+              （祓えた solo/saved のみ）。呑まれた結末（lost）は墜下の絵が来たるを兼ねるので来たる絵は出さない。 */}
+          <CalamityScene kind={!t.climax.averted ? "lost" : t.cleared ? "saved" : "solo"}>
+            {!t.climax.averted ? (
+              // 呑まれた結末は墜下の絵そのものが語るので、一文の帯のまま据え置く。
+              <span className="mark mark-climax">{tr("mark_climax_lost")}</span>
+            ) : t.cleared ? (
+              // 大団円（cleared＝本当のfin）。救済（迎え火 l3/l4）を上段、緊迫（大禍 l1/l2）を下段に置き、
+              // 2つの独立ブロックに分けて見せる。迎え火は暖色の枠、大禍は赤の枠で色分け。
+              // basis-full は絵が無い(404)フォールバック時に scene-marks の幅いっぱいで縦積みするため。
+              <div className="basis-full">
+                {/* 上段: 迎え火（救済）。暖色の枠。 */}
+                <div className="rounded-lg border border-[rgba(214,108,66,0.55)] bg-[rgba(20,8,12,0.6)] px-4 py-3 text-center">
+                  <span className="block text-[15px] font-bold tracking-[0.05em] text-[#ffd9c9]">
+                    {tr("mark_climax_saved_l3")}
+                  </span>
+                  <span className="mt-1 block text-[14px] font-bold tracking-[0.04em] text-[#ffe3a3]">
+                    {tr("mark_climax_saved_l4")}
+                  </span>
+                </div>
+                {/* 下段: 大禍（緊迫）。赤の枠。 */}
+                <div className="mt-3 rounded-lg border border-[rgba(200,70,90,0.55)] bg-[rgba(20,8,12,0.6)] px-4 py-3 text-center">
+                  <span className="block text-[15px] font-bold tracking-[0.05em] text-[#ffd0d8]">
+                    {tr("mark_climax_saved_l1")}
+                  </span>
+                  <span className="mt-1 block text-[13px] font-semibold tracking-[0.03em] text-[#ffd0d8] opacity-90">
+                    {tr("mark_climax_saved_l2")}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              // 独りの暁だけは一文の帯にせず、勝利を独立ブロックに割り、その上に「だが…」の余韻を載せる。
+              <div className="basis-full">
+                <div className="rounded-lg border border-[rgba(200,70,90,0.45)] bg-[rgba(20,8,12,0.55)] px-4 py-2 text-center text-[13px] font-bold tracking-[0.04em] text-[#ffc0cb]">
+                  {tr("mark_climax_solo_but")}
+                </div>
+                <div className="mt-3 rounded-lg border border-[rgba(200,70,90,0.55)] bg-[rgba(20,8,12,0.6)] px-4 py-3 text-center text-[#ffc0cb]">
+                  <span className="block text-[15px] font-bold tracking-[0.05em]">
+                    {tr("mark_climax_solo_l1")}
+                  </span>
+                  <span className="mt-1 block text-[13px] font-semibold tracking-[0.03em] opacity-90">
+                    {tr("mark_climax_solo_l2")}
+                  </span>
+                  <span className="mt-0.5 block text-[13px] font-semibold tracking-[0.03em] opacity-90">
+                    {tr("mark_climax_solo_l3")}
+                  </span>
+                </div>
+              </div>
+            )}
+          </CalamityScene>
+          {t.climax.averted && <CalamityArt kind="arrival" />}
+        </>
       ) : null}
-      {t.revivedCharacters?.length ? (
+      {t.revivedCharacters?.length && !(t.climax?.averted && t.cleared) ? (
         // 迎え火の灯（蘇生）。提灯の暖色。新規スタイルは方針どおり Tailwind ユーティリティで。
+        // 大団円（saved）のときは climax の段階ブロック l3/l4 が迎え火→蘇生を兼ねるので、ここでは出さない。
         <span className="mark font-bold tracking-[0.03em] text-[#ffd9c9] bg-[rgba(214,108,66,0.18)] border-[rgba(214,108,66,0.55)]">
           {tr("mark_revival")}
         </span>

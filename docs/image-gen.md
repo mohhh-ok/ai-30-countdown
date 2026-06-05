@@ -85,3 +85,23 @@ IMAGE_MODEL=gpt-image-1 IMAGE_TRANSPARENT=1 bun scripts/gen-character-art.ts
 - 出力先: `assets/title.webp`（PNG→WebP 変換）。単一ファイルなので id 別ではない。
 - 配信: `server.ts` に `/assets/title.webp` の固定 GET ルートあり（動的パラメータが無いのでサニタイズ不要）。
 - 表示: `App.tsx` の topbar（`.title-logo`）で `<img>` として表示。topbar の他 UI と高さを揃えて収める。
+
+## 大禍（結末別）絵
+- スクリプト: `scripts/gen-calamity-art.ts`。観客ビューの大禍演出の上に添える結末別バナー。
+  ```sh
+  bun scripts/gen-calamity-art.ts             # 全バリアント
+  bun scripts/gen-calamity-art.ts solo saved  # 指定バリアントだけ
+  ```
+- バリアントと出力（assets 直下・単一ファイル群）:
+  - `arrival` → `assets/calamity.webp`（大禍、来たる・結末前の共通カット・人物なし）
+  - `lost`    → `assets/calamity-lost.webp`（防げず京は呑まれた・人物なし）
+  - `solo`    → `assets/calamity-solo.webp`（独りの暁・ハルのキャラ絵を参照して登場させる）
+  - `saved`   → `assets/calamity-saved.webp`（全員生存の暁・全キャラ絵を参照して登場させる）
+- 既定 `gpt-image-2`・`1536x1024`（横長バナー）。env で `IMAGE_MODEL` / `IMAGE_SIZE` を切替可能。
+- **キャラを登場させる solo/saved は `images/edits` に既存キャラ絵を「参照画像」として渡す**（multipart の
+  `image[]` に複数添付）。実機確認（2026-06）: **`gpt-image-2` は images/edits（複数参照画像）に対応**して
+  いた（透過は依然 gpt-image-1 のみ）。容姿は参照絵に寄るが完全一致ではない。
+- 配信: `server.ts` の `/assets/:file` ルート（`calamity` 接頭辞のみ許可・サニタイズ。他の直下ファイルは固定ルート）。
+- 表示: `FrontStage.tsx` の `SceneMarks` で、大禍 tick の結末（lost/solo/saved）に応じて `CalamityArt` が
+  対応絵を演出の最上段へ出す（未生成 404 なら `onError` で消え、絵なしでも演出は成立）。
+  ※ `arrival`（calamity.webp）は現状の UI に常設の表示先が無く、**配信ルートのみ用意**（カウントダウン等への転用余地）。

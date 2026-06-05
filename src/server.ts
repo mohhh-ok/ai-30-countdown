@@ -263,6 +263,20 @@ const server = Bun.serve({
       },
     },
 
+    // 大禍の結末絵（assets/calamity*.webp）。assets 直下なのでサニタイズしたうえ、
+    // calamity 接頭辞のものだけ通す（title.webp 等の他の直下ファイルは固定ルートで配信）。
+    "/assets/:file": {
+      GET: async (req) => {
+        const safe = req.params.file.replace(/[^a-z0-9_.-]/gi, "");
+        if (!safe.startsWith("calamity")) return new Response("not found", { status: 404 });
+        const f = Bun.file(`assets/${safe}`);
+        if (!(await f.exists())) return new Response("not found", { status: 404 });
+        return new Response(f, {
+          headers: { "Cache-Control": DEV ? "no-store" : "public, max-age=86400" },
+        });
+      },
+    },
+
     // OGP シェアカード画像（assets/og.jpg = title-en.webp の 1.91:1 クロップ）。
     // index.html の og:image が絶対URLでここを指す。クローラ向けなので長期キャッシュでよい。
     // webp 統一ルールの明示的例外: LinkedIn が WebP の og:image を公式非対応（JPG/PNG/GIF のみ）

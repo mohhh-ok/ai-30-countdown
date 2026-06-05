@@ -69,10 +69,19 @@ const UI = {
     vigor_tired: "疲れている",
     vigor_calm: "落ち着いている",
     vigor_well: "元気",
-    mark_climax_saved:
-      "☄️ 大禍、来たる——ハルの結界が京を護り抜いた。京は救われた",
-    mark_climax_solo:
-      "☄️ 大禍、来たる——結界はハル独りを護り抜いた。祓われた、だが独りの暁だった",
+    // 大団円（cleared＝本当のfin）は一文の帯ではなく、solo と対になる段階で見せる。
+    // l1/l2 は solo と同文にして「同じ運命の途中」を示し、l3 の迎え火（蘇生スキル発動）→
+    // l4 の蘇生・救済で分岐させ、終劇にふさわしい昂揚を作る（FrontStage の SceneMarks で組む）。
+    mark_climax_saved_l1: "☄️ 大禍、来たる",
+    mark_climax_saved_l2: "結界はハル独りを護り抜いた",
+    mark_climax_saved_l3: "🏮 暁の迎え火が灯る",
+    mark_climax_saved_l4: "散った皆が息を吹き返し、京は救われた",
+    // 独りの暁は一文の帯ではなく、勝利（来たる→護り抜いた→祓われた）を独立ブロックに割り、
+    // その上に「だが…」の余韻を1枚載せて見せる（FrontStage の SceneMarks で組む）。
+    mark_climax_solo_but: "……だが、独りの暁だった",
+    mark_climax_solo_l1: "☄️ 大禍、来たる",
+    mark_climax_solo_l2: "結界はハル独りを護り抜いた",
+    mark_climax_solo_l3: "祓われた",
     mark_climax_lost: "☄️ 大禍、来たる——結界は及ばず、京は呑まれた",
     mark_revival: "🏮 暁の迎え火が灯る——散った皆が、息を吹き返した",
     mark_frenzy:
@@ -357,10 +366,14 @@ const UI = {
     vigor_tired: "weary",
     vigor_calm: "at ease",
     vigor_well: "in good spirits",
-    mark_climax_saved:
-      "☄️ The Calamity comes—Haru’s ward held, and Kyoto was protected. Kyoto is saved",
-    mark_climax_solo:
-      "☄️ The Calamity comes—the ward shielded Haru alone. It was repelled, but the dawn came to him alone",
+    mark_climax_saved_l1: "☄️ The Calamity comes",
+    mark_climax_saved_l2: "the ward shielded Haru alone",
+    mark_climax_saved_l3: "🏮 the Beacon of Dawn is lit",
+    mark_climax_saved_l4: "the fallen draw breath again, and Kyoto is saved",
+    mark_climax_solo_but: "…but the dawn came to him alone",
+    mark_climax_solo_l1: "☄️ The Calamity comes",
+    mark_climax_solo_l2: "the ward shielded Haru alone",
+    mark_climax_solo_l3: "it was repelled",
     mark_climax_lost:
       "☄️ The Calamity comes—the ward could not hold, and Kyoto was swallowed",
     mark_revival:
