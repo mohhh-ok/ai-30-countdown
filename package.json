@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun run db:push && PORT=5566 bun --hot src/server.ts",
+    "view": "bun run db:push && WORKER_AUTOSTART=0 PORT=5566 bun --hot src/server.ts",
     "start": "bun run db:push && PORT=5566 bun src/server.ts",
     "sim": "bun run db:push && bun src/sim.ts",
     "db:push": "drizzle-kit push --force",

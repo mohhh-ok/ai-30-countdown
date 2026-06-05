@@ -291,8 +291,18 @@ console.log(
 
 // 配信モデル: 起動と同時にワーカーを立ち上げ、自走で世界を進め続ける（外部から停止する手段は持たない）
 // ただし fin（大禍を祓い輪を断った）済みの年代記を復元したときは、完結した世界を動かさない。
+//
+// WORKER_AUTOSTART=0/false のときは自走ワーカーを起動しない（ローカルのUI閲覧用＝token を食わない）。
+// 既定は起動する（本番 `start` の自走モデルを維持）。明示的に止めた事実はログで可視化する。
+const WORKER_AUTOSTART =
+  process.env.WORKER_AUTOSTART !== "0" && process.env.WORKER_AUTOSTART !== "false";
 if (campaign.world.finished) {
   console.log("🏯 fin 済みの年代記を復元。物語は完結しているためワーカーは起動しない。");
+} else if (!WORKER_AUTOSTART) {
+  console.log(
+    "⏸ WORKER_AUTOSTART=0: 自走ワーカーは起動しない（UI閲覧のみ）。" +
+      "進行は `bun run sim --resume --days N --save` で行い、ブラウザを再読み込みする。",
+  );
 } else {
   startWorker();
   console.log(`   ワーカー起動（自動進行 / 間隔 ${WORKER_INTERVAL_MS}ms）`);

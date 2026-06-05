@@ -45,6 +45,7 @@ const { values } = parseArgs({
     mock: { type: "boolean", default: false },
     director: { type: "boolean", default: false },
     save: { type: "boolean", default: false },
+    resume: { type: "boolean", default: false },
     "no-dialogue": { type: "boolean", default: false },
     json: { type: "boolean", default: false },
     help: { type: "boolean", default: false },
@@ -65,7 +66,9 @@ if (values.help) {
   --set <path=value> 個別に初期値を上書き（複数可）
                      例: --set haru.energy=40 --set nagi.params.altruism=90
                          --set places.kibune.forage.normal=3
-  --save             結果を SQLite (data/world.db) にも保存
+  --save             結果を SQLite (data/world.db) にも保存（新規 run を作る）
+  --resume           data/world.db の最新 run を復元し、その続きから --days 日進める
+                     （既存日数は再計算しない＝再課金しない。常に同じ run に追記保存する）
   --no-dialogue      会話生成をオフ（速度優先）
   --json             結果を JSON で標準出力
 `);
@@ -193,8 +196,34 @@ function coerce(v: string): unknown {
   return v;
 }
 
-// --- 構築（回帰ランナー。1周目の世界に config/--set を適用） ---
-const campaign = new Campaign();
+// --- 構築（回帰ランナー） ---
+// 既定: 1周目の世界を新規に作り、config/--set で初期状態を上書きする。
+// --resume: data/world.db の最新 run を復元し、その続きから進める（既存日数は再計算しない）。
+let campaign: Campaign;
+let runId = 0;
+if (values.resume) {
+  const db = await import("./db.ts");
+  const restored = db.loadLatestRun();
+  if (!restored) {
+    // 復元元が無いのに resume を黙って新規開始へ流すと「進めたつもりが別物」になる。明示で止める。
+    console.error(
+      "[--resume] data/world.db に復元できる run がありません。" +
+        "先に `bun run sim --config ... --days N --save` で種を作ってください。",
+    );
+    process.exit(1);
+  }
+  campaign = Campaign.restore(restored.save, restored.loopTicks);
+  runId = restored.runId;
+  // --resume に --config/--set を併せると、復元した世界の現在値を直接書き換える（中断中の微調整用）。
+  // 黙ってやると「続きのはずが値が飛ぶ」ので、上書きが起きる事実は warn で可視化する（禁止はしない）。
+  if (values.config || (values.set as string[]).length > 0) {
+    console.warn(
+      "[--resume] --config/--set を併用: 復元した世界の現在値を上書きします（続きからの素の状態ではなくなります）。",
+    );
+  }
+} else {
+  campaign = new Campaign();
+}
 const state = campaign.world;
 if (values.config) {
   const cfg = JSON.parse(readFileSync(values.config, "utf8"));
@@ -255,9 +284,11 @@ if (values.mock) {
   }
 }
 
-// --- DB（--save のときだけ） ---
-let runId = 0;
-if (values.save) {
+// --- DB ---
+// --resume は復元時に runId を取得済みなので、新規 run を作らず同じ run へ追記する。
+// --resume は永続化が前提（続きを DB に残さないと view で見られない）なので、保存は常に行う。
+const persist = values.save || values.resume;
+if (values.save && !values.resume) {
   const db = await import("./db.ts");
   runId = db.createRun(campaign.save(), process.env.OLLAMA_MODEL ?? "mock");
 }
@@ -269,8 +300,9 @@ const results: TickResult[] = [];
 if (!values.json) {
   console.log(
     `▶ ${days}日 / ${values.mock ? "mock" : backendLabel} / 回帰モード（主役: ハル固定）` +
+      `${values.resume ? ` / 続きから(run #${runId}・Loop ${campaign.chronicle.loop}・Day ${state.day})` : ""}` +
       `${values.seed !== undefined ? " / seed=" + values.seed : ""}` +
-      `${values["no-dialogue"] ? " / 会話オフ" : ""}${values.save ? " / DB保存" : ""}`,
+      `${values["no-dialogue"] ? " / 会話オフ" : ""}${persist ? " / DB保存" : ""}`,
   );
   const init = state.characters
     .map((c) => `${c.name}@${pn(state, c.currentPlaceId)}(E${c.energy})`)
@@ -300,7 +332,7 @@ for (let i = 0; i < days; i++) {
   result.llmTimings = endTickTiming();
   // recordTick を先に：ここで result.loop が付与され、回帰判定・スキル進捗も済む。
   campaign.recordTick(result); // スキル進捗・習得・回帰判定（ハル死で次周を立ち上げる）
-  if (values.save) {
+  if (persist) {
     const db = await import("./db.ts");
     db.saveTick(runId, result);
     db.saveRunState(runId, campaign.save());
@@ -437,8 +469,8 @@ if (values.json) {
       `  Loop ${h.loop}: ${h.days}日 / ${h.causeOfEnd} / 利他${h.altruismReached}(${h.stageReached})`,
     );
   }
-  if (values.save)
+  if (persist)
     console.log(
-      `\n（run #${runId} として ${process.env.DB_PATH ?? "data/world.db"} に保存）`,
+      `\n（run #${runId} ${values.resume ? "に追記" : "として"} ${process.env.DB_PATH ?? "data/world.db"} に保存）`,
     );
 }
