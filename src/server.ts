@@ -20,6 +20,7 @@ import {
   saveLlmTimings,
   saveSkillAudit,
 } from "./db.ts";
+import { acquireWorldLock } from "./worldlock.ts";
 import index from "./web/index.html";
 
 // --- セッション状態（回帰: ハルが力尽きるたび Day1 へ巻き戻る年代記） ---
@@ -304,6 +305,9 @@ if (campaign.world.finished) {
       "進行は `bun run sim --resume --days N --save` で行い、ブラウザを再読み込みする。",
   );
 } else {
+  // 二重起動ガード: 同じ world.db に書く writer（他の dev/start のワーカー・sim）が
+  // 既に走っていたら、ここで throw して起動を止める（黙って混ぜ書きさせない）。
+  acquireWorldLock("server-worker");
   startWorker();
   console.log(`   ワーカー起動（自動進行 / 間隔 ${WORKER_INTERVAL_MS}ms）`);
 }

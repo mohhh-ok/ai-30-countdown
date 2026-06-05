@@ -55,6 +55,7 @@ src/
   db.ts             DB 読み書き（全て drizzle 経由）
   server.ts         Bun.serve（API + フロント配信 + 自走ワーカー）
   sim.ts            ヘッドレス CLI（bun run sim）
+  worldlock.ts      world.db への進行（書き込み）を1プロセスに限るファイルロック（二重起動ガード）
 scripts/
   audit-reachability.ts   到達可能性アウディット
   bench-decide.ts         行動決定のベンチマーク

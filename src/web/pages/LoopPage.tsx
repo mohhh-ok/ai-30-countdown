@@ -6,8 +6,7 @@ import type { Chronicle, TickResult } from "../../domain/types.ts";
 import { FrontStage } from "../components/FrontStage.tsx";
 import { Highlights } from "../components/Highlights.tsx";
 import { LoopSelect } from "../components/LoopSelect.tsx";
-import { skillName } from "../util.ts";
-import { useDomainNames, useLoopEnd, useSep, useT } from "../i18n.tsx";
+import { useT } from "../i18n.tsx";
 
 export function LoopPage({
   loop,
@@ -17,9 +16,6 @@ export function LoopPage({
   chronicle: Chronicle | null;
 }) {
   const t = useT();
-  const dn = useDomainNames();
-  const sep = useSep();
-  const loopEnd = useLoopEnd();
   const sum = (chronicle?.history ?? []).find((s) => s.loop === loop);
   const live = (chronicle?.loop ?? 1) === loop && !sum;
 
@@ -63,27 +59,8 @@ export function LoopPage({
         </span>
       </div>
 
-      {sum && (
-        <div className="loop-summary">
-          <span className="loop-summary-end">{loopEnd(sum)}</span>
-          <span>{t("loop_survived", { n: sum.days })}</span>
-          <span>
-            {t("loops_reached", {
-              stage: dn.stage(sum.stageReached),
-              alt: sum.altruismReached,
-            })}
-          </span>
-          {sum.acquiredSkills.length > 0 && (
-            <span>
-              {t("loops_skills", {
-                skills: sum.acquiredSkills
-                  .map((sid) => dn.skill(sid, skillName(sid)))
-                  .join(sep.list),
-              })}
-            </span>
-          )}
-        </div>
-      )}
+      {/* 閉じた周の先頭サマリー（結末・生存日数・到達段階・会得スキル）は、右肩の
+          「第N回帰の見せ場」と情報が重複するため廃止した。 */}
 
       {/* 進行中の周にも先頭サマリーを出す（閉じた周の要約に相当する経過日数） */}
       {live && !error && ticks !== null && ticks.length > 0 && (

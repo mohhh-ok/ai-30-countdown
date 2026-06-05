@@ -26,6 +26,7 @@ import { beginTickTiming, endTickTiming } from "./llm/timing.ts";
 import { Campaign } from "./domain/campaign.ts";
 import { findSkill } from "./domain/skills.ts";
 import { eventLabel } from "./domain/events.ts";
+import { acquireWorldLock } from "./worldlock.ts";
 import { ACTION_LABELS } from "./domain/types.ts";
 import {
   createMockProvider,
@@ -288,6 +289,11 @@ if (values.mock) {
 // --resume は復元時に runId を取得済みなので、新規 run を作らず同じ run へ追記する。
 // --resume は永続化が前提（続きを DB に残さないと view で見られない）なので、保存は常に行う。
 const persist = values.save || values.resume;
+// 二重起動ガード: DB に書く（save/resume）ときは、server.ts のワーカーや別の sim が
+// 同じ world.db に書いていないことを確認する。生きた writer が居れば throw して止める。
+// 注: 上の loadLatestRun（--resume）はロック取得より前なので厳密には最新でない可能性があるが、
+// ここで取得に成功した＝他に生きた writer は居ない、なので復元スナップショットは最新で問題ない。
+if (persist) acquireWorldLock("sim");
 if (values.save && !values.resume) {
   const db = await import("./db.ts");
   runId = db.createRun(campaign.save(), process.env.OLLAMA_MODEL ?? "mock");

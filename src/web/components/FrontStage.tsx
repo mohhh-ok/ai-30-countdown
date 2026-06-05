@@ -317,14 +317,12 @@ export function FrontStage({
         </div>
       )}
 
-      {/* いちばん新しい1日を主役の場面として大きく見せる */}
-      <Scene t={latest} primary />
-
       {/* 次の回帰へ — 力尽きた／独りの暁の日は、その回帰の幕をもう1tick残したまま
           「次の回帰へ移る」ことだけを観客へ告げる専用バナー。fin（大団円）では出さない。
-          solo_dawn は climax.averted かつ未 cleared、died はそれ以外で文言を出し分ける。 */}
+          solo_dawn は climax.averted かつ未 cleared、died はそれ以外で文言を出し分ける。
+          最新の場面より上に掲げ、観客にまず「次へ移る」予告を見せる。 */}
       {latest.regressed && !latest.cleared && (
-        <div className="mt-4 rounded-xl border border-[color:var(--accent)] bg-[color:var(--panel)] px-6 py-6 text-center">
+        <div className="rounded-xl border border-[color:var(--accent)] bg-[color:var(--panel)] px-6 py-6 text-center">
           <p className="text-lg tracking-[0.3em] text-[color:var(--accent)] [font-family:var(--title-font)]">
             {tr("regress_banner_heading")}
           </p>
@@ -333,6 +331,9 @@ export function FrontStage({
           </p>
         </div>
       )}
+
+      {/* いちばん新しい1日を主役の場面として大きく見せる */}
+      <Scene t={latest} primary />
 
       {/* 京の気 — 各霊地に残る民の霊力（和み＝sei／荒び＝daku）。枯れゆく京を体感する。ライブな世界のときだけ。
           全霊地で器を共有スケール化し（自地の天井で割ると皆ほぼ満タン＝同じに見えてしまう）、
