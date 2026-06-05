@@ -1,6 +1,6 @@
 ---
 name: push
-description: ai-simulator の変更を main にコミット＆プッシュするための一気通貫スキル。push の前に feature-dev:code-reviewer エージェントでレビューし、明確な指摘は自動修正し、変更内容に合わせてドキュメント（CLAUDE.md / README.md / plan.md / docs/）の更新要否を判断して必要なら同じ push に含める。ユーザーが「push して」「プッシュして」「これ上げといて」「コミットして上げて」などと言ったとき、または /push と打ったときに必ず使う。単に `git push` を直接叩くのではなく、レビューとドキュメント判断を挟むためのスキル。
+description: ai-simulator の変更を main にコミット＆プッシュするための一気通貫スキル。push の前に feature-dev:code-reviewer エージェントでレビューし、明確な指摘は自動修正し、変更内容に合わせてドキュメント（CLAUDE.md / README.md / docs/）の更新要否を判断して必要なら同じ push に含める。ユーザーが「push して」「プッシュして」「これ上げといて」「コミットして上げて」などと言ったとき、または /push と打ったときに必ず使う。単に `git push` を直接叩くのではなく、レビューとドキュメント判断を挟むためのスキル。
 ---
 
 # push スキル
