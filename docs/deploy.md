@@ -10,6 +10,35 @@ The deployment target is **Railway** (a managed PaaS that allows long-running pr
 
 For persistence, place `data/world.db` on a Railway **volume**. Adjust the advance interval with `WORKER_INTERVAL_MS`.
 
+## Setup record (deployed 2026-06-05)
+
+Config files live at the repo root: `Dockerfile` (oven/bun + Claude Code CLI native install),
+`railway.json` (healthcheck `/api/health`), and `.dockerignore`.
+
+- Project `ai-simulator` / service `ai-30-countdown` (`railway add --service`).
+- Volume: `railway volume add --mount-path /app/data`. The DB **starts fresh in production**;
+  the local run is not carried over (decided 2026-06-05).
+- Service variables:
+  - `WORKER_INTERVAL_MS=7200000`
+  - `PORT=5566` … **required**. Railway's healthcheck probes the port in the `PORT` variable,
+    so without it the app boots fine but the healthcheck fails and the deploy ends up FAILED
+    (we actually hit this).
+  - `CLAUDE_CODE_OAUTH_TOKEN` … the subscription OAuth token (`sk-ant-oat01-…`) issued by
+    `claude setup-token` (run on a local terminal). Paste it directly into the dashboard
+    (never into chat logs or the repo). **Set it before enabling the worker** — without auth,
+    claude failures count as "normal failures" and fallback fake days would be persisted
+    into the fresh DB (only `UsageLimitError` aborts a tick).
+- First deploy with `WORKER_AUTOSTART=0` to verify the public surface and auth →
+  smoke-test with `railway ssh -- claude -p "ok" --model haiku` → set `WORKER_AUTOSTART=1`
+  and redeploy.
+- Deploys use `railway up --detach` (from the local directory, not GitHub integration).
+- `railway domain -p 5566` generates a `-production`-suffixed subdomain; we renamed it to
+  `ai-30-countdown` in the dashboard (Settings → Networking).
+- CLI gotchas: `railway up` / `railway redeploy` may report `operation timed out` while the
+  operation **actually fired server-side** — check `railway deployment list --json` before
+  retry-spamming. `railway ssh` needs a one-time key registration (`railway ssh keys add`)
+  plus `ssh-keyscan ssh.railway.com >> ~/.ssh/known_hosts`.
+
 **The public URL is fixed as `https://ai-30-countdown.up.railway.app`** (agreed 2026-06).
 The OGP tags in `index.html` (the absolute URLs in `og:url` / `og:image`) are baked in assuming this URL,
 so be sure to match the Railway service name (subdomain) to it. If you change it, update index.html too.
@@ -23,7 +52,7 @@ it is JPG as an exception to the webp-only rule, because LinkedIn does not offic
   is expected to be a little over a month (the Lone Dawn extends it by one loop; the range varies with survival rate).
   At 1 tick/hour a whole regression would pass in a single day and fin would come in about two weeks, so we don't use that.
 - **Once it goes to production, leave it alone.** We do not intend to do balance tuning or DB resets (restarts) midway.
-  Let the current run (barrier strength 32, already fin-qualified) run as-is; once it reaches fin, the worker auto-stops and keeps displaying the epilogue (fin banner + chronicle). After fin it remains as a read-only site.
+  Production started **fresh from run #1 on 2026-06-05** (the local run — barrier strength 32, fin-qualified — was not carried over); once it reaches fin, the worker auto-stops and keeps displaying the epilogue (fin banner + chronicle). After fin it remains as a read-only site.
 
 ## Constraints when public
 

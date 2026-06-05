@@ -1,0 +1,27 @@
+# 実行時データ（本番はボリューム。ローカルの DB をイメージに焼き込まない）
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# シークレット
+.env
+.env.*
+!.env.example
+
+# 依存（イメージ内で bun install する）
+node_modules/
+
+# 開発時の生成物・不要物
+.git/
+.github/
+.githooks/
+.claude/
+.playwright-mcp/
+*.log
+*.tsbuildinfo
+tmp/
+ui-*.png
+docs/
+examples/
+plan.md
