@@ -23,6 +23,7 @@ import type {
   DirectorProvider,
   GuardianProvider,
   GuardianWhisper,
+  HeroContext,
   Params,
   TickDecision,
   TickResult,
@@ -165,9 +166,15 @@ ${placeList}`;
 }
 
 /** キャラ1人ぶんの判断サブエージェント用プロンプト（天候・囁きはオーケストレータが末尾に付ける）。 */
-function characterSubPrompt(state: WorldState, self: Character, others: Character[]): string {
+function characterSubPrompt(
+  state: WorldState,
+  self: Character,
+  others: Character[],
+  heroContext?: HeroContext,
+): string {
   // characterBlock は weather を使わないのでダミーを渡す。囁きは c.currentWhisper 未設定のため出ない。
-  const block = characterBlock(self, "normal", state.places, others);
+  // 主人公本人のサブプロンプトには heroContext を載せ、結界力・会得済みスキル・直近の日次消耗を本人視点で見せる。
+  const block = characterBlock(self, "normal", state.places, others, heroContext, state.day);
   const soloNote =
     others.length === 0
       ? "\n\n※ 今この京に妖はあなた独りだけ。仲間も他の妖も存在しない。日記・内省でも「あの二人」「みんな」など実在しない他者を語らないこと（語りかける・分け与える・奪う・寄り添う相手は誰もいない）。"
@@ -202,13 +209,14 @@ export function buildOrchestratorUserPrompt(
   state: WorldState,
   tension: Tension,
   recentLog: TickResult[],
+  heroContext?: HeroContext,
 ): string {
   const living = state.characters.filter((c) => c.alive);
   const ids = living.map((c) => c.id);
   const subBlocks = living
     .map((c) => {
       const others = living.filter((o) => o.id !== c.id);
-      const sub = characterSubPrompt(state, c, others);
+      const sub = characterSubPrompt(state, c, others, heroContext);
       return `── ${c.name}（id: ${c.id}）に渡すキャラ判断プロンプト ──\n${sub}`;
     })
     .join("\n\n");
@@ -352,9 +360,10 @@ async function runOneCall(
   state: WorldState,
   tension: Tension,
   recentLog: TickResult[],
+  heroContext?: HeroContext,
 ): Promise<TickPlan> {
   const living = state.characters.filter((c) => c.alive);
-  const user = buildOrchestratorUserPrompt(state, tension, recentLog);
+  const user = buildOrchestratorUserPrompt(state, tension, recentLog, heroContext);
   llog("onecall", "tick→orchestrate", {
     day: state.day,
     tension,
@@ -414,18 +423,20 @@ export function createOneCallProviders(): {
 } {
   let current: TickPlan | null = null;
 
-  const director: DirectorProvider = async (state, tension, recentLog) => {
-    current = await runOneCall(state, tension, recentLog);
+  const director: DirectorProvider = async (state, tension, recentLog, opts) => {
+    current = await runOneCall(state, tension, recentLog, opts?.heroContext);
     return current.director;
   };
 
   const guardian: GuardianProvider = async () => current?.whispers ?? [];
 
-  const decision: DecisionProvider = async (state) => {
+  const decision: DecisionProvider = async (state, _weather, opts) => {
     // 通常は director シムが先に走って current を埋めている。保険として単独でも回す。
+    // heroContext は今 tick の opts に入っていればそれを使う。無ければ自覚ブロック無しで進める
+    //  （過去 tick の heroContext は残留させない：古い energy/drain がプロンプトに混入するのを防ぐ）。
     if (!current) {
       llog("onecall", "⚠decision-shim がトリガ（director 未実行）→単独で叩く");
-      current = await runOneCall(state, "calm", []);
+      current = await runOneCall(state, "calm", [], opts?.heroContext);
     }
     return current.decision;
   };

@@ -1,10 +1,17 @@
 // LLM へのプロンプト生成。
 // 数値は出さず「翻訳した気質の言葉」を本人の判断材料にする（plan.md 第6節）。
 // 場所（京都）と移動、直近行動の偏りも判断材料として渡す。
-import type { Character, Place, WorldState, Weather } from "../domain/types.ts";
+import type {
+  Character,
+  HeroContext,
+  Place,
+  WorldState,
+  Weather,
+} from "../domain/types.ts";
 import { ACTION_LABELS, FORBIDDEN_ACTIONS } from "../domain/types.ts";
 import { temperamentText } from "../domain/rules.ts";
 import { findPlace } from "../domain/places.ts";
+import { findSkill } from "../domain/skills.ts";
 import { soulBlock } from "../domain/soul.ts";
 
 export const SYSTEM_PROMPT = `あなたは「妖の京（あやかしのみやこ）」の進行を司るエンジン兼ナレーターです。
@@ -156,7 +163,69 @@ function frenzyText(c: Character): string {
   return `\n【荒ぶり】いま我を失い、餓えと猛りが理性を呑んでいる。「信じれば喰われる、だから先に喰らう」——その芯がむき出しだ。ふだんは禁忌として抑えている「霊を奪う（steal）」へのためらいは、いまは無い。同じ霊地に誰かがいれば奪う衝動が湧き、民の荒びを貪り喰らう（集霊＝devour）。この荒ぶりは、誰かが祓い鎮めてくれぬ限り已まない。`;
 }
 
-export function characterBlock(c: Character, weather: Weather, places: Place[], others: Character[]): string {
+/**
+ * 主人公（ハル）専用の「自覚ブロック」。WorldState.day と HeroContext を受け取り、本人向け文を組む。
+ * 残り日数・結界力 vs 猛威度・会得済みスキル一覧・直近の日次消耗・行動コスト警鐘を含む。
+ *
+ * 狙いは loop 5 d29 で起きた「e=11 で share→自爆」のような、情報の非対称（LLM は自分の残り
+ * 体力と share self-cost=-10 の関係を意識せず利他を選ぶ）を解消すること。
+ * 数値そのものをぶつけず、本人視点の言葉に翻訳して渡す（プロンプト全体のトーンを維持するため）。
+ */
+function buildHeroAwareness(c: Character, day: number, ctx: HeroContext): string {
+  const remaining = Math.max(0, ctx.deadlineDay - day);
+  const wp = ctx.skillEffects.wardPower;
+  const wpGap = ctx.climaxMenace - wp;
+  // 結界力の到達度を本人の言葉に翻訳（数値そのままも出すが、文も添える）
+  const wardLine =
+    remaining === 0
+      ? `今日、大禍が降る。あなたの結界力は ${wp}／猛威度 ${ctx.climaxMenace}。${
+          wp >= ctx.climaxMenace
+            ? "祓える――独りだけは結界の芯で生き残るが、傍の者まで護れるわけではない。"
+            : `あと ${wpGap} 足りない。京は呑まれる。生き延びても次の周へ繋ぐしかない。`
+        }`
+      : `大禍まで残り ${remaining} 日。今のあなたの結界力 ${wp}／猛威度 ${ctx.climaxMenace}。${
+          wp >= ctx.climaxMenace
+            ? "結界はもう猛威に届いている。あとは当日まで生き延びるだけ。"
+            : `あと ${wpGap} 足りない。今周の祓いは届かぬが、生き延びれば次の周へ進める。`
+        }`;
+  // 直近の日次消耗→何日もつかの粗い見積もり（あくまで参考）
+  const drain = ctx.recentDailyDrain;
+  let drainLine = "";
+  if (typeof drain === "number" && drain > 0) {
+    const daysLeftAtEnergy = Math.floor(c.energy / drain);
+    drainLine = `\n直近 ${5} 日のあなたの日次消耗は平均 ${drain}（霊力）。今 ${c.energy} ならこのままで約 ${daysLeftAtEnergy} 日で尽きる。`;
+  } else if (typeof drain === "number" && drain <= 0) {
+    drainLine = `\n直近 ${5} 日は霊力をむしろ得ている（収支 ${-drain}/日の余裕）。`;
+  }
+  // 会得済みスキルを名前＋短い効果で並べる（数値も少し添える）
+  const skills = ctx.acquiredSkillIds
+    .map((id) => findSkill(id))
+    .filter((s): s is NonNullable<typeof s> => !!s)
+    .map((s) => `  - ${s.icon} ${s.name}: ${s.description}`)
+    .join("\n");
+  const skillBlock = skills ? `\n会得済みのスキル（あなたの体に染みついた力。今この生でも効いている）:\n${skills}` : "";
+  // 行動コスト警鐘（share 自爆を防ぐ核心メッセージ）
+  // 「危険域では share/talk/follow を選ばず、forage か move か rest」を明示。
+  // 「明日の負荷」表示は drain が負値（収支プラス）のとき素直に "明日の負荷 -3" と書くと
+  // 「マイナス＝負荷が無い」と読めて混乱するため、本人視点の言葉に翻訳して渡す（drainLine と同じ作法）。
+  const drainPhrase =
+    typeof drain !== "number"
+      ? "?（まだ実績なし）"
+      : drain > 0
+        ? `${drain}`
+        : "ほぼ無消耗（直近は収支プラス）";
+  const shareWarn = `\n身を削る一手の注意: 「分け与える(share)」は自分の霊力を 10 削って相手に 12 渡す。利他の芯にかなう尊い一手だが、自分の今の霊力（${c.energy}）から 10 を引いて、明日の負荷（直近平均 ${drainPhrase}）を差し引いた残りで生き延びられるか、必ず先に頭の中で算盤を入れること。残りが 5 を割るなら、今日 share を選んではいけない。あなたが先に倒れれば、結界を持ち越して大禍を祓える者は誰もいない――それは利他の芯にこそ反する。「talk(-2)」「follow(-baseload)」も離脱の余力が要る。霊力が乏しい日は「forage」か「move」で生き延びを優先せよ。`;
+  return `\n\n【あなたは主人公・${c.name}。この京の物語をつなぐ唯一の鎖。あなたが倒れれば回帰する＝積み上げた周は無駄にならないが、結界を持ち越せるのはあなただけ】\n${wardLine}${drainLine}${skillBlock}${shareWarn}`;
+}
+
+export function characterBlock(
+  c: Character,
+  weather: Weather,
+  places: Place[],
+  others: Character[],
+  heroContext?: HeroContext,
+  day?: number,
+): string {
   const t = temperamentText(c.params);
   const talent = talentText(c);
   return `### ${c.name}（id: ${c.id}）
@@ -182,7 +251,11 @@ ${memoryBlock(c, places)}${(() => {
     c.currentWhisper
       ? `\nふと心に浮かんだ声（守護神の囁き。従っても、抗ってもよい）: 「${c.currentWhisper}」`
       : ""
-  }${frenzyText(c)}`;
+  }${frenzyText(c)}${
+    heroContext && day !== undefined && c.id === heroContext.protagonistId
+      ? buildHeroAwareness(c, day, heroContext)
+      : ""
+  }`;
 }
 
 const ACTION_NOTES: Record<string, string> = {
@@ -212,12 +285,16 @@ export const WEATHER_TEXT: Record<Weather, string> = {
 };
 
 /** ユーザープロンプト（その日の状況 + 出力指示）を生成 */
-export function buildUserPrompt(state: WorldState, weather: Weather): string {
+export function buildUserPrompt(
+  state: WorldState,
+  weather: Weather,
+  heroContext?: HeroContext,
+): string {
   const living = state.characters.filter((c) => c.alive);
   const blocks = living
     .map((c) => {
       const others = living.filter((o) => o.id !== c.id);
-      return characterBlock(c, weather, state.places, others);
+      return characterBlock(c, weather, state.places, others, heroContext, state.day);
     })
     .join("\n\n");
 
@@ -264,10 +341,11 @@ export function buildSingleUserPrompt(
   state: WorldState,
   weather: Weather,
   self: Character,
+  heroContext?: HeroContext,
 ): string {
   const living = state.characters.filter((c) => c.alive);
   const others = living.filter((o) => o.id !== self.id);
-  const block = characterBlock(self, weather, state.places, others);
+  const block = characterBlock(self, weather, state.places, others, heroContext, state.day);
   const soloNote =
     others.length === 0
       ? "\n\n※ 今この京に妖はあなた独りだけ。仲間も他の妖も存在しない。日記・内省でも「あの二人」「みんな」など実在しない他者を語らないこと（語りかける・分け与える・奪う・寄り添う相手は誰もいない）。"

@@ -388,11 +388,14 @@ export type GuardianProvider = (
 
 /**
  * 演出家プロバイダ。現在の世界と緊張度を読み、環境への介入を決める。
+ * onecall バリアントでは director シムが「その tick の全てを生成する実コール」を起動するため、
+ * 主人公の自覚情報（heroContext）もここで受け取れるようにする。通常の演出家は無視してよい。
  */
 export type DirectorProvider = (
   state: WorldState,
   tension: Tension,
   recentLog: TickResult[],
+  opts?: { heroContext?: HeroContext },
 ) => Promise<DirectorDecision>;
 
 /** LLM 1回呼び出しの所要時間記録（ボトルネック分析・UI表示用）。 */
@@ -494,12 +497,37 @@ export class UsageLimitError extends Error {
 }
 
 /**
+ * 主人公（ハル）の自覚情報。プロンプトに渡すために engine が組み立てる。
+ * - 主人公以外のキャラ判断には使わない（観の眼ならぬ「主役の知識」だから）。
+ * - 数値はそのままプロンプトに出すのでなく、各プロンプタ側で本人向けの言葉に翻訳して渡す。
+ */
+export interface HeroContext {
+  protagonistId: string;
+  /** 大禍の日（DEADLINE_DAY）。プロンプトでカウントダウンに使う。 */
+  deadlineDay: number;
+  /** 大禍の猛威度（CLIMAX_MENACE）。wardPower がここに届けば祓える。 */
+  climaxMenace: number;
+  /** 会得済みスキルの id 配列。プロンプタは名前・効果を引いて翻訳する。 */
+  acquiredSkillIds: string[];
+  /** 主人公のスキル実効効果（forageMult, loadReduction, wardPower 等）。 */
+  skillEffects: SkillEffects;
+  /**
+   * 直近のハルの「日次消耗の平均（正値）」。recentLog の hero.energyBefore→energyAfter 差から算出。
+   * undefined はサンプル無し（1日目など）。「あと何日で尽きるか」の本人向け見積もりに使う。
+   */
+  recentDailyDrain?: number;
+}
+
+/**
  * エンジンに渡す「判断プロバイダ」。
  * 負荷適用後の状態と天候を受け取り、各キャラの行動などを返す（通常は LLM 呼び出し）。
+ * 主人公の自覚情報（heroContext）は任意 — 与えればプロンプタが主人公のブロックだけに自覚情報を載せ、
+ * 残り日数・結界力・スキル・収支を本人に見せられる。
  */
 export type DecisionProvider = (
   state: WorldState,
   weather: Weather,
+  opts?: { heroContext?: HeroContext },
 ) => Promise<TickDecision>;
 
 /** 会話生成に渡すコンテキスト（誰がどの行動を取ったか） */

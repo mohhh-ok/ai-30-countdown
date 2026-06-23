@@ -11,6 +11,7 @@ Ayakashi (妖) with differing cores are placed into the same Kyoto spirit-vein w
 - **Starting placement**: Kibune-no-tani (a remote valley deep in the mountains)
 - **Talent**: The Eye of Insight — reads spirit veins and presences to the last detail; adept at gathering (forage)
 - **Protagonist of the regression**: When Haru runs out of strength, the world rewinds. Skills and Kokoro carry over across loops
+- **Awareness block (only Haru sees it)**: As the sole carrier of the barrier across loops, Haru's action-decision prompt has an extra "awareness" appendix that the other ayakashi do not get. It translates structural facts the LLM would otherwise be blind to into first-person language: days remaining until the Great Calamity vs. Haru's accumulated `wardPower` (whether the barrier already reaches the menace), acquired skills (name + effect) carried over from past loops, recent daily energy drain (so "I have N days left at this rate" is computable), and an explicit accountant's note on `share` (self-cost −10) to prevent the self-sacrifice deaths seen in early loops where Haru chose `share` at energy ≈ 11 and dropped to −5. The other characters get only their core, mood, and place — no structural meta — which preserves the asymmetry that the protagonist is the one who knows what's at stake.
 
 ### Nagi (unlock condition: Haru acquires 1 skill)
 - **Core**: A bright, doting ayakashi of binding, of shrine-maiden (miko) lineage (the Power of Binding), who fears being abandoned

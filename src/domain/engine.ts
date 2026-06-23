@@ -15,6 +15,7 @@ import type {
   DirectorProvider,
   GuardianProvider,
   GuardianWhisper,
+  HeroContext,
   Place,
   RewardEvent,
   SkillEffects,
@@ -209,6 +210,28 @@ export interface RunTickOptions {
   protagonistId?: string;
   /** 主人公が持ち越したスキルの実効効果（負荷/集霊/分与に効く）。 */
   skillEffects?: SkillEffects;
+  /**
+   * 主人公が会得済みのスキル id 配列。プロンプトに「会得済み」を本人に見せるために使う
+   * （skillEffects は数値の合算で、どのスキルがあるかは判らないため）。
+   */
+  acquiredSkillIds?: string[];
+}
+
+/**
+ * 直近 N tick の主人公の日次消耗（before-after の平均、正値で表す）。
+ * recentLog の hero の CharacterTickResult を見て、energyBefore→energyAfter の差を平均する。
+ * サンプルが無ければ undefined を返す。
+ */
+function recentHeroDrain(recentLog: TickResult[], heroId: string, lookback = 5): number | undefined {
+  const samples: number[] = [];
+  for (const t of recentLog.slice(-lookback)) {
+    const h = t.characters.find((c) => c.id === heroId);
+    if (!h) continue;
+    if (typeof h.energyBefore !== "number" || typeof h.energyAfter !== "number") continue;
+    samples.push(h.energyBefore - h.energyAfter); // 正値=消耗、負値=その日は得した
+  }
+  if (samples.length === 0) return undefined;
+  return Math.round((samples.reduce((a, b) => a + b, 0) / samples.length) * 10) / 10;
 }
 
 export async function runTick(
@@ -260,11 +283,23 @@ export async function runTick(
   }
 
   // 0.1 演出家の介入（環境＋守護神への指示）。緊張度を読む。
+  // 主人公の「自覚」情報をここで組み立てて director / decision 双方に同じものを渡す
+  // （onecall バリアントは director トリガで一気に LLM 1回呼び出しを撃つため、director にも heroContext が要る）。
   const tension = assessTension(state, recentLog);
+  const heroContext: HeroContext | undefined = protagonistId
+    ? {
+        protagonistId,
+        deadlineDay: DEADLINE_DAY,
+        climaxMenace: CLIMAX_MENACE,
+        acquiredSkillIds: opts.acquiredSkillIds ?? [],
+        skillEffects,
+        recentDailyDrain: recentHeroDrain(recentLog, protagonistId),
+      }
+    : undefined;
   let director: DirectorDecision | undefined;
   if (directorProvider) {
     try {
-      director = await directorProvider(state, tension, recentLog);
+      director = await directorProvider(state, tension, recentLog, { heroContext });
     } catch (err) {
       // 使用上限は握りつぶさず tick ごと中断（呼び出し側が巻き戻して再試行する）
       if (err instanceof UsageLimitError) throw err;
@@ -362,7 +397,9 @@ export async function runTick(
   }
 
   // 2. LLM に行動・移動先・対人相手・日記・関係・パラメータ変動を決めさせる（囁きはプロンプトに乗る）
-  const decision = await provider(state, weather);
+  //   ハルだけが自分の構造情報（残り日数・結界力・会得済みスキル・直近の日次消耗）を本人視点で読める
+  //   ように、heroContext はプロンプタ側でハルのブロックにだけ翻訳して載せる（他キャラには混ぜない）。
+  const decision = await provider(state, weather, { heroContext });
   const decisionById = new Map<string, CharacterDecision>();
   for (const d of decision.characters) decisionById.set(d.id, d);
   // 囁きは当日の決定限り。役目を終えたら消す。

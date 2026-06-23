@@ -91,6 +91,7 @@ async function runOneTick(): Promise<TickResult> {
     recentLog: campaign.loopLog,
     protagonistId: campaign.protagonistId,
     skillEffects: campaign.effects(),
+    acquiredSkillIds: campaign.chronicle.skills.acquired,
   });
   result.llmTimings = endTickTiming(); // result に載せて UI へ流す
   llog("server", "tick→done", {

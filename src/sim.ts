@@ -334,6 +334,7 @@ for (let i = 0; i < days; i++) {
     recentLog: campaign.loopLog,
     protagonistId: campaign.protagonistId,
     skillEffects: campaign.effects(),
+    acquiredSkillIds: campaign.chronicle.skills.acquired,
   });
   result.llmTimings = endTickTiming();
   // recordTick を先に：ここで result.loop が付与され、回帰判定・スキル進捗も済む。

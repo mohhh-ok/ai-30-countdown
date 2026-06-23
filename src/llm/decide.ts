@@ -95,12 +95,12 @@ function fallbackDecision(id: string): CharacterDecision {
  * 1回失敗したらリトライし、それでも駄目なら全員フォールバック。
  */
 export function createOllamaProvider(): DecisionProvider {
-  return async (state: WorldState, weather: Weather): Promise<TickDecision> => {
+  return async (state, weather, opts): Promise<TickDecision> => {
     const living = state.characters.filter((c) => c.alive);
     // 全員ぶんを1回のプロンプトにまとめて投げる（直列・少ない呼び出し＝低CPU）。
     const messages = [
       { role: "system" as const, content: SYSTEM_PROMPT },
-      { role: "user" as const, content: buildUserPrompt(state, weather) },
+      { role: "user" as const, content: buildUserPrompt(state, weather, opts?.heroContext) },
     ];
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
@@ -128,13 +128,13 @@ export function createOllamaProvider(): DecisionProvider {
  * - 1 体が失敗してもその体だけ 1 回リトライ → なお駄目ならフォールバック（全体は止めない）。
  */
 export function createParallelProvider(): DecisionProvider {
-  return async (state: WorldState, weather: Weather): Promise<TickDecision> => {
+  return async (state, weather, opts): Promise<TickDecision> => {
     const living = state.characters.filter((c) => c.alive);
     const characters = await Promise.all(
       living.map(async (c) => {
         const messages = [
           { role: "system" as const, content: SYSTEM_PROMPT },
-          { role: "user" as const, content: buildSingleUserPrompt(state, weather, c) },
+          { role: "user" as const, content: buildSingleUserPrompt(state, weather, c, opts?.heroContext) },
         ];
         for (let attempt = 0; attempt < 2; attempt++) {
           try {
