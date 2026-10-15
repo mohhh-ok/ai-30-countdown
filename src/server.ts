@@ -333,6 +333,29 @@ const server = Bun.serve({
   development: DEV,
 });
 
+// SIGTERM/SIGINT で exit 0 する。Railway は新デプロイへの入れ替え時（と Serverless で寝かせる時）に
+// SIGTERM を送り、bun は無処理だと非ゼロ終了して Deploy Crashed として記録・通知される。
+// 進行ロック（worldlock.ts）を取ったときは同ファイルも同じシグナルで解放して exit 0 するが、
+// fin 済み（ワーカー未起動）はロックを取らないのでここで受ける。
+// --hot のトップレベル再実行で多重登録しないよう globalThis で1度だけ登録し、server は最新を参照する。
+{
+  const g = globalThis as { __shutdownServer?: typeof server; __shutdownRegistered?: boolean };
+  g.__shutdownServer = server;
+  if (!g.__shutdownRegistered) {
+    g.__shutdownRegistered = true;
+    let shuttingDown = false;
+    const shutdown = (signal: string): void => {
+      if (shuttingDown) return;
+      shuttingDown = true;
+      console.log(`${signal} を受信。サーバを止めて終了する。`);
+      g.__shutdownServer?.stop();
+      process.exit(0);
+    };
+    process.on("SIGTERM", () => shutdown("SIGTERM"));
+    process.on("SIGINT", () => shutdown("SIGINT"));
+  }
+}
+
 console.log(`🌱 小さなエージェント世界  →  ${server.url}`);
 console.log(`   backend: ${BACKEND_NAME} / モデル: ${OLLAMA_MODEL}`);
 const ok = await ping();
